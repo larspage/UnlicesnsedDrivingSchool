@@ -25,7 +25,7 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   projects: [
@@ -41,7 +41,7 @@ module.exports = {
       testMatch: ['<rootDir>/src/**/?(*.)+(spec|test).(ts|tsx)'],
       roots: ['<rootDir>/src'],
       setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
-      moduleNameMapping: {
+      moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
       },
     },
