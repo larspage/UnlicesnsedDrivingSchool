@@ -411,6 +411,115 @@ async function updateRow(spreadsheetId, sheetName, rowId, data) {
 }
 
 /**
+ * Ensures the specified sheet exists in the spreadsheet, creates it if it doesn't
+ * @param {string} spreadsheetId - Google Sheets spreadsheet ID
+ * @param {string} sheetName - Name of the sheet to ensure exists
+ * @returns {Object} Sheet properties
+ */
+async function ensureSheetExists(spreadsheetId, sheetName) {
+  try {
+    validateSpreadsheetParams(spreadsheetId, sheetName);
+
+    // Get spreadsheet metadata to check existing sheets
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId,
+    });
+
+    const existingSheets = response.data.sheets || [];
+    const sheetExists = existingSheets.some(sheet => sheet.properties.title === sheetName);
+
+    if (sheetExists) {
+      logOperation('ensureSheetExists', { spreadsheetId, sheetName, exists: true });
+      return existingSheets.find(sheet => sheet.properties.title === sheetName).properties;
+    }
+
+    // Create the sheet if it doesn't exist
+    logOperation('ensureSheetExists', { spreadsheetId, sheetName, exists: false, creating: true });
+
+    const createResponse = await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      resource: {
+        requests: [{
+          addSheet: {
+            properties: {
+              title: sheetName,
+            },
+          },
+        }],
+      },
+    });
+
+    const newSheet = createResponse.data.replies[0].addSheet.properties;
+    logOperation('ensureSheetExists', { spreadsheetId, sheetName, created: true, sheetId: newSheet.sheetId });
+
+    return newSheet;
+
+  } catch (error) {
+    handleApiError(error, 'ensureSheetExists');
+  }
+}
+
+/**
+ * Writes column headers to the first row of the specified sheet
+ * @param {string} spreadsheetId - Google Sheets spreadsheet ID
+ * @param {string} sheetName - Name of the sheet to initialize
+ * @returns {Object} Response from the Google Sheets API
+ */
+async function writeHeaders(spreadsheetId, sheetName) {
+  try {
+    validateSpreadsheetParams(spreadsheetId, sheetName);
+
+    logOperation('writeHeaders', { spreadsheetId, sheetName });
+
+    // Ensure the sheet exists
+    await ensureSheetExists(spreadsheetId, sheetName);
+
+    // Define headers based on REPORT_COLUMNS mapping
+    const headers = [
+      'id',
+      'schoolName',
+      'location',
+      'violationDescription',
+      'phoneNumber',
+      'websiteUrl',
+      'uploadedFiles',
+      'socialMediaLinks',
+      'additionalInfo',
+      'status',
+      'lastReported',
+      'createdAt',
+      'updatedAt',
+      'reporterIp',
+      'adminNotes',
+      'mvcReferenceNumber'
+    ];
+
+    const range = `${sheetName}!A1:P1`; // Headers in row 1, columns A to P
+
+    // Write the headers
+    const response = await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range,
+      valueInputOption: 'RAW',
+      resource: {
+        values: [headers],
+      },
+    });
+
+    logOperation('writeHeaders', {
+      success: true,
+      updatedRange: response.data.updatedRange,
+      updatedRows: response.data.updatedRows
+    });
+
+    return response.data;
+
+  } catch (error) {
+    handleApiError(error, 'writeHeaders');
+  }
+}
+
+/**
  * Finds rows matching the specified query criteria
  * @param {string} spreadsheetId - Google Sheets spreadsheet ID
  * @param {string} sheetName - Name of the sheet to search
@@ -527,6 +636,8 @@ module.exports = {
   getAllRows,
   updateRow,
   findRows,
+  writeHeaders,
+  ensureSheetExists,
 
   // Utility functions
   validateSpreadsheetParams,
