@@ -99,6 +99,7 @@ Create a new school compliance report.
 ```json
 {
   "schoolName": "ABC Driving School",
+  "location": "Newark",
   "violationDescription": "Operating without proper license",
   "phoneNumber": "+1-555-123-4567",
   "websiteUrl": "https://abcdriving.com",
@@ -123,6 +124,11 @@ Create a new school compliance report.
       "minLength": 1,
       "maxLength": 255,
       "description": "Name of the driving school"
+    },
+    "location": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Town/city where school was spotted"
     },
     "violationDescription": {
       "type": "string",
@@ -165,6 +171,7 @@ Create a new school compliance report.
   "data": {
     "id": "rep_123456",
     "schoolName": "ABC Driving School",
+    "location": "Newark",
     "status": "Added",
     "createdAt": "2025-09-26T17:30:00Z",
     "lastReported": "2025-09-26T17:30:00Z"
@@ -202,6 +209,7 @@ Retrieve paginated list of reports with optional filtering.
       {
         "id": "rep_123456",
         "schoolName": "ABC Driving School",
+        "location": "Newark",
         "violationDescription": "Operating without license",
         "phoneNumber": "+1-555-123-4567",
         "websiteUrl": "https://abcdriving.com",
@@ -353,59 +361,176 @@ Get metadata for a specific file.
 
 ## 6. Configuration API
 
-### 6.1 Get Configuration
-Retrieve system configuration (Admin only).
+### 6.1 Get All Configuration
+Retrieve all system configuration settings (Admin only).
 
 **Endpoint:** `GET /api/config`
 
-**Authentication:** Admin required
+**Authentication:** Admin required (X-Admin-Key header)
+
+**Headers:**
+```
+X-Admin-Key: <admin_api_key>
+```
 
 **Success Response (200):**
 ```json
 {
   "success": true,
   "data": {
-    "email": {
-      "toAddress": "mvc.blsdrivingschools@mvc.nj.gov",
-      "fromAddress": "treasurer@njdsc.org",
-      "replyToAddress": "treasurer@njdsc.org",
-      "subjectTemplate": "Unlicensed driving school [[School Name]]",
-      "bodyTemplate": "Dear MVC,\n\nPlease investigate the following unlicensed driving school..."
-    },
-    "googleApis": {
-      "sheets": {
-        "spreadsheetId": "1ABC...",
-        "sheetName": "Reports"
-      },
-      "drive": {
-        "folderId": "1XYZ..."
-      }
-    },
-    "system": {
-      "rateLimitPerHour": 5,
-      "maxFileSize": 10485760
-    }
-  }
+    "email.toAddress": "mvc.blsdrivingschools@mvc.nj.gov",
+    "email.fromAddress": "treasurer@njdsc.org",
+    "email.subjectTemplate": "Unlicensed driving school [[School Name]]",
+    "email.bodyTemplate": "Dear MVC,\n\nPlease investigate the following unlicensed driving school...",
+    "google.sheets.spreadsheetId": "1ABC...",
+    "google.drive.folderId": "1XYZ...",
+    "system.rateLimitPerHour": 5,
+    "system.maxFileSize": 10485760
+  },
+  "count": 8,
+  "timestamp": "2025-09-27T00:42:18.162Z"
 }
 ```
 
-### 6.2 Update Configuration
-Update system configuration (Admin only).
+**Error Responses:**
+- `403 Forbidden`: Invalid or missing admin key
+- `500 Internal Server Error`: Configuration retrieval failed
 
-**Endpoint:** `PUT /api/config`
+### 6.2 Get Single Configuration Value
+Retrieve a specific configuration value by key (Admin only).
 
-**Authentication:** Admin required
+**Endpoint:** `GET /api/config/{key}`
 
-**Request Body:** Partial configuration object
+**Authentication:** Admin required (X-Admin-Key header)
+
+**Path Parameters:**
+- `key` (string): Configuration key (e.g., "email.toAddress")
 
 **Success Response (200):**
 ```json
 {
   "success": true,
-  "data": { ... },
-  "message": "Configuration updated successfully"
+  "data": {
+    "key": "email.toAddress",
+    "value": "mvc.blsdrivingschools@mvc.nj.gov"
+  },
+  "timestamp": "2025-09-27T00:42:18.162Z"
 }
 ```
+
+**Error Responses:**
+- `403 Forbidden`: Invalid or missing admin key
+- `404 Not Found`: Configuration key not found
+- `500 Internal Server Error`: Configuration retrieval failed
+
+### 6.3 Update Configuration
+Update or create a configuration value (Admin only).
+
+**Endpoint:** `PUT /api/config`
+
+**Authentication:** Admin required (X-Admin-Key header)
+
+**Headers:**
+```
+X-Admin-Key: <admin_api_key>
+X-Admin-User: <admin_username> (optional)
+```
+
+**Request Body:**
+```json
+{
+  "key": "email.toAddress",
+  "value": "new@mvc.nj.gov",
+  "type": "string",
+  "category": "email",
+  "description": "Updated MVC email address"
+}
+```
+
+**Request Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Configuration key"
+    },
+    "value": {
+      "description": "Configuration value (any type)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["string", "number", "boolean", "json"],
+      "description": "Data type of the value"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["email", "google", "system"],
+      "description": "Configuration category"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Human-readable description"
+    }
+  },
+  "required": ["key", "value", "type", "category"]
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "key": "email.toAddress",
+    "value": "new@mvc.nj.gov",
+    "type": "string",
+    "category": "email",
+    "description": "Updated MVC email address",
+    "updatedAt": "2025-09-27T00:42:18.162Z",
+    "updatedBy": "admin"
+  },
+  "message": "Configuration \"email.toAddress\" has been updated successfully",
+  "timestamp": "2025-09-27T00:42:18.162Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid input data or validation failed
+- `403 Forbidden`: Invalid or missing admin key
+- `500 Internal Server Error`: Configuration update failed
+
+### 6.4 Validate Configuration
+Validate configuration input without saving (Admin only).
+
+**Endpoint:** `POST /api/config/validate`
+
+**Authentication:** Admin required (X-Admin-Key header)
+
+**Request Body:**
+```json
+{
+  "key": "email.toAddress",
+  "value": "test@mvc.nj.gov",
+  "type": "string"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Configuration input is valid",
+  "timestamp": "2025-09-27T00:42:18.162Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Validation failed
+- `403 Forbidden`: Invalid or missing admin key
 
 ## 7. Error Codes
 
@@ -457,8 +582,12 @@ Triggered when file processing (thumbnail generation) completes.
 - `POST /api/reports` - Returns 501 (Not Implemented)
 - `GET /api/reports` - Returns placeholder response
 - `POST /api/files/upload` - Returns 501 (Not Implemented)
-- `GET /api/config` - Returns placeholder response
-- `PUT /api/config` - Returns 501 (Not Implemented)
+
+#### ✅ Implemented Endpoints (Phase 2, Task 4):
+- `GET /api/config` - Retrieve all configuration settings (Admin only)
+- `GET /api/config/{key}` - Retrieve single configuration value (Admin only)
+- `PUT /api/config` - Update/create configuration value (Admin only)
+- `POST /api/config/validate` - Validate configuration input (Admin only)
 
 #### 🔄 Next Phase: Data Layer Implementation
 - Google Sheets API integration for data persistence

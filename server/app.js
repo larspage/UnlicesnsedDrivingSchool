@@ -39,6 +39,14 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Initialize configuration on startup
+const configService = require('./services/configService');
+configService.initializeDefaults().then(() => {
+  console.log('Configuration initialized successfully');
+}).catch((error) => {
+  console.error('Failed to initialize configuration:', error.message);
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

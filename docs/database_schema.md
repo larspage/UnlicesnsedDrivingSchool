@@ -26,19 +26,20 @@ The NJDSC School Compliance Portal uses Google Sheets as its primary data store,
 |--------|------------|-----------|----------|---------|------------|-------------|
 | A | id | String | Yes | Auto-generated | `^rep_[a-zA-Z0-9]{6}$` | Unique report identifier |
 | B | schoolName | String | Yes | - | Max 255 chars | Name of the driving school |
-| C | violationDescription | String | No | - | Max 1000 chars | Description of the violation |
-| D | phoneNumber | String | No | - | Phone format | Contact phone number |
-| E | websiteUrl | String | No | - | URL format | Website or primary social media URL |
-| F | uploadedFiles | String | No | - | JSON Array | Array of file IDs/URLs |
-| G | socialMediaLinks | String | No | Auto-populated | JSON Array | Discovered social media links |
-| H | additionalInfo | String | No | Auto-populated | Max 2000 chars | Auto-enriched information |
-| I | status | String | Yes | "Added" | Enum | Current investigation status |
-| J | lastReported | DateTime | Yes | Current timestamp | ISO 8601 | Last report submission date |
-| K | createdAt | DateTime | Yes | Current timestamp | ISO 8601 | Initial report creation date |
-| L | updatedAt | DateTime | Yes | Current timestamp | ISO 8601 | Last modification date |
-| M | reporterIp | String | No | - | IP format | Submitter's IP address |
-| N | adminNotes | String | No | - | Max 500 chars | Internal administrative notes |
-| O | mvcReferenceNumber | String | No | - | Max 50 chars | MVC case reference number |
+| C | location | String | No | - | Max 100 chars | Town/city where school was spotted |
+| D | violationDescription | String | No | - | Max 1000 chars | Description of the violation |
+| E | phoneNumber | String | No | - | Phone format | Contact phone number |
+| F | websiteUrl | String | No | - | URL format | Website or primary social media URL |
+| G | uploadedFiles | String | No | - | JSON Array | Array of file IDs/URLs |
+| H | socialMediaLinks | String | No | Auto-populated | JSON Array | Discovered social media links |
+| I | additionalInfo | String | No | Auto-populated | Max 2000 chars | Auto-enriched information |
+| J | status | String | Yes | "Added" | Enum | Current investigation status |
+| K | lastReported | DateTime | Yes | Current timestamp | ISO 8601 | Last report submission date |
+| L | createdAt | DateTime | Yes | Current timestamp | ISO 8601 | Initial report creation date |
+| M | updatedAt | DateTime | Yes | Current timestamp | ISO 8601 | Last modification date |
+| N | reporterIp | String | No | - | IP format | Submitter's IP address |
+| O | adminNotes | String | No | - | Max 500 chars | Internal administrative notes |
+| P | mvcReferenceNumber | String | No | - | Max 50 chars | MVC case reference number |
 
 ### 2.2 Status Enum Values
 - **Added**: Initial status after submission and enrichment

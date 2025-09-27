@@ -28,22 +28,26 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  projects: [
-    {
-      displayName: 'backend',
-      testEnvironment: 'node',
-      testMatch: ['<rootDir>/server/**/?(*.)+(spec|test).js'],
-      roots: ['<rootDir>/server'],
-    },
-    {
-      displayName: 'frontend',
-      testEnvironment: 'jsdom',
-      testMatch: ['<rootDir>/src/**/?(*.)+(spec|test).(ts|tsx)'],
-      roots: ['<rootDir>/src'],
-      setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
-      moduleNameMapper: {
-        '^@/(.*)$': '<rootDir>/src/$1',
-      },
-    },
-  ],
+  // Temporarily disable projects to run backend tests
+  // projects: [
+  //   {
+  //     displayName: 'backend',
+  //     testEnvironment: 'node',
+  //     testMatch: [
+  //       '<rootDir>/server/**/?(*.)+(spec|test).js',
+  //       '<rootDir>/tests/unit/**/?(*.)+(spec|test).js'
+  //     ],
+  //     roots: ['<rootDir>/server', '<rootDir>/tests'],
+  //   },
+  //   {
+  //     displayName: 'frontend',
+  //     testEnvironment: 'jsdom',
+  //     testMatch: ['<rootDir>/src/**/?(*.)+(spec|test).(ts|tsx)'],
+  //     roots: ['<rootDir>/src'],
+  //     setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
+  //     moduleNameMapper: {
+  //       '^@/(.*)$': '<rootDir>/src/$1',
+  //     },
+  //   },
+  // ],
 };

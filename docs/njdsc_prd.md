@@ -33,6 +33,7 @@ The NJDSC School Compliance Portal (unlicenseddrivingschoolnj.com) is a web-base
 #### 4.1 Report Submission System
 - **FR-001:** System shall accept driving school reports with the following fields:
   - School Name (Required, String, max 255 chars)
+  - Location (Optional, String, max 100 chars) - Town/city where school was spotted
   - File Upload (Optional, Multiple files, Images/Videos, max 10MB per file)
   - Violation Description (Optional, Text, max 1000 chars)
   - Phone Number (Optional, String, validated format)
@@ -149,6 +150,7 @@ The NJDSC School Compliance Portal (unlicenseddrivingschoolnj.com) is a web-base
 ```
 - ID (Auto-generated)
 - School Name (String, Required)
+- Location (String, Optional) - Town/city where school was spotted
 - Violation Description (Text)
 - Phone Number (String)
 - Website/Social Media Link (URL)
