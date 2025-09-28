@@ -131,32 +131,34 @@ class File {
    * @param {string} fileName - Original filename
    * @param {string} mimeType - MIME type
    * @param {string} reportId - Associated report ID
-   * @throws {Error} If validation fails
+   * @returns {Object} Validation result with isValid and error message
    */
   static validateUploadParams(fileBuffer, fileName, mimeType, reportId) {
     if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
-      throw new Error('Invalid file buffer: must be a Buffer');
+      return { isValid: false, error: 'Invalid file buffer: must be a Buffer' };
     }
 
     if (!fileName || typeof fileName !== 'string' || fileName.trim().length === 0) {
-      throw new Error('Invalid filename: must be a non-empty string');
+      return { isValid: false, error: 'Invalid filename: must be a non-empty string' };
     }
 
     if (!mimeType || typeof mimeType !== 'string') {
-      throw new Error('Invalid MIME type: must be a non-empty string');
+      return { isValid: false, error: 'Invalid MIME type: must be a non-empty string' };
     }
 
     if (!ALL_SUPPORTED_TYPES.includes(mimeType)) {
-      throw new Error(`Unsupported file type: ${mimeType}. Supported types: ${ALL_SUPPORTED_TYPES.join(', ')}`);
+      return { isValid: false, error: `Unsupported file type: ${mimeType}. Supported types: ${ALL_SUPPORTED_TYPES.join(', ')}` };
     }
 
     if (fileBuffer.length > MAX_FILE_SIZE) {
-      throw new Error(`File too large: ${fileBuffer.length} bytes. Maximum size: ${MAX_FILE_SIZE} bytes (10MB)`);
+      return { isValid: false, error: `File too large: ${fileBuffer.length} bytes. Maximum size: ${MAX_FILE_SIZE} bytes (10MB)` };
     }
 
     if (!reportId || typeof reportId !== 'string' || !/^rep_[a-zA-Z0-9]{6}$/.test(reportId)) {
-      throw new Error('Invalid report ID: must match report ID format (rep_XXXXXX)');
+      return { isValid: false, error: 'Invalid report ID: must match report ID format (rep_XXXXXX)' };
     }
+
+    return { isValid: true };
   }
 
   /**

@@ -24,13 +24,14 @@ try {
   throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
 }
 
-// Initialize Google Gmail API client
-const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ['https://www.googleapis.com/auth/gmail.send'],
-});
-
-const gmail = google.gmail({ version: 'v1', auth });
+// Initialize Google Gmail API client lazily
+function getGmail() {
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/gmail.send'],
+  });
+  return google.gmail({ version: 'v1', auth });
+}
 
 /**
  * Validates email address format
@@ -167,7 +168,7 @@ async function sendEmail(to, subject, body, options = {}) {
 
     const mimeMessage = createMimeMessage(to, subject, body, options);
 
-    const response = await gmail.users.messages.send({
+    const response = await getGmail().users.messages.send({
       userId: 'me',
       resource: {
         raw: mimeMessage
@@ -250,8 +251,8 @@ async function getEmailTemplates() {
       if (configKey.startsWith('email.templates.')) {
         const parts = configKey.split('.');
         if (parts.length >= 4) {
-          const templateKey = parts[2]; // e.g., 'mvc.notification'
-          const templateType = parts[3]; // 'subject' or 'body'
+          const templateKey = parts.slice(2, -1).join('.'); // e.g., 'mvc.notification'
+          const templateType = parts[parts.length - 1]; // 'subject' or 'body'
 
           if (!templates[templateKey]) {
             templates[templateKey] = {};

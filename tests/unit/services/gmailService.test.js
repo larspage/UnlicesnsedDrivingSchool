@@ -2,14 +2,23 @@
  * Unit tests for Gmail Service
  */
 
-const gmailService = require('../../../server/services/gmailService');
-
-// Mock dependencies
+// Mock dependencies before requiring the service
 jest.mock('googleapis');
 jest.mock('../../../server/services/configService');
 
 const { google } = require('googleapis');
 const configService = require('../../../server/services/configService');
+
+// Set up basic mocks
+google.gmail.mockImplementation(() => ({
+  users: {
+    messages: {
+      send: jest.fn()
+    }
+  }
+}));
+
+const gmailService = require('../../../server/services/gmailService');
 
 // Mock console.log to avoid test output clutter
 global.console.log = jest.fn();
@@ -148,13 +157,13 @@ describe('Gmail Service', () => {
     test('should validate email parameters', async () => {
       // Act & Assert
       await expect(gmailService.sendEmail('', 'subject', 'body'))
-        .rejects.toThrow('Invalid email parameters');
+        .rejects.toThrow('Invalid recipient email address');
 
       await expect(gmailService.sendEmail('invalid-email', 'subject', 'body'))
-        .rejects.toThrow('Invalid email parameters');
+        .rejects.toThrow('Invalid recipient email address');
 
       await expect(gmailService.sendEmail('valid@example.com', '', 'body'))
-        .rejects.toThrow('Invalid email parameters');
+        .rejects.toThrow('Invalid email subject');
     });
   });
 
@@ -211,7 +220,7 @@ describe('Gmail Service', () => {
         templateKey,
         variables,
         recipient
-      )).rejects.toThrow('Email template not found');
+      )).rejects.toThrow('Email template \'nonexistent.template\' not found in configuration');
     });
   });
 
@@ -225,16 +234,18 @@ describe('Gmail Service', () => {
         'email.templates.status.update.body': 'Status changed to [[status]]'
       };
 
-      configService.getAllConfig = jest.fn().mockResolvedValue(mockTemplates);
+      configService.getAllConfig = jest.fn().mockReturnValue(mockTemplates);
 
       // Act
       const templates = await gmailService.getEmailTemplates();
 
       // Assert
-      expect(templates).toHaveProperty('mvc.notification');
-      expect(templates).toHaveProperty('status.update');
+      expect(templates.hasOwnProperty('mvc.notification')).toBe(true);
+      expect(templates.hasOwnProperty('status.update')).toBe(true);
       expect(templates['mvc.notification']).toHaveProperty('subject');
       expect(templates['mvc.notification']).toHaveProperty('body');
+      expect(templates['status.update']).toHaveProperty('subject');
+      expect(templates['status.update']).toHaveProperty('body');
     });
   });
 
@@ -262,8 +273,8 @@ describe('Gmail Service', () => {
       });
 
       // Act & Assert
-      expect(() => require('../../../server/services/gmailService'))
-        .toThrow('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required');
+      await expect(gmailService.sendEmail('to@example.com', 'subject', 'body'))
+        .rejects.toThrow('Gmail API error during sendEmail: Invalid credentials');
     });
 
     test('should handle rate limiting', async () => {

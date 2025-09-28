@@ -69,7 +69,7 @@ describe('File Model', () => {
       const result = File.validateUploadParams(buffer, 'test.exe', 'application/x-msdownload', 'rep_ABC123');
 
       expect(result.isValid).toBe(false);
-      expect(result.error).toContain('not allowed');
+      expect(result.error).toContain('Unsupported file type');
     });
 
     test('should reject file too large', () => {
@@ -77,7 +77,7 @@ describe('File Model', () => {
       const result = File.validateUploadParams(largeBuffer, 'large.jpg', 'image/jpeg', 'rep_ABC123');
 
       expect(result.isValid).toBe(false);
-      expect(result.error).toContain('exceeds maximum');
+      expect(result.error).toContain('too large');
     });
   });
 

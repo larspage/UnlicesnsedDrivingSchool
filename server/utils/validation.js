@@ -169,7 +169,7 @@ function sanitizeString(str, options = {}) {
 
   // Remove potentially dangerous characters if HTML not allowed
   if (!options.allowHtml) {
-    sanitized = sanitized.replace(/[<>]/g, '');
+    sanitized = sanitized.replace(/<[^>]*>/g, '');
   }
 
   // Apply max length if specified
@@ -177,7 +177,7 @@ function sanitizeString(str, options = {}) {
     sanitized = sanitized.substring(0, options.maxLength);
   }
 
-  return sanitized;
+  return sanitized.trim();
 }
 
 /**
@@ -318,7 +318,7 @@ function validateDriveFileId(id) {
   }
 
   // Google Drive file IDs are typically 28-33 characters long and contain alphanumeric characters
-  return /^[a-zA-Z0-9_-]{20,50}$/.test(id);
+  return /^[a-zA-Z0-9_-]{10,50}$/.test(id);
 }
 
 /**

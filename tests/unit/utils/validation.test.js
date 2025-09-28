@@ -124,7 +124,7 @@ describe('Validation Utilities', () => {
     });
 
     test('should apply max length', () => {
-      expect(sanitizeString('very long string', { maxLength: 10 })).toBe('very long s');
+      expect(sanitizeString('my extremely long string', { maxLength: 10 })).toBe('my extreme');
     });
 
     test('should allow HTML when specified', () => {
