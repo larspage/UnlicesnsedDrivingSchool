@@ -154,7 +154,19 @@ class ApiClient {
   }
 
   // Files API
-  async uploadFile(formData: FormData): Promise<ApiResponse<UploadedFile>> {
+  async uploadFiles(files: File[], reportId: string): Promise<ApiResponse<{
+    files: UploadedFile[];
+    totalUploaded: number;
+    totalRequested: number;
+  }>> {
+    const formData = new FormData();
+    formData.append('reportId', reportId);
+
+    // Add each file to the form data
+    files.forEach((file, index) => {
+      formData.append(`files`, file);
+    });
+
     const response = await fetch(`${this.baseURL}/files/upload`, {
       method: 'POST',
       body: formData,
@@ -162,7 +174,46 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  async uploadBase64Files(fileDataArray: FileData[], reportId: string): Promise<ApiResponse<{
+    files: UploadedFile[];
+    totalUploaded: number;
+    totalRequested: number;
+  }>> {
+    // Convert base64 data to Blobs for form upload
+    const formData = new FormData();
+    formData.append('reportId', reportId);
+
+    for (let i = 0; i < fileDataArray.length; i++) {
+      const fileData = fileDataArray[i];
+
+      try {
+        // Convert base64 to blob
+        const response = await fetch(`data:${fileData.type};base64,${fileData.data}`);
+        const blob = await response.blob();
+
+        // Create a File object from the blob
+        const file = new File([blob], fileData.name, { type: fileData.type });
+        formData.append('files', file);
+      } catch (error) {
+        console.error(`Error processing file ${fileData.name}:`, error);
+        throw new Error(`Failed to process file ${fileData.name}`);
+      }
+    }
+
+    const response = await fetch(`${this.baseURL}/files/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
     return response.json();
@@ -170,6 +221,30 @@ class ApiClient {
 
   async getFile(fileId: string): Promise<ApiResponse<UploadedFile>> {
     return this.request(`/files/${fileId}`);
+  }
+
+  async getFilesByReportId(reportId: string): Promise<ApiResponse<{
+    files: UploadedFile[];
+    total: number;
+  }>> {
+    return this.request(`/files/report/${reportId}`);
+  }
+
+  async getAllFiles(): Promise<ApiResponse<{
+    files: UploadedFile[];
+    total: number;
+  }>> {
+    return this.request('/files');
+  }
+
+  async updateFileStatus(fileId: string, status: 'pending' | 'processing' | 'completed' | 'failed'): Promise<ApiResponse<{
+    id: string;
+    processingStatus: string;
+  }>> {
+    return this.request(`/files/${fileId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
   }
 }
 

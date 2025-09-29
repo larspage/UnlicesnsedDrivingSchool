@@ -308,38 +308,154 @@ Send report details to MVC via email (Admin only).
 
 ## 5. Files API
 
-### 5.1 Upload File
-Upload a media file for a report.
+### 5.1 Upload Files
+Upload multiple media files for a report.
 
 **Endpoint:** `POST /api/files/upload`
 
 **Authentication:** None (Public)
 
+**Rate Limit:** 10 uploads per hour per IP
+
 **Content-Type:** `multipart/form-data`
 
 **Form Data:**
-- `file`: File data (max 10MB)
-- `reportId`: Associated report ID (optional)
+- `files`: File data (max 10 files, 10MB each)
+- `reportId`: Associated report ID (required)
+
+**Supported File Types:**
+- Images: JPEG, PNG, GIF, WebP
+- Videos: MP4, AVI, MOV
+- Documents: PDF
+
+**Request Limits:**
+- Maximum 10 files per upload
+- Maximum 10MB per file
+- Maximum 10 files per report
 
 **Success Response (201):**
 ```json
 {
   "success": true,
+  "message": "Successfully uploaded 2 of 2 files",
   "data": {
-    "id": "file_789",
-    "name": "evidence.jpg",
-    "type": "image/jpeg",
-    "size": 2048000,
-    "url": "https://drive.google.com/file/d/123...",
-    "thumbnailUrl": "https://drive.google.com/thumbnail/123..."
+    "files": [
+      {
+        "id": "file_abc123",
+        "name": "evidence1.jpg",
+        "type": "image/jpeg",
+        "size": 2048000,
+        "url": "https://drive.google.com/uc?export=download&id=drive123",
+        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+        "uploadedAt": "2025-09-26T17:30:00Z"
+      },
+      {
+        "id": "file_def456",
+        "name": "evidence2.png",
+        "type": "image/png",
+        "size": 1536000,
+        "url": "https://drive.google.com/uc?export=download&id=drive456",
+        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive456&sz=s400",
+        "uploadedAt": "2025-09-26T17:30:01Z"
+      }
+    ],
+    "totalUploaded": 2,
+    "totalRequested": 2
   }
 }
 ```
 
-### 5.2 Get File Metadata
+**Error Responses:**
+- `400 Bad Request`: Missing reportId, invalid file format, or file too large
+- `413 Payload Too Large`: File exceeds 10MB limit
+- `429 Too Many Requests`: Rate limit exceeded
+- `500 Internal Server Error`: Upload failed or storage service error
+
+### 5.2 Get File by ID
 Get metadata for a specific file.
 
 **Endpoint:** `GET /api/files/{id}`
+
+**Authentication:** None (Public)
+
+**Path Parameters:**
+- `id` (string, required): File ID in format `file_XXXXXX`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "file_abc123",
+    "reportId": "rep_xyz789",
+    "name": "evidence.jpg",
+    "type": "image/jpeg",
+    "size": 2048000,
+    "url": "https://drive.google.com/uc?export=download&id=drive123",
+    "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+    "uploadedAt": "2025-09-26T17:30:00Z",
+    "uploadedByIp": "192.168.1.100",
+    "processingStatus": "completed"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid file ID format
+- `404 Not Found`: File not found
+- `500 Internal Server Error`: Database or storage error
+
+### 5.3 Get Files by Report ID
+Get all files associated with a specific report.
+
+**Endpoint:** `GET /api/files/report/{reportId}`
+
+**Authentication:** None (Public)
+
+**Path Parameters:**
+- `reportId` (string, required): Report ID in format `rep_XXXXXX`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "files": [
+      {
+        "id": "file_abc123",
+        "name": "evidence1.jpg",
+        "type": "image/jpeg",
+        "size": 2048000,
+        "url": "https://drive.google.com/uc?export=download&id=drive123",
+        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+        "uploadedAt": "2025-09-26T17:30:00Z",
+        "processingStatus": "completed"
+      },
+      {
+        "id": "file_def456",
+        "name": "evidence2.png",
+        "type": "image/png",
+        "size": 1536000,
+        "url": "https://drive.google.com/uc?export=download&id=drive456",
+        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive456&sz=s400",
+        "uploadedAt": "2025-09-26T17:30:01Z",
+        "processingStatus": "completed"
+      }
+    ],
+    "total": 2
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid report ID format
+- `404 Not Found`: Report not found or no files associated
+- `500 Internal Server Error`: Database or storage error
+
+### 5.4 Get All Files
+Get all files in the system (Admin/Debugging).
+
+**Endpoint:** `GET /api/files`
 
 **Authentication:** None (Public)
 
@@ -348,16 +464,96 @@ Get metadata for a specific file.
 {
   "success": true,
   "data": {
-    "id": "file_789",
-    "name": "evidence.jpg",
-    "type": "image/jpeg",
-    "size": 2048000,
-    "url": "https://drive.google.com/file/d/123...",
-    "thumbnailUrl": "https://drive.google.com/thumbnail/123...",
-    "uploadedAt": "2025-09-26T17:30:00Z"
+    "files": [
+      {
+        "id": "file_abc123",
+        "reportId": "rep_xyz789",
+        "name": "evidence.jpg",
+        "type": "image/jpeg",
+        "size": 2048000,
+        "url": "https://drive.google.com/uc?export=download&id=drive123",
+        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+        "uploadedAt": "2025-09-26T17:30:00Z",
+        "processingStatus": "completed"
+      }
+    ],
+    "total": 1
   }
 }
 ```
+
+**Error Responses:**
+- `500 Internal Server Error`: Database or storage error
+
+### 5.5 Update File Processing Status
+Update the processing status of a file (Internal use).
+
+**Endpoint:** `PUT /api/files/{id}/status`
+
+**Authentication:** None (Public)
+
+**Path Parameters:**
+- `id` (string, required): File ID in format `file_XXXXXX`
+
+**Request Body:**
+```json
+{
+  "status": "completed"
+}
+```
+
+**Valid Status Values:**
+- `pending`: File uploaded, processing not started
+- `processing`: File is being processed
+- `completed`: File processing completed successfully
+- `failed`: File processing failed
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "file_abc123",
+    "processingStatus": "completed"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid file ID format or invalid status
+- `404 Not Found`: File not found
+- `500 Internal Server Error`: Database or storage error
+
+### 5.6 File Validation Rules
+
+**File Format Validation:**
+- Supported MIME types: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `video/mp4`, `video/avi`, `video/mov`, `application/pdf`
+- Maximum file size: 10MB per file
+- Maximum files per upload: 10 files
+- Maximum files per report: 10 files
+
+**Business Rules:**
+- Files must be associated with a valid report ID
+- Thumbnail URLs are only generated for image files
+- Processing status must be one of the valid enum values
+- File names are sanitized and stored as provided by client
+
+### 5.7 File Storage Architecture
+
+**Google Drive Integration:**
+- Files are uploaded to Google Drive for storage
+- Public URLs are generated using Google's export/download API
+- Thumbnail URLs are generated for image files using Google's thumbnail API
+
+**Google Sheets Integration:**
+- File metadata is stored in Google Sheets for tracking
+- Processing status is updated in real-time
+- File relationships with reports are maintained
+
+**Error Handling:**
+- Failed uploads are logged but don't prevent other files from uploading
+- Storage service errors are handled gracefully with appropriate HTTP status codes
+- Rate limiting prevents abuse of the upload service
 
 ## 6. Configuration API
 
@@ -581,7 +777,6 @@ Triggered when file processing (thumbnail generation) completes.
 - `GET /api/status` - API status information
 - `POST /api/reports` - Returns 501 (Not Implemented)
 - `GET /api/reports` - Returns placeholder response
-- `POST /api/files/upload` - Returns 501 (Not Implemented)
 
 #### ✅ Implemented Endpoints (Phase 2, Task 4):
 - `GET /api/config` - Retrieve all configuration settings (Admin only)
@@ -589,12 +784,18 @@ Triggered when file processing (thumbnail generation) completes.
 - `PUT /api/config` - Update/create configuration value (Admin only)
 - `POST /api/config/validate` - Validate configuration input (Admin only)
 
-#### 🔄 Next Phase: Data Layer Implementation
-- Google Sheets API integration for data persistence
-- Google Drive API for file storage
+#### ✅ Implemented Endpoints (Phase 3, Files API):
+- `POST /api/files/upload` - Upload multiple files with validation
+- `GET /api/files/{id}` - Get file metadata by ID
+- `GET /api/files/report/{reportId}` - Get all files for a report
+- `GET /api/files` - Get all files (admin/debugging)
+- `PUT /api/files/{id}/status` - Update file processing status
+
+#### 🔄 Next Phase: Reports API Implementation
 - Full CRUD operations for reports
-- File upload and processing
-- Data validation and transformation
+- Report status management
+- Email integration for MVC notifications
+- Advanced search and filtering
 
 ---
 
