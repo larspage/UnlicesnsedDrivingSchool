@@ -101,3 +101,4 @@ temp/
 # Google API credentials (should not be committed)
 google-credentials.json
 service-account-key.json
+docs/unlicesnseddrivingschooldev-*.json
