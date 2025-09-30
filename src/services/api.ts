@@ -246,6 +246,151 @@ class ApiClient {
       body: JSON.stringify({ status }),
     });
   }
+
+  // Audit API
+  async getAuditLogs(params: {
+    action?: string;
+    adminUser?: string;
+    targetType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    searchTerm?: string;
+    limit?: number;
+  } = {}): Promise<ApiResponse<{
+    items: any[];
+    count: number;
+    filters: any;
+  }>> {
+    const searchParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, value.toString());
+      }
+    });
+
+    const queryString = searchParams.toString();
+    const endpoint = `/audit${queryString ? `?${queryString}` : ''}`;
+
+    return this.request(endpoint);
+  }
+
+  async createAuditLog(auditData: {
+    action: string;
+    adminUser: string;
+    targetType: string;
+    targetId?: string;
+    details: string;
+    changes?: Record<string, { old: any; new: any }>;
+    metadata?: Record<string, any>;
+  }): Promise<ApiResponse<any>> {
+    return this.request('/audit', {
+      method: 'POST',
+      body: JSON.stringify(auditData),
+    });
+  }
+
+  async getAuditLogsByTarget(targetId: string): Promise<ApiResponse<{
+    items: any[];
+    count: number;
+    targetId: string;
+  }>> {
+    return this.request(`/audit/target/${targetId}`);
+  }
+
+  async getRecentAuditLogs(limit: number = 50): Promise<ApiResponse<{
+    items: any[];
+    count: number;
+    limit: number;
+  }>> {
+    return this.request(`/audit/recent?limit=${limit}`);
+  }
+
+  // Configuration API
+  async getConfiguration(): Promise<ApiResponse<Record<string, any>>> {
+    return this.request('/config');
+  }
+
+  async getConfigurationValue(key: string): Promise<ApiResponse<{
+    key: string;
+    value: any;
+  }>> {
+    return this.request(`/config/${key}`);
+  }
+
+  async updateConfiguration(configData: {
+    key: string;
+    value: any;
+    type: string;
+    category: string;
+    description?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request('/config', {
+      method: 'PUT',
+      body: JSON.stringify(configData),
+    });
+  }
+
+  async validateConfiguration(configData: {
+    key: string;
+    value: any;
+    type: string;
+  }): Promise<ApiResponse<{ valid: boolean }>> {
+    return this.request('/config/validate', {
+      method: 'POST',
+      body: JSON.stringify(configData),
+    });
+  }
+
+  // Admin Reports API
+  async updateReportStatus(reportId: string, statusData: {
+    status: string;
+    adminNotes?: string;
+    mvcReferenceNumber?: string;
+  }): Promise<ApiResponse<{
+    id: string;
+    status: string;
+    updatedAt: string;
+  }>> {
+    return this.request(`/reports/${reportId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(statusData),
+    });
+  }
+
+  async bulkUpdateReportStatus(reportIds: string[], statusData: {
+    status: string;
+    adminNotes?: string;
+  }): Promise<ApiResponse<{
+    updated: number;
+    failed: number;
+    results: any[];
+  }>> {
+    return this.request('/reports/bulk/status', {
+      method: 'PUT',
+      body: JSON.stringify({
+        reportIds,
+        ...statusData
+      }),
+    });
+  }
+
+  async sendEmail(emailData: {
+    reportId: string;
+    templateId: string;
+    to: string;
+    subject: string;
+    body?: string;
+    attachments?: any[];
+  }): Promise<ApiResponse<{
+    messageId: string;
+    sent: boolean;
+  }>> {
+    return this.request('/emails/send', {
+      method: 'POST',
+      body: JSON.stringify(emailData),
+    });
+  }
 }
 
 // Create and export API client instance

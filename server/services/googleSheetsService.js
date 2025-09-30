@@ -158,8 +158,13 @@ function reportToRow(report) {
  * @returns {Object} Report data object
  */
 function rowToReport(row) {
-  if (!Array.isArray(row) || row.length < 16) {
-    throw new Error('Invalid row data: must be an array with at least 16 elements');
+  if (!Array.isArray(row)) {
+    throw new Error('Invalid row data: must be an array');
+  }
+
+  // Pad the row array to ensure it has at least 16 elements
+  while (row.length < 16) {
+    row.push('');
   }
 
   const report = {

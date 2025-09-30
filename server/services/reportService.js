@@ -185,16 +185,21 @@ async function getReportById(reportId, includeAdminFields = false) {
 }
 
 /**
- * Updates a report's status (Admin only)
+ * Updates a report's status and admin fields (Admin only)
  * @param {string} reportId - Report ID
- * @param {string} newStatus - New status
- * @param {string} adminNotes - Admin notes
+ * @param {Object} updateData - Update data object
+ * @param {string} updateData.status - New status
+ * @param {string} [updateData.adminNotes] - Admin notes
+ * @param {string} [updateData.mvcReferenceNumber] - MVC reference number
+ * @param {string} [updateData.updatedBy] - Who updated the report
  * @returns {Promise<Report>} Updated report
  * @throws {Error} If report not found or status invalid
  */
-async function updateReportStatus(reportId, newStatus, adminNotes = '') {
+async function updateReportStatus(reportId, updateData) {
   try {
     validateSpreadsheetConfig();
+
+    const { status, adminNotes, mvcReferenceNumber, updatedBy } = updateData;
 
     const allReports = await getAllReports();
     const reportIndex = allReports.findIndex(r => r.id === reportId);
@@ -205,8 +210,9 @@ async function updateReportStatus(reportId, newStatus, adminNotes = '') {
 
     const existingReport = allReports[reportIndex];
     const updatedReport = existingReport.update({
-      status: newStatus,
-      adminNotes: adminNotes || existingReport.adminNotes
+      status,
+      adminNotes: adminNotes !== undefined ? adminNotes : existingReport.adminNotes,
+      mvcReferenceNumber: mvcReferenceNumber !== undefined ? mvcReferenceNumber : existingReport.mvcReferenceNumber
     });
 
     // Validate status transition

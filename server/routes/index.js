@@ -25,4 +25,10 @@ router.use('/files', require('./files'));
 // Configuration routes (placeholder)
 router.use('/config', require('./config'));
 
+// Email routes (placeholder)
+router.use('/emails', require('./emails'));
+
+// Audit routes
+router.use('/audit', require('./audit'));
+
 module.exports = router;

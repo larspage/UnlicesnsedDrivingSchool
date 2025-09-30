@@ -237,12 +237,12 @@ router.get('/:id', async (req, res) => {
 
 /**
  * PUT /api/reports/:id/status
- * Update report status (Admin only - placeholder for future implementation)
+ * Update report status (Admin only)
  */
 router.put('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, notes } = req.body;
+    const { status, adminNotes, mvcReferenceNumber } = req.body;
 
     if (!id || typeof id !== 'string') {
       return res.status(400).json({
@@ -258,24 +258,209 @@ router.put('/:id/status', async (req, res) => {
       });
     }
 
-    // For now, return a placeholder response
-    // TODO: Implement admin authentication and authorization
+    // Validate status values
+    const validStatuses = ['Added', 'Confirmed by NJDSC', 'Reported to MVC', 'Under Investigation', 'Closed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status value',
+        message: `Status must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Update the report status
+    const updatedReport = await reportService.updateReportStatus(id, {
+      status,
+      adminNotes,
+      mvcReferenceNumber,
+      updatedBy: 'admin' // TODO: Get from authenticated user
+    });
+
+    // Log the status update to audit trail
+    const auditService = require('../services/auditService');
+    const oldReport = await reportService.getReportById(id, true); // Get with admin fields
+
+    if (oldReport) {
+      await auditService.logStatusUpdate(
+        id,
+        oldReport.status,
+        status,
+        adminNotes
+      );
+    }
+
     res.json({
       success: true,
       data: {
-        id,
-        status,
-        updatedAt: new Date().toISOString()
+        id: updatedReport.id,
+        status: updatedReport.status,
+        updatedAt: updatedReport.updatedAt,
+        adminNotes: updatedReport.adminNotes,
+        mvcReferenceNumber: updatedReport.mvcReferenceNumber
       },
-      message: 'Status update functionality coming in Phase 4'
+      message: `Report status updated to "${status}"`
     });
 
   } catch (error) {
     console.error('Error updating report status:', error);
+
+    if (error.message.includes('not found')) {
+      return res.status(404).json({
+        success: false,
+        error: 'Report not found'
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: 'Failed to update report status',
       message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * PUT /api/reports/bulk/status
+ * Bulk update report statuses (Admin only)
+ */
+router.put('/bulk/status', async (req, res) => {
+  try {
+    const { reportIds, status, adminNotes } = req.body;
+
+    if (!Array.isArray(reportIds) || reportIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid report IDs array is required'
+      });
+    }
+
+    if (!status || typeof status !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid status is required'
+      });
+    }
+
+    // Validate status values
+    const validStatuses = ['Added', 'Confirmed by NJDSC', 'Reported to MVC', 'Under Investigation', 'Closed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status value',
+        message: `Status must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Update each report status
+    const results = [];
+    const auditService = require('../services/auditService');
+
+    for (const reportId of reportIds) {
+      try {
+        const updatedReport = await reportService.updateReportStatus(reportId, {
+          status,
+          adminNotes,
+          updatedBy: 'admin'
+        });
+
+        results.push({
+          reportId,
+          success: true,
+          updatedAt: updatedReport.updatedAt
+        });
+
+        // Log the status update to audit trail
+        const oldReport = await reportService.getReportById(reportId, true);
+        if (oldReport) {
+          await auditService.logStatusUpdate(
+            reportId,
+            oldReport.status,
+            status,
+            adminNotes
+          );
+        }
+      } catch (reportError) {
+        console.error(`Error updating report ${reportId}:`, reportError);
+        results.push({
+          reportId,
+          success: false,
+          error: reportError.message
+        });
+      }
+    }
+
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    // Log the bulk status update
+    await auditService.logBulkStatusUpdate(
+      reportIds,
+      'bulk', // We don't know the old status for bulk operations
+      status,
+      adminNotes
+    );
+
+    res.json({
+      success: true,
+      data: {
+        updated: successful,
+        failed,
+        results
+      },
+      message: `Bulk update completed: ${successful} updated, ${failed} failed`
+    });
+
+  } catch (error) {
+    console.error('Error in bulk status update:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to perform bulk status update',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * GET /api/reports/stats
+ * Get report statistics for dashboard overview
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const allReports = await reportService.getAllReports();
+
+    // Calculate statistics
+    const totalReports = allReports.length;
+    const pendingReports = allReports.filter(r => r.status === 'Added').length;
+    const completedReports = allReports.filter(r => r.status === 'Closed').length;
+
+    // Calculate total files
+    const totalFiles = allReports.reduce((acc, report) => {
+      return acc + (report.uploadedFiles ? report.uploadedFiles.length : 0);
+    }, 0);
+
+    // Get recent reports (last 5)
+    const recentReports = allReports
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5);
+
+    res.json({
+      success: true,
+      data: {
+        totalReports,
+        pendingReports,
+        completedReports,
+        totalFiles,
+        recentReports
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error retrieving report statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Statistics retrieval failed',
+      message: 'Unable to retrieve report statistics. Please try again later.'
     });
   }
 });
