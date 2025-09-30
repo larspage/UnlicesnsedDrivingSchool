@@ -11,6 +11,7 @@ const path = require('path');
 // Service account credentials from environment variables
 const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
+const GMAIL_USER = process.env.GOOGLE_GMAIL_USER;
 
 // Validate required environment variables
 if (!SERVICE_ACCOUNT_KEY) {
@@ -21,18 +22,29 @@ if (!DRIVE_FOLDER_ID) {
   throw new Error('GOOGLE_DRIVE_FOLDER_ID environment variable is required');
 }
 
+if (!GMAIL_USER) {
+  throw new Error('GOOGLE_GMAIL_USER environment variable is required for domain-wide delegation');
+}
+
 // Parse service account credentials
 let credentials;
 try {
   credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
+  
+  // Fix private key formatting if needed (replace literal \n with actual newlines)
+  if (credentials.private_key && credentials.private_key.includes('\\n')) {
+    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+  }
 } catch (error) {
   throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
 }
 
-// Initialize Google Drive API client
+// Initialize Google Drive API client with domain-wide delegation
+// This allows the service account to act as the user and access their Drive storage
 const auth = new google.auth.GoogleAuth({
   credentials,
   scopes: ['https://www.googleapis.com/auth/drive'],
+  subject: GMAIL_USER, // Act as this user to access their Drive storage
 });
 
 const drive = google.drive({ version: 'v3', auth });
@@ -107,6 +119,7 @@ function generateFileId() {
 
 /**
  * Creates or gets a folder for the report within the main Drive folder
+ * Supports both regular folders and Shared Drives
  * @param {string} reportId - Report ID to create folder for
  * @returns {string} Folder ID
  */
@@ -117,6 +130,8 @@ async function getOrCreateReportFolder(reportId) {
     const searchResponse = await drive.files.list({
       q: query,
       fields: 'files(id, name)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
 
     if (searchResponse.data.files.length > 0) {
@@ -133,6 +148,7 @@ async function getOrCreateReportFolder(reportId) {
     const createResponse = await drive.files.create({
       resource: folderMetadata,
       fields: 'id',
+      supportsAllDrives: true,
     });
 
     return createResponse.data.id;
@@ -191,9 +207,23 @@ async function uploadFile(fileBuffer, fileName, mimeType, reportId) {
     // Get or create report folder
     const reportFolderId = await getOrCreateReportFolder(reportId);
 
-    // Sanitize filename and ensure unique name
+    // Sanitize filename and ensure unique name with readable timestamp
     const sanitizedName = path.basename(fileName).replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    const timestamp = Date.now();
+    
+    // Create readable timestamp in US Eastern Time: 2025-09-30_10-30-45
+    const now = new Date();
+    const timestamp = now.toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
+      .replace(/(\d+)\/(\d+)\/(\d+),\s(\d+):(\d+):(\d+)/, '$3-$1-$2_$4-$5-$6'); // Format: YYYY-MM-DD_HH-MM-SS
+    
     const uniqueFileName = `${timestamp}_${sanitizedName}`;
 
     // Upload file metadata
@@ -202,16 +232,20 @@ async function uploadFile(fileBuffer, fileName, mimeType, reportId) {
       parents: [reportFolderId],
     };
 
-    // Upload file
+    // Upload file - convert Buffer to Stream for Google Drive API
+    const { Readable } = require('stream');
+    const stream = Readable.from(fileBuffer);
+    
     const media = {
       mimeType,
-      body: fileBuffer,
+      body: stream,
     };
 
     const response = await drive.files.create({
       resource: fileMetadata,
       media,
       fields: 'id,name,size,createdTime,modifiedTime,webViewLink,webContentLink',
+      supportsAllDrives: true,
     });
 
     const fileData = response.data;
@@ -269,12 +303,14 @@ async function generatePublicUrl(fileId) {
         type: 'anyone',
         role: 'reader',
       },
+      supportsAllDrives: true,
     });
 
     // Get file metadata to construct direct download URL
     const response = await drive.files.get({
       fileId,
       fields: 'webContentLink',
+      supportsAllDrives: true,
     });
 
     const publicUrl = response.data.webContentLink;
@@ -303,6 +339,7 @@ async function generateThumbnail(fileId) {
     const response = await drive.files.get({
       fileId,
       fields: 'mimeType,thumbnailLink',
+      supportsAllDrives: true,
     });
 
     const mimeType = response.data.mimeType;
@@ -337,6 +374,7 @@ async function getFileMetadata(fileId) {
     const response = await drive.files.get({
       fileId,
       fields: 'id,name,size,mimeType,createdTime,modifiedTime,webViewLink,webContentLink,thumbnailLink,parents',
+      supportsAllDrives: true,
     });
 
     const fileData = response.data;
@@ -347,6 +385,7 @@ async function getFileMetadata(fileId) {
       const parentResponse = await drive.files.get({
         fileId: fileData.parents[0],
         fields: 'name',
+        supportsAllDrives: true,
       });
       reportId = parentResponse.data.name;
     }
@@ -386,6 +425,7 @@ async function deleteFile(fileId) {
 
     await drive.files.delete({
       fileId,
+      supportsAllDrives: true,
     });
 
     logOperation('deleteFile', { success: true, fileId });

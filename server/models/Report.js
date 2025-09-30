@@ -111,7 +111,19 @@ class Report {
       updatedAt: Joi.string().isoDate().required(),
       reporterIp: Joi.string().ip({ version: ['ipv4', 'ipv6'] }).allow('', null).optional(),
       adminNotes: Joi.string().max(500).allow(''),
-      mvcReferenceNumber: Joi.string().max(50).allow('')
+      mvcReferenceNumber: Joi.string().max(50).allow(''),
+      // Reporter information fields (optional)
+      reporterName: Joi.string().max(255).trim().allow('').optional(),
+      reporterPhone: Joi.string().pattern(/^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/).allow('').optional(),
+      reporterSchool: Joi.string().max(255).trim().allow('').optional(),
+      reporterEmail: Joi.string().email().max(255).allow('').optional(),
+      // Files field for frontend compatibility (will be processed separately)
+      files: Joi.array().items(Joi.object({
+        name: Joi.string().required(),
+        type: Joi.string().required(),
+        size: Joi.number().integer().min(0).required(),
+        data: Joi.string().required()
+      })).max(10).allow(null).optional()
     });
 
     const { error, value } = schema.validate(data, { abortEarly: false });

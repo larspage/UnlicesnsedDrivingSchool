@@ -17,7 +17,9 @@
     "lint": "eslint src server --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint src server --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" \"server/**/*.{js,json,md}\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "debug": "nodemon --inspect server/app.js",
+    "debug:server": "node --inspect server/app.js"
   },
   "keywords": [
     "njdsc",

@@ -10,6 +10,7 @@ const { google } = require('googleapis');
 // Service account credentials from environment variables
 const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Validate required environment variables
 if (!SERVICE_ACCOUNT_KEY) {
@@ -252,6 +253,7 @@ async function appendRow(spreadsheetId, sheetName, data) {
     data.updatedAt = data.updatedAt || now;
     data.lastReported = data.lastReported || now;
 
+
     // Convert to sheet row format
     const row = reportToRow(data);
     const range = `${sheetName}!A:A`; // Append to the end
@@ -305,6 +307,7 @@ async function getAllRows(spreadsheetId, sheetName) {
 
     logOperation('getAllRows', { spreadsheetId, sheetName });
 
+
     const range = `${sheetName}!A:P`; // Read all columns A to P
 
     const response = await sheets.spreadsheets.values.get({
@@ -357,6 +360,7 @@ async function updateRow(spreadsheetId, sheetName, rowId, data) {
     validateReportData(data, true);
 
     logOperation('updateRow', { spreadsheetId, sheetName, rowId, dataKeys: Object.keys(data) });
+
 
     // Get all rows to find the one with matching ID
     const allRows = await getAllRows(spreadsheetId, sheetName);

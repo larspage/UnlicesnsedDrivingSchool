@@ -10,10 +10,15 @@ const configService = require('./configService');
 
 // Environment variables
 const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+const GMAIL_USER = process.env.GOOGLE_GMAIL_USER;
 
 // Validate required environment variables
 if (!SERVICE_ACCOUNT_KEY) {
   throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required');
+}
+
+if (!GMAIL_USER) {
+  throw new Error('GOOGLE_GMAIL_USER environment variable is required');
 }
 
 // Parse service account credentials
@@ -29,6 +34,7 @@ function getGmail() {
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/gmail.send'],
+    subject: GMAIL_USER, // Domain-wide delegation - impersonate this user
   });
   return google.gmail({ version: 'v1', auth });
 }

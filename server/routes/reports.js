@@ -7,6 +7,8 @@
 const express = require('express');
 const router = express.Router();
 const reportService = require('../services/reportService');
+const fileService = require('../services/fileService');
+const googleDriveService = require('../services/googleDriveService');
 const rateLimit = require('express-rate-limit');
 
 // Rate limiting for report submissions
@@ -26,6 +28,18 @@ router.post('/', reportLimiter, async (req, res) => {
   try {
     const reportData = req.body;
     const reporterIp = req.ip || req.connection.remoteAddress || 'unknown';
+
+    // Debug logging for incoming data
+    console.log('=== REPORT SUBMISSION DEBUG ===');
+    console.log('Request body keys:', Object.keys(reportData));
+    console.log('School name:', reportData.schoolName);
+    console.log('Files field exists:', !!reportData.files);
+    console.log('Files field type:', typeof reportData.files);
+    console.log('Files array length:', Array.isArray(reportData.files) ? reportData.files.length : 'not array');
+    if (reportData.files && Array.isArray(reportData.files)) {
+      console.log('Files details:', reportData.files.map(f => ({ name: f.name, type: f.type, size: f.size, hasData: !!f.data })));
+    }
+    console.log('================================');
 
     // Validate required fields
     if (!reportData.schoolName) {
@@ -47,6 +61,51 @@ router.post('/', reportLimiter, async (req, res) => {
     // Create the report
     const report = await reportService.createReport(reportData, reporterIp);
 
+    // Process files if included
+    const uploadedFiles = [];
+    if (reportData.files && Array.isArray(reportData.files) && reportData.files.length > 0) {
+      console.log(`Processing ${reportData.files.length} files for report ${report.id}`);
+
+      for (const fileData of reportData.files) {
+        try {
+          // Convert base64 to buffer
+          const fileBuffer = Buffer.from(fileData.data, 'base64');
+
+          // Upload directly to Google Drive (bypass file service sheet dependency)
+          const driveFile = await googleDriveService.uploadFile(
+            fileBuffer,
+            fileData.name,
+            fileData.type,
+            report.id
+          );
+
+          // Generate public URL
+          const publicUrl = await googleDriveService.generatePublicUrl(driveFile.id);
+
+          // Generate thumbnail for images
+          let thumbnailUrl = null;
+          if (fileData.type.startsWith('image/')) {
+            thumbnailUrl = await googleDriveService.generateThumbnail(driveFile.id);
+          }
+
+          uploadedFiles.push({
+            id: driveFile.id,
+            name: fileData.name,
+            type: fileData.mimeType,
+            size: fileBuffer.length,
+            url: publicUrl,
+            thumbnailUrl: thumbnailUrl,
+            uploadedAt: new Date().toISOString()
+          });
+
+          console.log(`Successfully uploaded file: ${fileData.name} to Drive folder`);
+        } catch (fileError) {
+          console.error(`Error uploading file ${fileData.name}:`, fileError);
+          // Continue with other files if one fails
+        }
+      }
+    }
+
     res.status(201).json({
       success: true,
       data: {
@@ -58,9 +117,10 @@ router.post('/', reportLimiter, async (req, res) => {
         websiteUrl: report.websiteUrl,
         status: report.status,
         createdAt: report.createdAt,
-        lastReported: report.lastReported
+        lastReported: report.lastReported,
+        uploadedFiles: uploadedFiles
       },
-      message: 'Report submitted successfully'
+      message: `Report submitted successfully${uploadedFiles.length > 0 ? ` with ${uploadedFiles.length} file(s)` : ''}`
     });
 
   } catch (error) {

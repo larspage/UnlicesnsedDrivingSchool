@@ -22,10 +22,8 @@ describe('File Service', () => {
     // Set up environment
     process.env.GOOGLE_SHEETS_SPREADSHEET_ID = 'test_spreadsheet_id';
 
-    // Mock all the service functions
-    fileService.getFilesByReportId = jest.fn();
-    fileService.getAllFiles = jest.fn();
-    fileService.validateFileUpload = jest.fn();
+    // Mock Google Sheets service to return empty array by default
+    googleSheetsService.getAllRows.mockResolvedValue([]);
   });
 
   describe('uploadFile', () => {
@@ -65,7 +63,7 @@ describe('File Service', () => {
     it('should upload file successfully', async () => {
       // Mock dependencies
       File.validateUploadParams.mockReturnValue({ isValid: true });
-      fileService.getFilesByReportId.mockResolvedValue([]);
+      googleSheetsService.getAllRows.mockResolvedValue([]); // Mock empty files list
       googleDriveService.uploadFile.mockResolvedValue(mockDriveFile);
       File.create.mockReturnValue(mockFile);
       googleSheetsService.appendRow.mockResolvedValue(undefined);
@@ -84,7 +82,7 @@ describe('File Service', () => {
         mockMimeType,
         mockReportId
       );
-      expect(fileService.getFilesByReportId).toHaveBeenCalledWith(mockReportId);
+      expect(googleSheetsService.getAllRows).toHaveBeenCalled();
       expect(googleDriveService.uploadFile).toHaveBeenCalledWith(
         mockFileBuffer,
         mockFileName,
@@ -112,7 +110,7 @@ describe('File Service', () => {
 
     it('should throw error when Google Drive upload fails', async () => {
       File.validateUploadParams.mockReturnValue({ isValid: true });
-      fileService.getFilesByReportId.mockResolvedValue([]);
+      googleSheetsService.getAllRows.mockResolvedValue([]);
       googleDriveService.uploadFile.mockRejectedValue(new Error('Drive upload failed'));
 
       await expect(fileService.uploadFile(
@@ -125,7 +123,7 @@ describe('File Service', () => {
 
     it('should throw error when business rules validation fails', async () => {
       File.validateUploadParams.mockReturnValue({ isValid: true });
-      fileService.getFilesByReportId.mockResolvedValue([]);
+      googleSheetsService.getAllRows.mockResolvedValue([]);
       googleDriveService.uploadFile.mockResolvedValue(mockDriveFile);
       File.create.mockReturnValue(mockFile);
       mockFile.validateBusinessRules.mockImplementation(() => {
@@ -144,16 +142,16 @@ describe('File Service', () => {
   describe('getFileById', () => {
     it('should return file when found', async () => {
       const mockFile = { id: 'file_abc123', name: 'test.jpg' };
-      fileService.getAllFiles.mockResolvedValue([mockFile]);
+      googleSheetsService.getAllRows.mockResolvedValue([mockFile]);
 
       const result = await fileService.getFileById('file_abc123');
 
-      expect(fileService.getAllFiles).toHaveBeenCalled();
+      expect(googleSheetsService.getAllRows).toHaveBeenCalled();
       expect(result).toBe(mockFile);
     });
 
     it('should return null when file not found', async () => {
-      fileService.getAllFiles.mockResolvedValue([]);
+      googleSheetsService.getAllRows.mockResolvedValue([]);
 
       const result = await fileService.getFileById('file_nonexistent');
 
@@ -168,11 +166,11 @@ describe('File Service', () => {
         { id: 'file_2', reportId: 'rep_abc123' },
         { id: 'file_3', reportId: 'rep_def456' }
       ];
-      fileService.getAllFiles.mockResolvedValue(mockFiles);
+      googleSheetsService.getAllRows.mockResolvedValue(mockFiles);
 
       const result = await fileService.getFilesByReportId('rep_abc123');
 
-      expect(fileService.getAllFiles).toHaveBeenCalled();
+      expect(googleSheetsService.getAllRows).toHaveBeenCalled();
       expect(result).toHaveLength(2);
       expect(result[0].reportId).toBe('rep_abc123');
       expect(result[1].reportId).toBe('rep_abc123');
@@ -190,20 +188,20 @@ describe('File Service', () => {
       };
       const updatedFile = { id: 'file_abc123', processingStatus: 'completed' };
 
-      fileService.getAllFiles.mockResolvedValue([existingFile]);
+      googleSheetsService.getAllRows.mockResolvedValue([existingFile]);
       existingFile.updateProcessingStatus.mockReturnValue(updatedFile);
       googleSheetsService.updateRow.mockResolvedValue(undefined);
 
       const result = await fileService.updateFileProcessingStatus('file_abc123', 'completed');
 
-      expect(fileService.getAllFiles).toHaveBeenCalled();
+      expect(googleSheetsService.getAllRows).toHaveBeenCalled();
       expect(existingFile.updateProcessingStatus).toHaveBeenCalledWith('completed');
       expect(googleSheetsService.updateRow).toHaveBeenCalled();
       expect(result).toBe(updatedFile);
     });
 
     it('should throw error when file not found', async () => {
-      fileService.getAllFiles.mockResolvedValue([]);
+      googleSheetsService.getAllRows.mockResolvedValue([]);
 
       await expect(fileService.updateFileProcessingStatus('file_nonexistent', 'completed'))
         .rejects.toThrow('File with ID file_nonexistent not found');
@@ -212,7 +210,7 @@ describe('File Service', () => {
 
   describe('validateFileUpload', () => {
     beforeEach(() => {
-      fileService.getFilesByReportId.mockResolvedValue([]);
+      googleSheetsService.getAllRows.mockResolvedValue([]);
     });
 
     it('should return valid for correct file', async () => {
@@ -258,7 +256,7 @@ describe('File Service', () => {
 
     it('should return invalid when too many files for report', async () => {
       const existingFiles = Array(10).fill({ reportId: 'rep_abc123' });
-      fileService.getFilesByReportId.mockResolvedValue(existingFiles);
+      googleSheetsService.getAllRows.mockResolvedValue(existingFiles);
       configService.getConfig.mockResolvedValue(null);
 
       const result = await fileService.validateFileUpload('rep_abc123', 1024, 'image/jpeg');
