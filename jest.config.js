@@ -8,6 +8,7 @@ module.exports = {
         '<rootDir>/tests/unit/models/**/*.test.js',
         '<rootDir>/tests/unit/services/fileService.test.js',
         '<rootDir>/tests/unit/services/gmailService.test.js',
+        '<rootDir>/tests/unit/services/reportService.test.js',
         '<rootDir>/tests/unit/middleware/**/*.test.js',
         '<rootDir>/tests/unit/routes/**/*.test.js',
         '<rootDir>/tests/unit/utils/**/*.test.js'
@@ -63,6 +64,14 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
+    }
+  },
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 };
