@@ -9,6 +9,7 @@ const router = express.Router();
 const reportService = require('../services/reportService');
 const fileService = require('../services/fileService');
 const googleDriveService = require('../services/googleDriveService');
+const { authenticateAdmin } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
 // Rate limiting for report submissions
@@ -239,12 +240,24 @@ router.get('/:id', async (req, res) => {
  * PUT /api/reports/:id/status
  * Update report status (Admin only)
  */
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', authenticateAdmin, async (req, res) => {
+  const startTime = Date.now();
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
   try {
     const { id } = req.params;
     const { status, adminNotes, mvcReferenceNumber } = req.body;
 
+    console.log(`[${requestId}] [STATUS UPDATE] Starting status update:`, {
+      reportId: id,
+      requestBody: { status, adminNotes, mvcReferenceNumber },
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip
+    });
+
     if (!id || typeof id !== 'string') {
+      console.error(`[${requestId}] [STATUS UPDATE ERROR] Invalid report ID:`, { id });
       return res.status(400).json({
         success: false,
         error: 'Valid report ID is required'
@@ -252,6 +265,7 @@ router.put('/:id/status', async (req, res) => {
     }
 
     if (!status || typeof status !== 'string') {
+      console.error(`[${requestId}] [STATUS UPDATE ERROR] Invalid status:`, { status });
       return res.status(400).json({
         success: false,
         error: 'Valid status is required'
@@ -261,12 +275,18 @@ router.put('/:id/status', async (req, res) => {
     // Validate status values
     const validStatuses = ['Added', 'Confirmed by NJDSC', 'Reported to MVC', 'Under Investigation', 'Closed'];
     if (!validStatuses.includes(status)) {
+      console.error(`[${requestId}] [STATUS UPDATE ERROR] Invalid status value:`, {
+        providedStatus: status,
+        validStatuses
+      });
       return res.status(400).json({
         success: false,
         error: 'Invalid status value',
         message: `Status must be one of: ${validStatuses.join(', ')}`
       });
     }
+
+    console.log(`[${requestId}] [STATUS UPDATE] Calling reportService.updateReportStatus`);
 
     // Update the report status
     const updatedReport = await reportService.updateReportStatus(id, {
@@ -276,17 +296,34 @@ router.put('/:id/status', async (req, res) => {
       updatedBy: 'admin' // TODO: Get from authenticated user
     });
 
-    // Log the status update to audit trail
+    console.log(`[${requestId}] [STATUS UPDATE] Report updated successfully:`, {
+      reportId: updatedReport.id,
+      newStatus: updatedReport.status,
+      duration: Date.now() - startTime
+    });
+
+    // Log the status update to audit trail (non-blocking)
     const auditService = require('../services/auditService');
     const oldReport = await reportService.getReportById(id, true); // Get with admin fields
 
     if (oldReport) {
-      await auditService.logStatusUpdate(
-        id,
-        oldReport.status,
-        status,
-        adminNotes
-      );
+      try {
+        await auditService.logStatusUpdate(
+          id,
+          oldReport.status,
+          status,
+          adminNotes
+        );
+        console.log(`[${requestId}] [STATUS UPDATE] Audit log created`);
+      } catch (auditError) {
+        // Log audit error but don't fail the status update
+        console.error(`[${requestId}] [STATUS UPDATE WARNING] Failed to create audit log (non-critical):`, {
+          error: {
+            message: auditError.message,
+            stack: auditError.stack
+          }
+        });
+      }
     }
 
     res.json({
@@ -301,20 +338,33 @@ router.put('/:id/status', async (req, res) => {
       message: `Report status updated to "${status}"`
     });
 
+    console.log(`[${requestId}] [STATUS UPDATE] Response sent successfully, total duration: ${Date.now() - startTime}ms`);
+
   } catch (error) {
-    console.error('Error updating report status:', error);
+    console.error(`[${requestId}] [STATUS UPDATE ERROR] Error updating report status:`, {
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      },
+      requestParams: req.params,
+      requestBody: req.body,
+      duration: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    });
 
     if (error.message.includes('not found')) {
       return res.status(404).json({
         success: false,
-        error: 'Report not found'
+        error: 'Report not found',
+        message: error.message
       });
     }
 
     res.status(500).json({
       success: false,
       error: 'Failed to update report status',
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
     });
   }
 });
@@ -323,7 +373,7 @@ router.put('/:id/status', async (req, res) => {
  * PUT /api/reports/bulk/status
  * Bulk update report statuses (Admin only)
  */
-router.put('/bulk/status', async (req, res) => {
+router.put('/bulk/status', authenticateAdmin, async (req, res) => {
   try {
     const { reportIds, status, adminNotes } = req.body;
 

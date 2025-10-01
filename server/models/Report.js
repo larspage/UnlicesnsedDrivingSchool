@@ -91,10 +91,10 @@ class Report {
     const schema = Joi.object({
       id: isUpdate ? Joi.string().pattern(/^rep_[a-zA-Z0-9]{6}$/).required() : Joi.string().pattern(/^rep_[a-zA-Z0-9]{6}$/),
       schoolName: Joi.string().min(2).max(255).trim().required(),
-      location: Joi.string().max(100).trim().allow(''),
-      violationDescription: Joi.string().max(1000).allow(''),
-      phoneNumber: Joi.string().pattern(/^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/).allow(''),
-      websiteUrl: Joi.string().uri({ scheme: ['http', 'https'] }).max(500).allow(''),
+      location: Joi.string().max(100).trim().allow('', null).optional(),
+      violationDescription: Joi.string().max(1000).allow('', null).optional(),
+      phoneNumber: Joi.string().pattern(/^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/).allow('', null).optional(),
+      websiteUrl: Joi.string().uri({ scheme: ['http', 'https'] }).max(500).allow('', null).optional(),
       uploadedFiles: Joi.array().items(Joi.object({
         id: Joi.string().required(),
         name: Joi.string().required(),
@@ -102,21 +102,21 @@ class Report {
         size: Joi.number().integer().min(0).required(),
         url: Joi.string().uri().required(),
         thumbnailUrl: Joi.string().uri().optional()
-      })).max(10).allow(null),
-      socialMediaLinks: Joi.array().items(Joi.string().uri()).allow(null),
-      additionalInfo: Joi.string().max(2000).allow(''),
+      })).max(10).allow(null).optional(),
+      socialMediaLinks: Joi.array().items(Joi.string().uri()).allow(null).optional(),
+      additionalInfo: Joi.string().max(2000).allow('', null).optional(),
       status: Joi.string().valid(...Object.values(REPORT_STATUS)).required(),
       lastReported: Joi.string().isoDate().required(),
       createdAt: Joi.string().isoDate().required(),
       updatedAt: Joi.string().isoDate().required(),
       reporterIp: Joi.string().ip({ version: ['ipv4', 'ipv6'] }).allow('', null).optional(),
-      adminNotes: Joi.string().max(500).allow(''),
-      mvcReferenceNumber: Joi.string().max(50).allow(''),
+      adminNotes: Joi.string().max(500).allow('', null).optional(),
+      mvcReferenceNumber: Joi.string().max(50).allow('', null).optional(),
       // Reporter information fields (optional)
-      reporterName: Joi.string().max(255).trim().allow('').optional(),
-      reporterPhone: Joi.string().pattern(/^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/).allow('').optional(),
-      reporterSchool: Joi.string().max(255).trim().allow('').optional(),
-      reporterEmail: Joi.string().email().max(255).allow('').optional(),
+      reporterName: Joi.string().max(255).trim().allow('', null).optional(),
+      reporterPhone: Joi.string().pattern(/^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/).allow('', null).optional(),
+      reporterSchool: Joi.string().max(255).trim().allow('', null).optional(),
+      reporterEmail: Joi.string().email().max(255).allow('', null).optional(),
       // Files field for frontend compatibility (will be processed separately)
       files: Joi.array().items(Joi.object({
         name: Joi.string().required(),
@@ -130,6 +130,11 @@ class Report {
 
     if (error) {
       const errorMessages = error.details.map(detail => detail.message).join('; ');
+      console.error('[REPORT VALIDATION ERROR] Validation failed:', {
+        errorMessages,
+        data: JSON.stringify(data, null, 2),
+        timestamp: new Date().toISOString()
+      });
       throw new Error(`Report validation failed: ${errorMessages}`);
     }
 
@@ -270,12 +275,49 @@ class Report {
    * @returns {Report} Updated Report instance
    */
   update(updateData) {
-    const updatedData = {
+    console.log('🔍 Report.update called with:', JSON.stringify(updateData, null, 2));
+    console.log('🔍 Current report data:', JSON.stringify({
+      id: this.id,
+      additionalInfo: this.additionalInfo,
+      adminNotes: this.adminNotes,
+      mvcReferenceNumber: this.mvcReferenceNumber
+    }, null, 2));
+
+    // Preprocess current data to convert null/undefined to empty strings for optional fields
+    const cleanCurrentData = {
       ...this,
+      additionalInfo: this.additionalInfo || '',
+      adminNotes: this.adminNotes || '',
+      mvcReferenceNumber: this.mvcReferenceNumber || '',
+      location: this.location || '',
+      violationDescription: this.violationDescription || '',
+      phoneNumber: this.phoneNumber || '',
+      websiteUrl: this.websiteUrl || '',
+      reporterIp: this.reporterIp || '',
+      reporterName: this.reporterName || '',
+      reporterPhone: this.reporterPhone || '',
+      reporterSchool: this.reporterSchool || '',
+      reporterEmail: this.reporterEmail || ''
+    };
+
+    console.log('🔍 Clean current data:', JSON.stringify({
+      additionalInfo: cleanCurrentData.additionalInfo,
+      adminNotes: cleanCurrentData.adminNotes,
+      mvcReferenceNumber: cleanCurrentData.mvcReferenceNumber
+    }, null, 2));
+
+    const updatedData = {
+      ...cleanCurrentData,
       ...updateData,
       id: this.id, // Ensure ID doesn't change
       updatedAt: new Date().toISOString()
     };
+
+    console.log('🔍 Final updated data:', JSON.stringify({
+      additionalInfo: updatedData.additionalInfo,
+      adminNotes: updatedData.adminNotes,
+      mvcReferenceNumber: updatedData.mvcReferenceNumber
+    }, null, 2));
 
     return new Report(updatedData);
   }

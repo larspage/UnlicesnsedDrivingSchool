@@ -91,11 +91,23 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
 
+    // Import auth service dynamically to avoid circular dependencies
+    const { default: AuthService } = await import('./authService');
+    const authService = AuthService.getInstance();
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...options.headers as Record<string, string>,
+    };
+
+    // Add authentication header if user is authenticated
+    const token = authService.getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 

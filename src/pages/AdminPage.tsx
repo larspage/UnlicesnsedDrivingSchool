@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import StatusManagementModal from '../components/StatusManagementModal';
 import EmailComposerModal from '../components/EmailComposerModal';
 import ConfigurationModal from '../components/ConfigurationModal';
@@ -7,11 +7,13 @@ import BulkOperationsModal from '../components/BulkOperationsModal';
 import AuditLogViewer from '../components/AuditLogViewer';
 import AuditService from '../services/auditService';
 import ConfigurationService from '../services/configurationService';
+import AuthService from '../services/authService';
 import { apiClient } from '../services/api';
 import { Report, ReportStatus, StatusUpdateData } from '../types';
 
 const AdminPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({
     totalReports: 0,
@@ -30,9 +32,12 @@ const AdminPage = () => {
   const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set());
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedReportForDetails, setSelectedReportForDetails] = useState<Report | null>(null);
 
   const auditService = AuditService.getInstance();
   const configurationService = ConfigurationService.getInstance();
+  const authService = AuthService.getInstance();
 
   useEffect(() => {
     // Set active tab based on current route
@@ -144,12 +149,26 @@ const AdminPage = () => {
 
   const handleStatusUpdate = async (reportId: string, updateData: StatusUpdateData) => {
     setIsLoading(true);
+    const startTime = Date.now();
+    
     try {
+      console.log('[STATUS UPDATE] Starting status update:', {
+        reportId,
+        updateData,
+        timestamp: new Date().toISOString()
+      });
+
       // Call the real API to update report status
       const response = await apiClient.updateReportStatus(reportId, {
         status: updateData.status,
         adminNotes: updateData.adminNotes,
         mvcReferenceNumber: updateData.mvcReferenceNumber
+      });
+
+      console.log('[STATUS UPDATE] API response received:', {
+        success: response.success,
+        duration: Date.now() - startTime,
+        timestamp: new Date().toISOString()
       });
 
       if (response.success) {
@@ -179,12 +198,31 @@ const AdminPage = () => {
 
         // Refresh data to ensure consistency
         await refreshData();
+        
+        console.log('[STATUS UPDATE] Status update completed successfully:', {
+          reportId,
+          newStatus: updateData.status,
+          totalDuration: Date.now() - startTime
+        });
       } else {
         throw new Error(response.message || 'Failed to update report status');
       }
 
     } catch (error) {
-      console.error('Failed to update report status:', error);
+      console.error('[STATUS UPDATE ERROR] Failed to update report status:', {
+        reportId,
+        updateData,
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error,
+        duration: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Show user-friendly error message
+      alert(`Failed to update report status: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     } finally {
       setIsLoading(false);
@@ -219,11 +257,15 @@ const AdminPage = () => {
   };
 
   const handleSendEmail = async (emailData: any) => {
+    if (!selectedReport?.id) {
+      throw new Error('No report selected');
+    }
+
     setIsLoading(true);
     try {
       // Call the real API to send email
       const response = await apiClient.sendEmail({
-        reportId: selectedReport?.id || undefined,
+        reportId: selectedReport.id,
         templateId: emailData.templateId,
         to: emailData.to,
         subject: emailData.subject,
@@ -280,6 +322,44 @@ const AdminPage = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force navigation to login even if logout fails
+      navigate('/login');
+    }
+  };
+
+  const handleInlineStatusChange = async (reportId: string, newStatus: ReportStatus) => {
+    try {
+      console.log('[INLINE STATUS CHANGE] Initiating inline status change:', {
+        reportId,
+        newStatus,
+        timestamp: new Date().toISOString()
+      });
+      
+      await handleStatusUpdate(reportId, { status: newStatus });
+      
+      console.log('[INLINE STATUS CHANGE] Inline status change completed successfully');
+    } catch (error) {
+      console.error('[INLINE STATUS CHANGE ERROR] Failed to update status inline:', {
+        reportId,
+        newStatus,
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Error is already shown to user in handleStatusUpdate
+    }
+  };
+
   // Bulk Operations Functions
   const handleSelectReport = (reportId: string, isSelected: boolean) => {
     setSelectedReports(prev => {
@@ -307,6 +387,16 @@ const AdminPage = () => {
 
   const closeBulkModal = () => {
     setIsBulkModalOpen(false);
+  };
+
+  const openDetailsModal = (report: Report) => {
+    setSelectedReportForDetails(report);
+    setIsDetailsModalOpen(true);
+  };
+
+  const closeDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+    setSelectedReportForDetails(null);
   };
 
   const handleBulkStatusUpdate = async (newStatus: ReportStatus, adminNotes?: string) => {
@@ -387,16 +477,27 @@ const AdminPage = () => {
             <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
             <p className="text-blue-100">Manage NJDSC Compliance Portal operations and settings</p>
           </div>
-          <button
-            onClick={refreshData}
-            disabled={isRefreshing}
-            className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-          >
-            <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span>{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={refreshData}
+              disabled={isRefreshing}
+              className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-blue-800 flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -434,8 +535,9 @@ const AdminPage = () => {
               setSearchTerm={setSearchTerm}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
-              onOpenStatusModal={handleOpenStatusModal}
               onOpenEmailModal={openEmailModal}
+              onOpenDetailsModal={openDetailsModal}
+              onStatusChange={handleInlineStatusChange}
               selectedReports={selectedReports}
               onSelectReport={handleSelectReport}
               onSelectAll={handleSelectAll}
@@ -481,6 +583,324 @@ const AdminPage = () => {
         onBulkStatusUpdate={handleBulkStatusUpdate}
         isLoading={isLoading}
       />
+
+      {/* Report Details Modal */}
+      {isDetailsModalOpen && selectedReportForDetails && (
+        <ReportDetailsModal
+          report={selectedReportForDetails}
+          onClose={closeDetailsModal}
+          onUpdateStatus={(reportId) => {
+            closeDetailsModal();
+            handleOpenStatusModal(reportId);
+          }}
+        />
+      )}
+
+    </div>
+  );
+};
+
+// Report Details Modal Component
+const ReportDetailsModal = ({ report, onClose, onUpdateStatus }: {
+  report: Report;
+  onClose: () => void;
+  onUpdateStatus: (reportId: string) => void;
+}) => {
+  const statusOptions: { value: ReportStatus | 'all'; label: string; color: string }[] = [
+    { value: 'all', label: 'All Statuses', color: 'bg-gray-100 text-gray-800' },
+    { value: 'Added', label: 'Added', color: 'bg-gray-100 text-gray-800' },
+    { value: 'Confirmed by NJDSC', label: 'Confirmed', color: 'bg-blue-100 text-blue-800' },
+    { value: 'Reported to MVC', label: 'Reported to MVC', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'Under Investigation', label: 'Under Investigation', color: 'bg-orange-100 text-orange-800' },
+    { value: 'Closed', label: 'Closed', color: 'bg-green-100 text-green-800' }
+  ];
+
+  const getStatusColor = (status: ReportStatus) => {
+    const option = statusOptions.find(opt => opt.value === status);
+    return option?.color || 'bg-gray-100 text-gray-800';
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Report Details</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Basic Information */}
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Basic Information</h4>
+              <div className="mt-2 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Report ID:</span>
+                  <span className="text-sm font-mono text-gray-900" title="Unique identifier for this report in the system">
+                    {report.id}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">School Name:</span>
+                  <span className="text-sm text-gray-900">{report.schoolName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Location:</span>
+                  <span className="text-sm text-gray-900">{report.location || 'Not specified'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Status:</span>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(report.status)}`}>
+                    {report.status}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Created:</span>
+                  <span className="text-sm text-gray-900">{new Date(report.createdAt).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Last Updated:</span>
+                  <span className="text-sm text-gray-900">{new Date(report.updatedAt).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Contact Information</h4>
+              <div className="mt-2 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Reporter Name:</span>
+                  <span className="text-sm text-gray-900">{report.reporterName || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Reporter Email:</span>
+                  <span className="text-sm text-gray-900">{report.reporterEmail || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Reporter Phone:</span>
+                  <span className="text-sm text-gray-900">{report.reporterPhone || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Phone Number:</span>
+                  <span className="text-sm text-gray-900">{report.phoneNumber || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Website:</span>
+                  <span className="text-sm text-gray-900">{report.websiteUrl || 'Not provided'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Violation Description */}
+        <div className="mt-6">
+          <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Violation Description</h4>
+          <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded">
+            {report.violationDescription || 'No description provided'}
+          </p>
+        </div>
+
+        {/* Additional Information */}
+        {report.additionalInfo && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Additional Information</h4>
+            <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded">
+              {report.additionalInfo}
+            </p>
+          </div>
+        )}
+
+        {/* Social Media Links */}
+        {report.socialMediaLinks && report.socialMediaLinks.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Social Media Links</h4>
+            <div className="space-y-1">
+              {report.socialMediaLinks.map((link, index) => (
+                <a
+                  key={index}
+                  href={link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800 block"
+                >
+                  {link}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Admin Notes */}
+        {report.adminNotes && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Admin Notes</h4>
+            <p className="text-sm text-gray-900 bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
+              {report.adminNotes}
+            </p>
+          </div>
+        )}
+
+        {/* MVC Reference Number */}
+        {report.mvcReferenceNumber && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">MVC Reference Number</h4>
+            <p className="text-sm font-mono text-gray-900 bg-blue-50 p-3 rounded">
+              {report.mvcReferenceNumber}
+            </p>
+          </div>
+        )}
+
+        {/* Photos */}
+        {report.uploadedFiles && report.uploadedFiles.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+              Photos ({report.uploadedFiles.length})
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {report.uploadedFiles.map((file, index) => (
+                <div key={index} className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                  {file.type.startsWith('image/') ? (
+                    <div className="aspect-w-16 aspect-h-12 bg-gray-100">
+                      <img
+                        src={file.thumbnailUrl || file.url}
+                        alt={file.name}
+                        className="w-full h-48 object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-48 bg-gray-100">
+                      <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <p className="text-sm font-medium text-gray-900 truncate" title={file.name}>
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {(file.size / 1024).toFixed(1)} KB
+                    </p>
+                    <div className="mt-2 flex justify-between items-center">
+                      <span className="text-xs text-gray-500">
+                        {new Date(report.createdAt).toLocaleDateString()}
+                      </span>
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                      >
+                        View Full Size
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Close
+          </button>
+          <button
+            onClick={() => onUpdateStatus(report.id)}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Update Status
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Status Dropdown Component
+const StatusDropdown = ({
+  currentStatus,
+  onStatusChange,
+  reportId
+}: {
+  currentStatus: ReportStatus;
+  onStatusChange: (reportId: string, newStatus: ReportStatus) => void;
+  reportId: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const statusOptions: { value: ReportStatus; label: string; color: string }[] = [
+    { value: 'Added', label: 'Added', color: 'bg-gray-100 text-gray-800' },
+    { value: 'Confirmed by NJDSC', label: 'Confirmed', color: 'bg-blue-100 text-blue-800' },
+    { value: 'Reported to MVC', label: 'Reported to MVC', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'Under Investigation', label: 'Under Investigation', color: 'bg-orange-100 text-orange-800' },
+    { value: 'Closed', label: 'Closed', color: 'bg-green-100 text-green-800' }
+  ];
+
+  const currentOption = statusOptions.find(opt => opt.value === currentStatus);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${currentOption?.color} hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1`}
+      >
+        <span>{currentStatus}</span>
+        <svg className="ml-1 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          ></div>
+          <div className="absolute left-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+            <div className="py-1">
+              {statusOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStatusChange(reportId, option.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center space-x-2 ${
+                    option.value === currentStatus ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                  }`}
+                >
+                  <span className={`inline-block w-2 h-2 rounded-full ${option.color.split(' ')[0]}`}></span>
+                  <span>{option.label}</span>
+                  {option.value === currentStatus && (
+                    <svg className="ml-auto w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -644,8 +1064,9 @@ const ReportsTab = ({
   setSearchTerm,
   statusFilter,
   setStatusFilter,
-  onOpenStatusModal,
   onOpenEmailModal,
+  onOpenDetailsModal,
+  onStatusChange,
   selectedReports,
   onSelectReport,
   onSelectAll,
@@ -657,8 +1078,9 @@ const ReportsTab = ({
   setSearchTerm: (term: string) => void;
   statusFilter: ReportStatus | 'all';
   setStatusFilter: (status: ReportStatus | 'all') => void;
-  onOpenStatusModal: (reportId: string) => void;
   onOpenEmailModal: (report: Report) => void;
+  onOpenDetailsModal: (report: Report) => void;
+  onStatusChange: (reportId: string, newStatus: ReportStatus) => void;
   selectedReports: Set<string>;
   onSelectReport: (reportId: string, isSelected: boolean) => void;
   onSelectAll: (isSelected: boolean) => void;
@@ -755,7 +1177,7 @@ const ReportsTab = ({
           </div>
           <div className="text-center p-3 bg-yellow-50 rounded-lg">
             <div className="text-2xl font-bold text-yellow-600">
-              {reports.filter(r => r.status === 'Under Investigation' || r.status === 'Reported to MVC').length}
+              {reports.filter(r => r.status !== 'Added' && r.status !== 'Closed').length}
             </div>
             <div className="text-sm text-gray-600">In Progress</div>
           </div>
@@ -800,17 +1222,21 @@ const ReportsTab = ({
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date Created
+                    Email
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    Date Created
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredReports.map((report) => (
-                  <tr key={report.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr
+                    key={report.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => onOpenDetailsModal(report)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedReports.has(report.id)}
@@ -824,9 +1250,6 @@ const ReportsTab = ({
                           <div className="text-sm font-medium text-gray-900">
                             {report.schoolName}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            ID: {report.id}
-                          </div>
                           {report.location && (
                             <div className="text-sm text-gray-500">
                               📍 {report.location}
@@ -835,36 +1258,33 @@ const ReportsTab = ({
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(report.status)}`}>
-                        {report.status}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <StatusDropdown
+                        currentStatus={report.status}
+                        onStatusChange={onStatusChange}
+                        reportId={report.id}
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      {report.reporterEmail ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenEmailModal(report);
+                          }}
+                          className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center space-x-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          <span>Send Email</span>
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No email</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(report.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => onOpenStatusModal(report.id)}
-                          className="text-blue-600 hover:text-blue-900 text-sm"
-                        >
-                          Update Status
-                        </button>
-                        <button
-                          onClick={() => {
-                            const reportData = reports.find(r => r.id === report.id);
-                            if (reportData) onOpenEmailModal(reportData);
-                          }}
-                          className="text-green-600 hover:text-green-900 text-sm"
-                          disabled={!report.reporterEmail}
-                        >
-                          Send Email
-                        </button>
-                        <button className="text-gray-600 hover:text-gray-900 text-sm">
-                          View Details
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}

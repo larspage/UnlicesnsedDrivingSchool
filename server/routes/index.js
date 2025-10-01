@@ -1,13 +1,14 @@
 // API Routes
 const express = require('express');
 const router = express.Router();
+const { authenticateAdmin } = require('../middleware/auth');
 
 // Health check (already handled in app.js)
 // router.get('/health', (req, res) => {
 //   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 // });
 
-// Placeholder routes - will be expanded in later phases
+// Public status endpoint
 router.get('/status', (req, res) => {
   res.json({
     message: 'NJDSC School Compliance Portal API',
@@ -16,19 +17,22 @@ router.get('/status', (req, res) => {
   });
 });
 
-// Reports routes (placeholder)
+// Authentication routes (public)
+router.use('/auth', require('./auth'));
+
+// Reports routes (public for submission, admin-only for management)
 router.use('/reports', require('./reports'));
 
-// Files routes (placeholder)
+// Files routes (public for upload, admin-only for management)
 router.use('/files', require('./files'));
 
-// Configuration routes (placeholder)
-router.use('/config', require('./config'));
+// Configuration routes (admin-only)
+router.use('/config', authenticateAdmin, require('./config'));
 
-// Email routes (placeholder)
-router.use('/emails', require('./emails'));
+// Email routes (admin-only)
+router.use('/emails', authenticateAdmin, require('./emails'));
 
-// Audit routes
-router.use('/audit', require('./audit'));
+// Audit routes (admin-only)
+router.use('/audit', authenticateAdmin, require('./audit'));
 
 module.exports = router;

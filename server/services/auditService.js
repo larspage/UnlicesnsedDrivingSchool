@@ -542,6 +542,127 @@ async function getAuditStatistics(options = {}) {
   return stats;
 }
 
+/**
+ * Logs a successful login event
+ * @param {string} username - Username that logged in
+ * @param {string} ipAddress - IP address of the login
+ */
+async function logLogin(username, ipAddress) {
+  return createAuditLog({
+    action: 'LOGIN',
+    adminUser: username,
+    targetType: 'system',
+    targetId: null,
+    details: `User ${username} logged in`,
+    ipAddress,
+    metadata: { eventType: 'authentication' }
+  });
+}
+
+/**
+ * Logs a failed login attempt
+ * @param {string} username - Username that attempted login
+ * @param {string} ipAddress - IP address of the attempt
+ * @param {string} reason - Reason for failure
+ */
+async function logFailedLogin(username, ipAddress, reason) {
+  return createAuditLog({
+    action: 'LOGIN_FAILED',
+    adminUser: username,
+    targetType: 'system',
+    targetId: null,
+    details: `Failed login attempt for user ${username}: ${reason}`,
+    ipAddress,
+    metadata: { eventType: 'authentication', failureReason: reason }
+  });
+}
+
+/**
+ * Logs a logout event
+ * @param {string} username - Username that logged out
+ * @param {string} ipAddress - IP address of the logout
+ */
+async function logLogout(username, ipAddress) {
+  return createAuditLog({
+    action: 'LOGOUT',
+    adminUser: username,
+    targetType: 'system',
+    targetId: null,
+    details: `User ${username} logged out`,
+    ipAddress,
+    metadata: { eventType: 'authentication' }
+  });
+}
+
+/**
+ * Logs a password change event
+ * @param {string} username - Username that changed password
+ * @param {string} ipAddress - IP address of the change
+ */
+async function logPasswordChange(username, ipAddress) {
+  return createAuditLog({
+    action: 'PASSWORD_CHANGE',
+    adminUser: username,
+    targetType: 'user',
+    targetId: username,
+    details: `User ${username} changed their password`,
+    ipAddress,
+    metadata: { eventType: 'security' }
+  });
+}
+
+/**
+ * Logs a status update event
+ * @param {string} reportId - ID of the report being updated
+ * @param {string} oldStatus - Previous status
+ * @param {string} newStatus - New status
+ * @param {string} adminNotes - Admin notes
+ */
+async function logStatusUpdate(reportId, oldStatus, newStatus, adminNotes) {
+  return createAuditLog({
+    action: 'STATUS_UPDATE',
+    adminUser: 'admin', // This should be passed from the authenticated user
+    targetType: 'report',
+    targetId: reportId,
+    details: `Report status changed from "${oldStatus}" to "${newStatus}"`,
+    ipAddress: 'system', // This should be passed from the request
+    changes: {
+      status: { old: oldStatus, new: newStatus }
+    },
+    metadata: {
+      adminNotes: adminNotes || null,
+      eventType: 'report_management'
+    }
+  });
+}
+
+/**
+ * Logs a bulk status update event
+ * @param {Array<string>} reportIds - IDs of reports being updated
+ * @param {string} oldStatus - Previous status (may be mixed)
+ * @param {string} newStatus - New status
+ * @param {string} adminNotes - Admin notes
+ */
+async function logBulkStatusUpdate(reportIds, oldStatus, newStatus, adminNotes) {
+  return createAuditLog({
+    action: 'BULK_STATUS_UPDATE',
+    adminUser: 'admin', // This should be passed from the authenticated user
+    targetType: 'report',
+    targetId: null,
+    details: `Bulk status update: ${reportIds.length} reports changed to "${newStatus}"`,
+    ipAddress: 'system', // This should be passed from the request
+    changes: {
+      status: { old: oldStatus, new: newStatus },
+      affectedReports: reportIds.length
+    },
+    metadata: {
+      adminNotes: adminNotes || null,
+      reportIds: reportIds,
+      eventType: 'bulk_operation'
+    }
+  });
+}
+
 module.exports = {
   getAuditLogs,
   createAuditLog,
@@ -551,6 +672,14 @@ module.exports = {
   getRecentAuditLogs,
   getAuditStatistics,
   clearCache,
+
+  // Authentication audit methods
+  logLogin,
+  logFailedLogin,
+  logLogout,
+  logPasswordChange,
+  logStatusUpdate,
+  logBulkStatusUpdate,
 
   // Utility functions for testing
   getCachedAuditLogs,

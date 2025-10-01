@@ -196,34 +196,81 @@ async function getReportById(reportId, includeAdminFields = false) {
  * @throws {Error} If report not found or status invalid
  */
 async function updateReportStatus(reportId, updateData) {
+  const startTime = Date.now();
+  
   try {
+    console.log('[REPORT SERVICE] updateReportStatus called:', {
+      reportId,
+      updateData,
+      timestamp: new Date().toISOString()
+    });
+
     validateSpreadsheetConfig();
 
     const { status, adminNotes, mvcReferenceNumber, updatedBy } = updateData;
 
+    console.log('[REPORT SERVICE] Fetching all reports for update');
     const allReports = await getAllReports();
     const reportIndex = allReports.findIndex(r => r.id === reportId);
 
     if (reportIndex === -1) {
+      console.error('[REPORT SERVICE ERROR] Report not found:', {
+        reportId,
+        totalReports: allReports.length,
+        timestamp: new Date().toISOString()
+      });
       throw new Error(`Report with ID ${reportId} not found`);
     }
 
     const existingReport = allReports[reportIndex];
-    const updatedReport = existingReport.update({
+    console.log('[REPORT SERVICE] Found existing report:', {
+      reportId,
+      currentStatus: existingReport.status,
+      newStatus: status
+    });
+
+    // Create a Report instance from the existing data
+    const reportInstance = new Report(existingReport);
+
+    // Prepare update data
+    const updatePayload = {
       status,
       adminNotes: adminNotes !== undefined ? adminNotes : existingReport.adminNotes,
       mvcReferenceNumber: mvcReferenceNumber !== undefined ? mvcReferenceNumber : existingReport.mvcReferenceNumber
-    });
+    };
+
+    console.log('[REPORT SERVICE] Updating report instance with payload:', updatePayload);
+    const updatedReport = reportInstance.update(updatePayload);
 
     // Validate status transition
+    console.log('[REPORT SERVICE] Validating business rules');
     updatedReport.validateBusinessRules(allReports);
 
     // Save to sheets
+    console.log('[REPORT SERVICE] Saving to Google Sheets');
     await updateReportInSheets(updatedReport);
+
+    console.log('[REPORT SERVICE] Report status updated successfully:', {
+      reportId,
+      oldStatus: existingReport.status,
+      newStatus: updatedReport.status,
+      duration: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    });
 
     return updatedReport;
   } catch (error) {
-    console.error('Error updating report status:', error);
+    console.error('[REPORT SERVICE ERROR] Error updating report status:', {
+      reportId,
+      updateData,
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      },
+      duration: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    });
     throw error;
   }
 }
