@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import ReportPage from './pages/ReportPage';
 import ReportsPage from './pages/ReportsPage';
+import TestImagePage from './pages/TestImagePage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -16,6 +17,7 @@ function App() {
         <Route path="/" element={<Layout><HomePage /></Layout>} />
         <Route path="/report" element={<Layout><ReportPage /></Layout>} />
         <Route path="/reports" element={<Layout><ReportsPage /></Layout>} />
+        <Route path="/test-image" element={<Layout><TestImagePage /></Layout>} />
         <Route path="/login" element={<LoginPage />} />
 
         {/* Protected admin routes */}

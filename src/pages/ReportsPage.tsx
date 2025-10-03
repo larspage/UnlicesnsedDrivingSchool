@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { apiClient, Report } from '../services/api';
+import { apiClient, Report, UploadedFile } from '../services/api';
+import PhotoPager from '../components/PhotoPager';
 
 interface ReportsPageState {
   reports: Report[];
@@ -106,6 +107,11 @@ const ReportsPage: React.FC = () => {
   // Handle pagination
   const handlePageChange = (page: number) => {
     setState(prev => ({ ...prev, currentPage: page }));
+  };
+
+  // Handle viewing report details
+  const handleViewDetails = (report: Report) => {
+    setSelectedReport(report);
   };
 
   // Format date for display
@@ -267,6 +273,14 @@ const ReportsPage: React.FC = () => {
                 <p className="mt-1 text-sm text-gray-900">{formatDate(selectedReport.createdAt)}</p>
               </div>
             </div>
+
+            {/* Photo Pager */}
+            {(() => {
+              console.log('selectedReport.uploadedFiles:', selectedReport.uploadedFiles, typeof selectedReport.uploadedFiles);
+              return selectedReport.uploadedFiles && selectedReport.uploadedFiles.length > 0 && (
+                <PhotoPager files={selectedReport.uploadedFiles} />
+              );
+            })()}
 
             <div className="mt-6 flex justify-end">
               <button
@@ -449,7 +463,7 @@ const ReportsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
-                        onClick={() => setSelectedReport(report)}
+                        onClick={() => handleViewDetails(report)}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         View Details

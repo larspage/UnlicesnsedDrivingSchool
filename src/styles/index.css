@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Suppress deprecated CSS warnings */
+* {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* Custom styles */
 .njdsc-brand {
   @apply text-blue-900;

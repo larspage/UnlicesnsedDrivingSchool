@@ -306,14 +306,8 @@ async function generatePublicUrl(fileId) {
       supportsAllDrives: true,
     });
 
-    // Get file metadata to construct direct download URL
-    const response = await drive.files.get({
-      fileId,
-      fields: 'webContentLink',
-      supportsAllDrives: true,
-    });
-
-    const publicUrl = response.data.webContentLink;
+    // Return the direct download URL - proxy URLs will be generated in the routes
+    const publicUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
 
     logOperation('generatePublicUrl', { success: true, fileId, publicUrl });
 
@@ -413,6 +407,34 @@ async function getFileMetadata(fileId) {
 }
 
 /**
+ * Downloads a file from Google Drive
+ * @param {string} fileId - Google Drive file ID
+ * @returns {Object} Response object with data stream
+ */
+async function downloadFile(fileId) {
+  try {
+    validateFileId(fileId);
+
+    logOperation('downloadFile', { fileId });
+
+    const response = await drive.files.get({
+      fileId,
+      alt: 'media',
+      supportsAllDrives: true,
+    }, {
+      responseType: 'stream'
+    });
+
+    logOperation('downloadFile', { success: true, fileId });
+
+    return response;
+
+  } catch (error) {
+    handleApiError(error, 'downloadFile');
+  }
+}
+
+/**
  * Deletes a file from Google Drive
  * @param {string} fileId - Google Drive file ID
  * @returns {boolean} Success status
@@ -442,6 +464,7 @@ module.exports = {
   generatePublicUrl,
   generateThumbnail,
   getFileMetadata,
+  downloadFile,
   deleteFile,
 
   // Utility functions

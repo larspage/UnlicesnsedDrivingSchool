@@ -155,6 +155,56 @@ router.get('/:id', validateFileId, async (req, res) => {
 });
 
 /**
+ * GET /api/files/:id/download
+ * Proxy download of file from Google Drive to enable CORS for images
+ */
+router.get('/:id/download', validateFileId, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid file ID is required'
+      });
+    }
+
+    // Get file metadata first
+    const file = await fileService.getFileById(id);
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+
+    // Fetch the file from Google Drive
+    const googleDriveService = require('../services/googleDriveService');
+    const driveResponse = await googleDriveService.downloadFile(file.driveFileId);
+
+    // Set appropriate headers for CORS and caching
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Stream the file content
+    driveResponse.data.pipe(res);
+
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to download file',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * GET /api/files/report/:reportId
  * Get all files associated with a report
  */

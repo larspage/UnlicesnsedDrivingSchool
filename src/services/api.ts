@@ -37,7 +37,7 @@ export interface Report {
   violationDescription?: string;
   phoneNumber?: string;
   websiteUrl?: string;
-  uploadedFiles?: File[];
+  uploadedFiles?: UploadedFile[];
   socialMediaLinks?: string[];
   additionalInfo?: string;
   status: string;

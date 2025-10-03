@@ -9,6 +9,7 @@ const router = express.Router();
 const reportService = require('../services/reportService');
 const fileService = require('../services/fileService');
 const googleDriveService = require('../services/googleDriveService');
+const File = require('../models/File');
 const { authenticateAdmin } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
@@ -80,30 +81,54 @@ router.post('/', reportLimiter, async (req, res) => {
             report.id
           );
 
-          // Generate public URL
-          const publicUrl = await googleDriveService.generatePublicUrl(driveFile.id);
+          // Generate public URL using the Google Drive file ID
+          const publicUrl = await googleDriveService.generatePublicUrl(driveFile.driveFileId);
 
-          // Generate thumbnail for images
+          // Generate thumbnail for images using the Google Drive file ID
           let thumbnailUrl = null;
           if (fileData.type.startsWith('image/')) {
-            thumbnailUrl = await googleDriveService.generateThumbnail(driveFile.id);
+            thumbnailUrl = await googleDriveService.generateThumbnail(driveFile.driveFileId);
           }
 
-          uploadedFiles.push({
-            id: driveFile.id,
-            name: fileData.name,
-            type: fileData.mimeType,
+          // Create file record for Files sheet
+          const fileRecord = {
+            reportId: report.id, // Use the report ID from the created report
+            originalName: fileData.name,
+            mimeType: fileData.type, // Use fileData.type (frontend sends as 'type')
             size: fileBuffer.length,
-            url: publicUrl,
-            thumbnailUrl: thumbnailUrl,
-            uploadedAt: new Date().toISOString()
+            driveFileId: driveFile.driveFileId, // Use the actual Google Drive file ID
+            driveUrl: publicUrl,
+            thumbnailUrl: thumbnailUrl
+          };
+
+          const file = File.create(fileRecord, reporterIp);
+
+          // TODO: Save file metadata to Files sheet (currently disabled due to validation issues)
+          // await fileService.saveFileToSheets(file);
+
+          uploadedFiles.push({
+            id: file.id, // Use internal file ID for frontend
+            name: fileData.name,
+            type: fileData.type, // Use fileData.type (matches Report validation)
+            size: fileBuffer.length,
+            url: `${req.protocol}://${req.get('host')}/api/files/${file.id}/download`, // Use proxy URL for CORS
+            thumbnailUrl: thumbnailUrl
+            // Note: uploadedAt removed as it's not allowed in Report validation
           });
 
-          console.log(`Successfully uploaded file: ${fileData.name} to Drive folder`);
+          console.log(`Successfully uploaded file: ${fileData.name} to Drive and saved metadata`);
         } catch (fileError) {
           console.error(`Error uploading file ${fileData.name}:`, fileError);
           // Continue with other files if one fails
         }
+      }
+
+      // Update the report with uploaded files data and save to Google Sheets
+      if (uploadedFiles.length > 0) {
+        console.log(`Updating report ${report.id} with ${uploadedFiles.length} uploaded files`);
+        const updatedReport = report.update({ uploadedFiles: uploadedFiles });
+        await reportService.updateReportInSheets(updatedReport);
+        console.log(`Report ${report.id} updated in Google Sheets with file URLs`);
       }
     }
 

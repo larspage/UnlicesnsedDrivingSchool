@@ -152,10 +152,51 @@ async function updateFileProcessingStatus(fileId, status) {
  */
 async function getAllFiles() {
   try {
-    const files = await googleSheetsService.getAllRows(
-      FILES_SPREADSHEET_ID,
-      FILES_SHEET_NAME
-    );
+    // Use direct Google Sheets API call for Files sheet
+    const { google } = require('googleapis');
+    const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+    if (!SERVICE_ACCOUNT_KEY) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required');
+    }
+
+    let credentials;
+    try {
+      credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
+    } catch (error) {
+      throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
+    }
+
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: FILES_SPREADSHEET_ID,
+      range: `${FILES_SHEET_NAME}!A:L`, // Files sheet has 12 columns (A to L)
+    });
+
+    const rows = response.data.values || [];
+    const files = [];
+
+    // Skip header row if it exists
+    const dataRows = rows.length > 0 && rows[0][0] === 'id' ? rows.slice(1) : rows;
+
+    for (const row of dataRows) {
+      if (row.length > 0) { // Skip empty rows
+        try {
+          const file = File.fromSheetsRow(row);
+          if (file.id) { // Only include rows with valid IDs
+            files.push(file);
+          }
+        } catch (error) {
+          console.warn('Skipping invalid file row:', row, error.message);
+        }
+      }
+    }
 
     return files;
   } catch (error) {
