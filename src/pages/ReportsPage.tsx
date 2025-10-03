@@ -198,16 +198,16 @@ const ReportsPage: React.FC = () => {
     if (!selectedReport) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 md:p-4 z-50">
         <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Report Details</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Report Details</h2>
               <button
                 onClick={() => setSelectedReport(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -233,28 +233,30 @@ const ReportsPage: React.FC = () => {
                 </div>
               )}
 
-              {selectedReport.phoneNumber && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedReport.phoneNumber}</p>
-                </div>
-              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {selectedReport.phoneNumber && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedReport.phoneNumber}</p>
+                  </div>
+                )}
 
-              {selectedReport.websiteUrl && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Website/Social Media</label>
-                  <a
-                    href={selectedReport.websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 text-sm text-blue-600 hover:text-blue-800 underline"
-                  >
-                    {selectedReport.websiteUrl}
-                  </a>
-                </div>
-              )}
+                {selectedReport.websiteUrl && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Website/Social Media</label>
+                    <a
+                      href={selectedReport.websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 text-sm text-blue-600 hover:text-blue-800 underline block"
+                    >
+                      {selectedReport.websiteUrl}
+                    </a>
+                  </div>
+                )}
+              </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Status</label>
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(selectedReport.status)}`}>
@@ -337,10 +339,10 @@ const ReportsPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Reported Schools</h1>
-        <p className="text-gray-600">
+    <div className="container mx-auto px-4 py-4 md:py-8">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Reported Schools</h1>
+        <p className="text-gray-600 text-sm md:text-base">
           Browse reports of unlicensed driving schools submitted by the community.
         </p>
       </div>
@@ -420,7 +422,7 @@ const ReportsPage: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSortChange('schoolName')}
                 >
                   School Name
@@ -431,7 +433,7 @@ const ReportsPage: React.FC = () => {
                   )}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSortChange('location')}
                 >
                   Location
@@ -442,7 +444,7 @@ const ReportsPage: React.FC = () => {
                   )}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSortChange('status')}
                 >
                   Status
@@ -453,7 +455,7 @@ const ReportsPage: React.FC = () => {
                   )}
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => handleSortChange('lastReported')}
                 >
                   Last Reported
@@ -463,7 +465,7 @@ const ReportsPage: React.FC = () => {
                     </span>
                   )}
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -487,21 +489,26 @@ const ReportsPage: React.FC = () => {
               ) : (
                 state.reports.map((report) => (
                   <tr key={report.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{report.schoolName}</div>
+                      {/* Show location and date on mobile */}
+                      <div className="md:hidden text-xs text-gray-500 mt-1">
+                        {report.location && `${report.location} • `}
+                        {formatDate(report.lastReported)}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{report.location || 'Not specified'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 md:px-6 py-4">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(report.status)}`}>
                         {report.status.replace('_', ' ').toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(report.lastReported)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-3 md:px-6 py-4 text-sm font-medium">
                       <button
                         onClick={() => handleViewDetails(report)}
                         className="text-blue-600 hover:text-blue-900"

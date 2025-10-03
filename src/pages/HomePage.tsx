@@ -1,23 +1,23 @@
 const HomePage = () => {
   return (
-    <div className="text-center">
-      <h1 className="text-4xl font-bold text-gray-900 mb-6">
+    <div className="text-center px-4">
+      <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-6">
         Welcome to NJDSC School Compliance Portal
       </h1>
-      <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-        Help protect consumers by reporting potentially unlicensed driving schools in New Jersey.
-        Your reports help the Division of Consumer Affairs maintain safety standards.
+      <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+        Help protect the students and the public by reporting potentially unlicensed driving schools in New Jersey.
+        Your reports help the Motor Vehicle Commission to maintain safety standards.
       </p>
-      <div className="space-x-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
         <a
           href="/report"
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          className="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors text-center"
         >
           Report an Issue
         </a>
         <a
           href="/reports"
-          className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+          className="w-full sm:w-auto bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors text-center"
         >
           View Reports
         </a>

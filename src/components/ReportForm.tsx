@@ -186,12 +186,12 @@ const ReportForm: React.FC = () => {
 
   if (submitSuccess) {
     return (
-      <div className="text-center py-12">
-        <div className="text-6xl mb-4">✅</div>
-        <h2 className="text-2xl font-bold text-green-600 mb-4">
+      <div className="text-center py-8 md:py-12 px-4">
+        <div className="text-4xl md:text-6xl mb-4">✅</div>
+        <h2 className="text-xl md:text-2xl font-bold text-green-600 mb-4">
           Report Submitted Successfully!
         </h2>
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 mb-6 text-sm md:text-base">
           Thank you for helping protect consumers by reporting this unlicensed driving school.
           Your report has been submitted and will be reviewed by our compliance team.
         </p>
@@ -203,9 +203,9 @@ const ReportForm: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white shadow-lg rounded-lg p-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">
+    <div className="max-w-2xl mx-auto px-4">
+      <div className="bg-white shadow-lg rounded-lg p-4 md:p-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
           Report an Unlicensed Driving School
         </h1>
 
@@ -439,11 +439,11 @@ const ReportForm: React.FC = () => {
           )}
 
           {/* Submit Button */}
-          <div className="flex justify-end space-x-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 sm:space-x-4 sm:space-y-0">
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 order-2 sm:order-1"
               disabled={isSubmitting}
             >
               Cancel
@@ -451,7 +451,7 @@ const ReportForm: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
             >
               {isSubmitting ? 'Submitting...' : 'Submit Report'}
             </button>

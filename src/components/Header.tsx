@@ -7,6 +7,7 @@ const Header = () => {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const authService = AuthService.getInstance();
 
   useEffect(() => {
@@ -48,10 +49,12 @@ const Header = () => {
     <header className="bg-white shadow-sm border-b">
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
-          <Link to="/" className="text-2xl font-bold njdsc-brand">
+          <Link to="/" className="text-xl md:text-2xl font-bold njdsc-brand">
             NJDSC Compliance Portal
           </Link>
-          <nav className="flex items-center space-x-6">
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-6">
             <Link
               to="/"
               className={`hover:text-blue-600 ${
@@ -113,7 +116,97 @@ const Header = () => {
               )}
             </div>
           </nav>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {isMobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden mt-4 pb-4 border-t border-gray-200">
+            <nav className="flex flex-col space-y-2 pt-4">
+              <Link
+                to="/"
+                className={`px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname === '/' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Home
+              </Link>
+              <Link
+                to="/report"
+                className={`px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname === '/report' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Report Issue
+              </Link>
+              <Link
+                to="/reports"
+                className={`px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname === '/reports' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                View Reports
+              </Link>
+
+              {/* Admin link - only show if authenticated */}
+              {isAuthenticated && (
+                <Link
+                  to="/admin"
+                  className={`px-3 py-2 rounded-md text-base font-medium ${
+                    location.pathname.startsWith('/admin') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Admin
+                </Link>
+              )}
+
+              {/* Authentication section */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                {isAuthenticated ? (
+                  <div className="space-y-2">
+                    <div className="px-3 py-2 text-sm text-gray-600">
+                      Welcome, <span className="font-medium">{currentUser?.username}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-base font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="block px-3 py-2 text-base font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Admin Login
+                  </Link>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );
