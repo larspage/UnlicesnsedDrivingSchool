@@ -56,8 +56,8 @@ class File {
    * @param {string} data.originalName - Original filename
    * @param {string} data.mimeType - MIME type
    * @param {number} data.size - File size in bytes
-   * @param {string} data.driveFileId - Google Drive file ID
-   * @param {string} data.driveUrl - Public access URL
+   * @param {string} data.localFilePath - Local file system path
+   * @param {string} data.publicUrl - Public access URL
    * @param {string} [data.thumbnailUrl] - Thumbnail URL for images
    * @param {string} data.uploadedAt - Upload timestamp
    * @param {string} [data.uploadedByIp] - Uploader's IP address
@@ -73,8 +73,8 @@ class File {
     this.originalName = validatedData.originalName;
     this.mimeType = validatedData.mimeType;
     this.size = validatedData.size;
-    this.driveFileId = validatedData.driveFileId;
-    this.driveUrl = validatedData.driveUrl;
+    this.localFilePath = validatedData.localFilePath;
+    this.publicUrl = validatedData.publicUrl;
     this.thumbnailUrl = validatedData.thumbnailUrl;
     this.uploadedAt = validatedData.uploadedAt;
     this.uploadedByIp = validatedData.uploadedByIp;
@@ -107,8 +107,8 @@ class File {
       originalName: Joi.string().max(255).trim().required(),
       mimeType: Joi.string().valid(...ALL_SUPPORTED_TYPES).required(),
       size: Joi.number().integer().min(0).max(MAX_FILE_SIZE).required(),
-      driveFileId: Joi.string().required(),
-      driveUrl: Joi.string().uri().required(),
+      localFilePath: Joi.string().required(),
+      publicUrl: Joi.string().pattern(/^\/uploads\//).required(),
       thumbnailUrl: Joi.string().uri().allow(''),
       uploadedAt: Joi.string().isoDate().required(),
       uploadedByIp: Joi.string().ip({ version: ['ipv4', 'ipv6'] }).allow('', null).optional(),
@@ -186,26 +186,33 @@ class File {
 
   /**
    * Generates a public access URL for the file
-   * @param {string} driveFileId - Google Drive file ID
+   * @param {string} localFilePath - Local file path relative to uploads directory
    * @returns {string} Public URL
    */
-  static generatePublicUrl(driveFileId) {
-    if (!driveFileId || typeof driveFileId !== 'string') {
-      throw new Error('Invalid Drive file ID');
+  static generatePublicUrl(localFilePath) {
+    if (!localFilePath || typeof localFilePath !== 'string') {
+      throw new Error('Invalid local file path');
     }
-    return `https://drive.google.com/uc?export=download&id=${driveFileId}`;
+    // If path already starts with uploads/, just add leading slash
+    if (localFilePath.startsWith('uploads/')) {
+      return `/${localFilePath}`;
+    }
+    // Remove any leading slashes and ensure it starts with /uploads/
+    const cleanPath = localFilePath.replace(/^\/+/, '');
+    return `/uploads/${cleanPath}`;
   }
 
   /**
    * Generates a thumbnail URL for image files
-   * @param {string} driveFileId - Google Drive file ID
+   * @param {string} localFilePath - Local file path relative to uploads directory
    * @returns {string|null} Thumbnail URL or null if not applicable
    */
-  static generateThumbnailUrl(driveFileId) {
-    if (!driveFileId || typeof driveFileId !== 'string') {
-      throw new Error('Invalid Drive file ID');
+  static generateThumbnailUrl(localFilePath) {
+    if (!localFilePath || typeof localFilePath !== 'string') {
+      throw new Error('Invalid local file path');
     }
-    return `https://drive.google.com/thumbnail?id=${driveFileId}&sz=s400`;
+    // For now, return the same URL as the main file (thumbnail generation not implemented yet)
+    return File.generatePublicUrl(localFilePath);
   }
 
   /**
@@ -265,58 +272,6 @@ class File {
     return new File(updatedData);
   }
 
-  /**
-   * Converts the file to a Google Sheets row array
-   * @returns {Array} Array of values for the sheet row
-   */
-  toSheetsRow() {
-    return [
-      this.id || '',
-      this.reportId || '',
-      this.originalName || '',
-      this.mimeType || '',
-      this.size || 0,
-      this.driveFileId || '',
-      this.driveUrl || '',
-      this.thumbnailUrl || '',
-      this.uploadedAt || '',
-      this.uploadedByIp || '',
-      this.processingStatus || ''
-    ];
-  }
-
-  /**
-   * Creates a File instance from a Google Sheets row array
-   * @param {Array} row - Array of values from the sheet row
-   * @returns {File} New File instance
-   * @throws {Error} If row data is invalid
-   */
-  static fromSheetsRow(row) {
-    if (!Array.isArray(row) || row.length < 11) {
-      throw new Error('Invalid row data: must be an array with at least 11 elements');
-    }
-
-    const data = {
-      id: row[0] || null,
-      reportId: row[1] || null,
-      originalName: row[2] || null,
-      mimeType: row[3] || null,
-      size: row[4] ? parseInt(row[4], 10) : null,
-      driveFileId: row[5] || null,
-      driveUrl: row[6] || null,
-      thumbnailUrl: row[7] || null,
-      uploadedAt: row[8] || null,
-      uploadedByIp: row[9] || null,
-      processingStatus: row[10] || null
-    };
-
-    // Filter out null values for required fields validation
-    const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== null)
-    );
-
-    return new File(cleanData);
-  }
 
   /**
    * Creates a new file record with generated ID and timestamps

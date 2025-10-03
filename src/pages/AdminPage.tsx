@@ -96,14 +96,14 @@ const AdminPage = () => {
 
       if (response.success && response.data) {
         // Convert API response format to our internal format
-        const apiReports: Report[] = response.data.items.map(apiReport => ({
+        const apiReports: Report[] = response.data.items.map((apiReport: any) => ({
           id: apiReport.id,
           schoolName: apiReport.schoolName,
           location: apiReport.location,
           violationDescription: apiReport.violationDescription,
           phoneNumber: apiReport.phoneNumber,
           websiteUrl: apiReport.websiteUrl,
-          uploadedFiles: [], // Convert File[] to UploadedFile[] - would need separate API call
+          uploadedFiles: apiReport.uploadedFiles || [], // Preserve uploaded files from API
           socialMediaLinks: apiReport.socialMediaLinks,
           additionalInfo: apiReport.additionalInfo,
           status: apiReport.status as ReportStatus,
@@ -111,8 +111,8 @@ const AdminPage = () => {
           createdAt: apiReport.createdAt,
           updatedAt: apiReport.updatedAt,
           reporterIp: '', // API doesn't expose this for security
-          adminNotes: '', // Would need separate API endpoint
-          mvcReferenceNumber: '', // Would need separate API endpoint
+          adminNotes: apiReport.adminNotes || '', // Get from API if available
+          mvcReferenceNumber: apiReport.mvcReferenceNumber || '', // Get from API if available
           reporterName: '', // Would need separate API endpoint
           reporterPhone: '', // Would need separate API endpoint
           reporterSchool: '', // Would need separate API endpoint
@@ -791,6 +791,9 @@ const ReportDetailsModal = ({ report, onClose, onUpdateStatus }: {
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       {(file.size / 1024).toFixed(1)} KB
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1 font-mono break-all">
+                      URL: {file.thumbnailUrl || file.url}
                     </p>
                     <div className="mt-2 flex justify-between items-center">
                       <span className="text-xs text-gray-500">

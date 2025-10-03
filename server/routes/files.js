@@ -156,7 +156,7 @@ router.get('/:id', validateFileId, async (req, res) => {
 
 /**
  * GET /api/files/:id/download
- * Proxy download of file from Google Drive to enable CORS for images
+ * Download file from local storage or Google Drive to enable CORS for images
  */
 router.get('/:id/download', validateFileId, async (req, res) => {
   try {
@@ -179,10 +179,6 @@ router.get('/:id/download', validateFileId, async (req, res) => {
       });
     }
 
-    // Fetch the file from Google Drive
-    const googleDriveService = require('../services/googleDriveService');
-    const driveResponse = await googleDriveService.downloadFile(file.driveFileId);
-
     // Set appropriate headers for CORS and caching
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
@@ -191,8 +187,23 @@ router.get('/:id/download', validateFileId, async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Stream the file content
-    driveResponse.data.pipe(res);
+    // Check if file is stored locally or on Google Drive
+    if (file.localFilePath) {
+      // Local file - stream from local filesystem
+      const localFileService = require('../services/localFileService');
+      const fileStream = await localFileService.downloadFile(file.localFilePath);
+      fileStream.stream.pipe(res);
+    } else if (file.driveFileId) {
+      // Google Drive file - fetch from Drive
+      const googleDriveService = require('../services/googleDriveService');
+      const driveResponse = await googleDriveService.downloadFile(file.driveFileId);
+      driveResponse.data.pipe(res);
+    } else {
+      return res.status(404).json({
+        success: false,
+        error: 'File storage location not found'
+      });
+    }
 
   } catch (error) {
     console.error('Error downloading file:', error);

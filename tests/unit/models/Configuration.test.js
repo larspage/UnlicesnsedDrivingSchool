@@ -267,53 +267,6 @@ describe('Configuration Model', () => {
     });
   });
 
-  describe('toSheetsRow', () => {
-    test('should convert configuration to sheets row array', () => {
-      const data = {
-        key: 'test.key',
-        value: 'test value',
-        type: 'string',
-        category: 'system',
-        description: 'Test description',
-        updatedAt: '2025-09-26T21:25:00.000Z',
-        updatedBy: 'admin@example.com'
-      };
-
-      const config = new Configuration(data);
-      const row = config.toSheetsRow();
-
-      expect(row).toHaveLength(7);
-      expect(row[0]).toBe('test.key');
-      expect(row[1]).toBe('test value');
-      expect(row[2]).toBe('string');
-      expect(row[3]).toBe('system');
-      expect(row[4]).toBe('Test description');
-      expect(row[6]).toBe('admin@example.com');
-    });
-  });
-
-  describe('fromSheetsRow', () => {
-    test('should create configuration from sheets row array', () => {
-      const row = [
-        'test.key',
-        'test value',
-        'string',
-        'system',
-        'Test description',
-        '2025-09-26T21:25:00.000Z',
-        'admin@example.com'
-      ];
-
-      const config = Configuration.fromSheetsRow(row);
-
-      expect(config.key).toBe('test.key');
-      expect(config.value).toBe('test value');
-      expect(config.type).toBe('string');
-      expect(config.category).toBe('system');
-      expect(config.description).toBe('Test description');
-      expect(config.updatedBy).toBe('admin@example.com');
-    });
-  });
 
   describe('create and update', () => {
     test('should create configuration with timestamp', () => {

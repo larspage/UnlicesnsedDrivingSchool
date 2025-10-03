@@ -13,8 +13,8 @@ describe('File Model', () => {
         originalName: 'test.jpg',
         mimeType: 'image/jpeg',
         size: 1024000,
-        driveFileId: '1ABC123DEF456',
-        driveUrl: 'https://drive.google.com/uc?export=download&id=1ABC123DEF456',
+        localFilePath: 'uploads/rep_DEF456/test.jpg',
+        publicUrl: '/uploads/rep_DEF456/test.jpg',
         uploadedAt: '2025-09-26T21:25:00.000Z',
         processingStatus: 'completed'
       };
@@ -25,6 +25,8 @@ describe('File Model', () => {
       expect(file.reportId).toBe('rep_DEF456');
       expect(file.originalName).toBe('test.jpg');
       expect(file.mimeType).toBe('image/jpeg');
+      expect(file.localFilePath).toBe('uploads/rep_DEF456/test.jpg');
+      expect(file.publicUrl).toBe('/uploads/rep_DEF456/test.jpg');
       expect(file.processingStatus).toBe('completed');
     });
 
@@ -88,8 +90,8 @@ describe('File Model', () => {
         originalName: 'upload.jpg',
         mimeType: 'image/jpeg',
         size: 2048000,
-        driveFileId: '1ABC123DEF456',
-        driveUrl: 'https://drive.google.com/uc?export=download&id=1ABC123DEF456'
+        localFilePath: 'uploads/rep_ABC123/upload.jpg',
+        publicUrl: '/uploads/rep_ABC123/upload.jpg'
       };
 
       const file = File.create(data, '127.0.0.1');
@@ -97,6 +99,8 @@ describe('File Model', () => {
       expect(file.id).toMatch(/^file_[a-zA-Z0-9]{6}$/);
       expect(file.reportId).toBe('rep_ABC123');
       expect(file.originalName).toBe('upload.jpg');
+      expect(file.localFilePath).toBe('uploads/rep_ABC123/upload.jpg');
+      expect(file.publicUrl).toBe('/uploads/rep_ABC123/upload.jpg');
       expect(file.processingStatus).toBe('pending');
       expect(file.uploadedAt).toBeDefined();
       expect(file.uploadedByIp).toBe('127.0.0.1');
@@ -105,13 +109,13 @@ describe('File Model', () => {
 
   describe('URL generation', () => {
     test('should generate public URL', () => {
-      const url = File.generatePublicUrl('1ABC123DEF456');
-      expect(url).toBe('https://drive.google.com/uc?export=download&id=1ABC123DEF456');
+      const url = File.generatePublicUrl('uploads/rep_ABC123/test.jpg');
+      expect(url).toBe('/uploads/rep_ABC123/test.jpg');
     });
 
     test('should generate thumbnail URL', () => {
-      const url = File.generateThumbnailUrl('1ABC123DEF456');
-      expect(url).toBe('https://drive.google.com/thumbnail?id=1ABC123DEF456&sz=s400');
+      const url = File.generateThumbnailUrl('uploads/rep_ABC123/test.jpg');
+      expect(url).toBe('/uploads/rep_ABC123/test.jpg');
     });
   });
 
@@ -123,8 +127,8 @@ describe('File Model', () => {
         originalName: 'test.jpg',
         mimeType: 'image/jpeg',
         size: 1024000,
-        driveFileId: '1ABC123DEF456',
-        driveUrl: 'https://drive.google.com/uc?export=download&id=1ABC123DEF456',
+        localFilePath: 'uploads/rep_DEF456/test.jpg',
+        publicUrl: '/uploads/rep_DEF456/test.jpg',
         uploadedAt: '2025-09-26T21:25:00.000Z',
         processingStatus: 'completed'
       });
@@ -142,8 +146,8 @@ describe('File Model', () => {
         originalName: 'test.mp4',
         mimeType: 'video/mp4',
         size: 1024000,
-        driveFileId: '1ABC123DEF456',
-        driveUrl: 'https://drive.google.com/uc?export=download&id=1ABC123DEF456',
+        localFilePath: 'uploads/rep_DEF456/test.mp4',
+        publicUrl: '/uploads/rep_DEF456/test.mp4',
         uploadedAt: '2025-09-26T21:25:00.000Z',
         processingStatus: 'completed'
       });
@@ -155,61 +159,6 @@ describe('File Model', () => {
     });
   });
 
-  describe('toSheetsRow', () => {
-    test('should convert file to sheets row array', () => {
-      const data = {
-        id: 'file_ABC123',
-        reportId: 'rep_DEF456',
-        originalName: 'test.jpg',
-        mimeType: 'image/jpeg',
-        size: 1024000,
-        driveFileId: '1ABC123DEF456',
-        driveUrl: 'https://drive.google.com/uc?export=download&id=1ABC123DEF456',
-        thumbnailUrl: 'https://drive.google.com/thumbnail?id=1ABC123DEF456&sz=s400',
-        uploadedAt: '2025-09-26T21:25:00.000Z',
-        uploadedByIp: '127.0.0.1',
-        processingStatus: 'completed'
-      };
-
-      const file = new File(data);
-      const row = file.toSheetsRow();
-
-      expect(row).toHaveLength(11);
-      expect(row[0]).toBe('file_ABC123');
-      expect(row[1]).toBe('rep_DEF456');
-      expect(row[2]).toBe('test.jpg');
-      expect(row[3]).toBe('image/jpeg');
-      expect(row[4]).toBe(1024000);
-      expect(row[10]).toBe('completed');
-    });
-  });
-
-  describe('fromSheetsRow', () => {
-    test('should create file from sheets row array', () => {
-      const row = [
-        'file_ABC123',
-        'rep_DEF456',
-        'test.jpg',
-        'image/jpeg',
-        '1024000',
-        '1ABC123DEF456',
-        'https://drive.google.com/uc?export=download&id=1ABC123DEF456',
-        'https://drive.google.com/thumbnail?id=1ABC123DEF456&sz=s400',
-        '2025-09-26T21:25:00.000Z',
-        '127.0.0.1',
-        'completed'
-      ];
-
-      const file = File.fromSheetsRow(row);
-
-      expect(file.id).toBe('file_ABC123');
-      expect(file.reportId).toBe('rep_DEF456');
-      expect(file.originalName).toBe('test.jpg');
-      expect(file.mimeType).toBe('image/jpeg');
-      expect(file.size).toBe(1024000);
-      expect(file.processingStatus).toBe('completed');
-    });
-  });
 
   describe('updateProcessingStatus', () => {
     test('should update processing status', () => {
@@ -219,8 +168,8 @@ describe('File Model', () => {
         originalName: 'test.jpg',
         mimeType: 'image/jpeg',
         size: 1024000,
-        driveFileId: '1ABC123DEF456',
-        driveUrl: 'https://drive.google.com/uc?export=download&id=1ABC123DEF456',
+        localFilePath: 'uploads/rep_DEF456/test.jpg',
+        publicUrl: '/uploads/rep_DEF456/test.jpg',
         uploadedAt: '2025-09-26T21:25:00.000Z',
         processingStatus: 'pending'
       };
@@ -239,8 +188,8 @@ describe('File Model', () => {
         originalName: 'test.jpg',
         mimeType: 'image/jpeg',
         size: 1024000,
-        driveFileId: '1ABC123DEF456',
-        driveUrl: 'https://drive.google.com/uc?export=download&id=1ABC123DEF456',
+        localFilePath: 'uploads/rep_DEF456/test.jpg',
+        publicUrl: '/uploads/rep_DEF456/test.jpg',
         uploadedAt: '2025-09-26T21:25:00.000Z',
         processingStatus: 'pending'
       });

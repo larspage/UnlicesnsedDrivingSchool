@@ -101,7 +101,7 @@ class Report {
         type: Joi.string().required(),
         size: Joi.number().integer().min(0).required(),
         url: Joi.string().uri().required(),
-        thumbnailUrl: Joi.string().uri().optional()
+        thumbnailUrl: Joi.string().allow('', null).optional()
       })).max(10).allow(null).optional(),
       socialMediaLinks: Joi.array().items(Joi.string().uri()).allow(null).optional(),
       additionalInfo: Joi.string().max(2000).allow('', null).optional(),
@@ -168,84 +168,6 @@ class Report {
     }
   }
 
-  /**
-   * Converts the report to a Google Sheets row array
-   * @returns {Array} Array of values for the sheet row
-   */
-  toSheetsRow() {
-    return [
-      this.id || '',
-      this.schoolName || '',
-      this.location || '',
-      this.violationDescription || '',
-      this.phoneNumber || '',
-      this.websiteUrl || '',
-      this.uploadedFiles ? JSON.stringify(this.uploadedFiles) : '',
-      this.socialMediaLinks ? JSON.stringify(this.socialMediaLinks) : '',
-      this.additionalInfo || '',
-      this.status || '',
-      this.lastReported || '',
-      this.createdAt || '',
-      this.updatedAt || '',
-      this.reporterIp || '',
-      this.adminNotes || '',
-      this.mvcReferenceNumber || ''
-    ];
-  }
-
-  /**
-   * Creates a Report instance from a Google Sheets row array
-   * @param {Array} row - Array of values from the sheet row
-   * @returns {Report} New Report instance
-   * @throws {Error} If row data is invalid
-   */
-  static fromSheetsRow(row) {
-    if (!Array.isArray(row) || row.length < 16) {
-      throw new Error('Invalid row data: must be an array with at least 16 elements');
-    }
-
-    // Safely parse JSON fields
-    let uploadedFiles = null;
-    let socialMediaLinks = null;
-
-    try {
-      uploadedFiles = row[6] ? JSON.parse(row[6]) : null;
-    } catch (error) {
-      console.warn('Failed to parse uploadedFiles JSON:', row[6]);
-    }
-
-    try {
-      socialMediaLinks = row[7] ? JSON.parse(row[7]) : null;
-    } catch (error) {
-      console.warn('Failed to parse socialMediaLinks JSON:', row[7]);
-    }
-
-    const data = {
-      id: row[0] || null,
-      schoolName: row[1] || null,
-      location: row[2] || null,
-      violationDescription: row[3] || null,
-      phoneNumber: row[4] || null,
-      websiteUrl: row[5] || null,
-      uploadedFiles,
-      socialMediaLinks,
-      additionalInfo: row[8] || null,
-      status: row[9] || null,
-      lastReported: row[10] || null,
-      createdAt: row[11] || null,
-      updatedAt: row[12] || null,
-      reporterIp: row[13] || null,
-      adminNotes: row[14] || null,
-      mvcReferenceNumber: row[15] || null
-    };
-
-    // Filter out null values for required fields validation
-    const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== null)
-    );
-
-    return new Report(cleanData);
-  }
 
   /**
    * Creates a new report with generated ID and timestamps

@@ -5,39 +5,10 @@
  * and provides CRUD operations for audit log management.
  */
 
-const { google } = require('googleapis');
+const localJsonService = require('./localJsonService');
 
-// Environment variables
-const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-const AUDIT_SPREADSHEET_ID = process.env.GOOGLE_AUDIT_SPREADSHEET_ID || process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-
-// Validate required environment variables
-if (!SERVICE_ACCOUNT_KEY) {
-  throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required');
-}
-
-if (!AUDIT_SPREADSHEET_ID) {
-  throw new Error('GOOGLE_AUDIT_SPREADSHEET_ID or GOOGLE_SHEETS_SPREADSHEET_ID environment variable is required');
-}
-
-// Parse service account credentials
-let credentials;
-try {
-  credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
-} catch (error) {
-  throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
-}
-
-// Initialize Google Sheets API client
-const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
-
-const sheets = google.sheets({ version: 'v4', auth });
-
-// Audit sheet settings
-const AUDIT_SHEET_NAME = 'AuditLogs';
+// Configuration constants
+const AUDIT_DATA_FILE = 'audit';
 
 // Column mapping for Audit Logs table
 const AUDIT_COLUMNS = {
@@ -227,44 +198,18 @@ function clearAuditCache() {
 }
 
 /**
- * Retrieves all audit logs from Google Sheets
+ * Retrieves all audit logs from local JSON storage
  * @param {Object} [options] - Options for filtering
  * @param {number} [options.limit] - Maximum number of logs to return
  * @param {string} [options.startDate] - Start date filter (ISO string)
  * @param {string} [options.endDate] - End date filter (ISO string)
  * @returns {Array<AuditLogEntry>} Array of audit log entries
  */
-async function getAllAuditLogsFromSheets(options = {}) {
+async function getAllAuditLogsFromJson(options = {}) {
   try {
-    validateSpreadsheetParams(AUDIT_SPREADSHEET_ID, AUDIT_SHEET_NAME);
+    logOperation('getAllAuditLogsFromJson', { dataFile: AUDIT_DATA_FILE, options });
 
-    logOperation('getAllAuditLogsFromSheets', { spreadsheetId: AUDIT_SPREADSHEET_ID, sheetName: AUDIT_SHEET_NAME, options });
-
-    const range = `${AUDIT_SHEET_NAME}!A:J`; // Read all columns A to J
-
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: AUDIT_SPREADSHEET_ID,
-      range,
-    });
-
-    const rows = response.data.values || [];
-    const auditLogs = [];
-
-    // Skip header row if it exists (assuming first row is headers)
-    const dataRows = rows.length > 0 && rows[0][0] === 'id' ? rows.slice(1) : rows;
-
-    for (const row of dataRows) {
-      if (row.length > 0) { // Skip empty rows
-        try {
-          const auditLog = rowToAuditLog(row);
-          if (auditLog.id) { // Only include rows with valid IDs
-            auditLogs.push(auditLog);
-          }
-        } catch (error) {
-          console.warn('Skipping invalid audit log row:', row, error.message);
-        }
-      }
-    }
+    const auditLogs = await localJsonService.getAllRows(null, AUDIT_DATA_FILE);
 
     // Apply filters
     let filteredLogs = auditLogs;
@@ -285,43 +230,28 @@ async function getAllAuditLogsFromSheets(options = {}) {
       filteredLogs = filteredLogs.slice(0, options.limit);
     }
 
-    logOperation('getAllAuditLogsFromSheets', { totalLogs: auditLogs.length, filteredLogs: filteredLogs.length });
+    logOperation('getAllAuditLogsFromJson', { totalLogs: auditLogs.length, filteredLogs: filteredLogs.length });
 
     return filteredLogs;
 
   } catch (error) {
-    handleApiError(error, 'getAllAuditLogsFromSheets');
+    logOperation('getAllAuditLogsFromJson', { error: error.message });
+    throw new Error(`Failed to retrieve audit logs from JSON: ${error.message}`);
   }
 }
 
 /**
- * Saves an audit log entry to Google Sheets
+ * Saves an audit log entry to local JSON storage
  * @param {AuditLogEntry} entry - Audit log entry to save
  * @returns {AuditLogEntry} The saved audit log entry
  */
-async function saveAuditLogToSheets(entry) {
+async function saveAuditLogToJson(entry) {
   try {
-    validateSpreadsheetParams(AUDIT_SPREADSHEET_ID, AUDIT_SHEET_NAME);
+    logOperation('saveAuditLogToJson', { id: entry.id, action: entry.action, adminUser: entry.adminUser });
 
-    logOperation('saveAuditLogToSheets', { id: entry.id, action: entry.action, adminUser: entry.adminUser });
+    await localJsonService.appendRow(null, AUDIT_DATA_FILE, entry);
 
-    const row = auditLogToRow(entry);
-    const range = `${AUDIT_SHEET_NAME}!A:A`; // Append to the end
-
-    const response = await sheets.spreadsheets.values.append({
-      spreadsheetId: AUDIT_SPREADSHEET_ID,
-      range,
-      valueInputOption: 'RAW',
-      insertDataOption: 'INSERT_ROWS',
-      resource: {
-        values: [row],
-      },
-    });
-
-    logOperation('saveAuditLogToSheets', {
-      action: 'created',
-      updatedRange: response.data.updates.updatedRange
-    });
+    logOperation('saveAuditLogToJson', { action: 'created' });
 
     // Clear cache since logs changed
     clearAuditCache();
@@ -329,7 +259,8 @@ async function saveAuditLogToSheets(entry) {
     return entry;
 
   } catch (error) {
-    handleApiError(error, 'saveAuditLogToSheets');
+    logOperation('saveAuditLogToJson', { error: error.message });
+    throw new Error(`Failed to save audit log to JSON: ${error.message}`);
   }
 }
 
@@ -357,8 +288,8 @@ async function getAuditLogs(filters = {}) {
     }
   }
 
-  // Get from sheets
-  const allLogs = await getAllAuditLogsFromSheets({ limit: filters.limit });
+  // Get from JSON
+  const allLogs = await getAllAuditLogsFromJson({ limit: filters.limit });
   let filteredLogs = [...allLogs];
 
   // Apply filters
@@ -431,7 +362,7 @@ async function createAuditLog(entryData) {
     throw new Error('Missing required audit log fields: action, targetType, details');
   }
 
-  const savedEntry = await saveAuditLogToSheets(entry);
+  const savedEntry = await saveAuditLogToJson(entry);
 
   logOperation('createAuditLog', {
     id: entry.id,

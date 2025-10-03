@@ -102,3 +102,11 @@ temp/
 google-credentials.json
 service-account-key.json
 docs/unlicesnseddrivingschooldev-*.json
+
+# Data files (exclude from version control, keep config.json)
+data/reports.json
+data/files.json
+data/audit.json
+
+# Uploaded files directory
+uploads/

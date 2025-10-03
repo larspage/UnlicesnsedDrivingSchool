@@ -5,40 +5,11 @@
  * and validation. Provides CRUD operations for configuration management.
  */
 
-const { google } = require('googleapis');
+const localJsonService = require('./localJsonService');
 const Configuration = require('../models/Configuration');
 
-// Environment variables
-const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-const CONFIG_SPREADSHEET_ID = process.env.GOOGLE_CONFIG_SPREADSHEET_ID || process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-
-// Validate required environment variables
-if (!SERVICE_ACCOUNT_KEY) {
-  throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required');
-}
-
-if (!CONFIG_SPREADSHEET_ID) {
-  throw new Error('GOOGLE_CONFIG_SPREADSHEET_ID or GOOGLE_SHEETS_SPREADSHEET_ID environment variable is required');
-}
-
-// Parse service account credentials
-let credentials;
-try {
-  credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
-} catch (error) {
-  throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
-}
-
-// Initialize Google Sheets API client
-const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
-
-const sheets = google.sheets({ version: 'v4', auth });
-
-// Configuration sheet settings
-const CONFIG_SHEET_NAME = 'Configuration';
+// Configuration constants
+const CONFIG_DATA_FILE = 'config';
 
 // Column mapping for Configuration table
 const CONFIG_COLUMNS = {
@@ -194,101 +165,62 @@ function clearConfigCache() {
 }
 
 /**
- * Retrieves all configuration from Google Sheets
+ * Retrieves all configuration from local JSON storage
  * @returns {Array<Configuration>} Array of Configuration instances
  */
-async function getAllConfigFromSheets() {
+async function getAllConfigFromJson() {
   try {
-    validateSpreadsheetParams(CONFIG_SPREADSHEET_ID, CONFIG_SHEET_NAME);
+    logOperation('getAllConfigFromJson', { dataFile: CONFIG_DATA_FILE });
 
-    logOperation('getAllConfigFromSheets', { spreadsheetId: CONFIG_SPREADSHEET_ID, sheetName: CONFIG_SHEET_NAME });
-
-    const range = `${CONFIG_SHEET_NAME}!A:G`; // Read all columns A to G
-
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: CONFIG_SPREADSHEET_ID,
-      range,
-    });
-
-    const rows = response.data.values || [];
+    const configsData = await localJsonService.getAllRows(null, CONFIG_DATA_FILE);
     const configs = [];
 
-    // Skip header row if it exists (assuming first row is headers)
-    const dataRows = rows.length > 0 && rows[0][0] === 'key' ? rows.slice(1) : rows;
-
-    for (const row of dataRows) {
-      if (row.length > 0) { // Skip empty rows
-        try {
-          const config = rowToConfig(row);
-          if (config.key) { // Only include rows with valid keys
-            configs.push(config);
-          }
-        } catch (error) {
-          console.warn('Skipping invalid config row:', row, error.message);
+    for (const configData of configsData) {
+      try {
+        const config = new Configuration(configData);
+        if (config.key) { // Only include rows with valid keys
+          configs.push(config);
         }
+      } catch (error) {
+        console.warn('Skipping invalid config data:', configData, error.message);
       }
     }
 
-    logOperation('getAllConfigFromSheets', { configCount: configs.length });
+    logOperation('getAllConfigFromJson', { configCount: configs.length });
 
     return configs;
 
   } catch (error) {
-    handleApiError(error, 'getAllConfigFromSheets');
+    logOperation('getAllConfigFromJson', { error: error.message });
+    throw new Error(`Failed to retrieve configuration from JSON: ${error.message}`);
   }
 }
 
 /**
- * Updates or creates a configuration entry in Google Sheets
+ * Updates or creates a configuration entry in local JSON storage
  * @param {Configuration} config - Configuration instance to save
  * @returns {Configuration} The saved configuration
  */
-async function saveConfigToSheets(config) {
+async function saveConfigToJson(config) {
   try {
-    validateSpreadsheetParams(CONFIG_SPREADSHEET_ID, CONFIG_SHEET_NAME);
-
-    logOperation('saveConfigToSheets', { key: config.key, type: config.type, category: config.category });
+    logOperation('saveConfigToJson', { key: config.key, type: config.type, category: config.category });
 
     // Get all existing configs to find if this key exists
-    const allConfigs = await getAllConfigFromSheets();
+    const allConfigs = await getAllConfigFromJson();
     const existingIndex = allConfigs.findIndex(c => c.key === config.key);
 
-    const row = configToRow(config);
-
     if (existingIndex >= 0) {
-      // Update existing row
-      const sheetRowNumber = existingIndex + 2; // +1 for header, +1 for 1-based
-      const range = `${CONFIG_SHEET_NAME}!A${sheetRowNumber}:G${sheetRowNumber}`;
-
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: CONFIG_SPREADSHEET_ID,
-        range,
-        valueInputOption: 'RAW',
-        resource: {
-          values: [row],
-        },
-      });
-
-      logOperation('saveConfigToSheets', { action: 'updated', range });
+      // Update existing config
+      allConfigs[existingIndex] = config;
+      logOperation('saveConfigToJson', { action: 'updated' });
     } else {
-      // Append new row
-      const range = `${CONFIG_SHEET_NAME}!A:A`; // Append to the end
-
-      const response = await sheets.spreadsheets.values.append({
-        spreadsheetId: CONFIG_SPREADSHEET_ID,
-        range,
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        resource: {
-          values: [row],
-        },
-      });
-
-      logOperation('saveConfigToSheets', {
-        action: 'created',
-        updatedRange: response.data.updates.updatedRange
-      });
+      // Add new config
+      allConfigs.push(config);
+      logOperation('saveConfigToJson', { action: 'created' });
     }
+
+    // Save to JSON file
+    await localJsonService.writeJsonFile(CONFIG_DATA_FILE, allConfigs);
 
     // Clear cache since config changed
     clearConfigCache();
@@ -296,7 +228,8 @@ async function saveConfigToSheets(config) {
     return config;
 
   } catch (error) {
-    handleApiError(error, 'saveConfigToSheets');
+    logOperation('saveConfigToJson', { error: error.message });
+    throw new Error(`Failed to save configuration to JSON: ${error.message}`);
   }
 }
 
@@ -318,8 +251,8 @@ async function getConfig(key) {
     return cachedValue;
   }
 
-  // Get from sheets
-  const allConfigs = await getAllConfigFromSheets();
+  // Get from JSON
+  const allConfigs = await getAllConfigFromJson();
   const config = allConfigs.find(c => c.key === key);
 
   if (!config) {
@@ -343,7 +276,7 @@ async function getConfig(key) {
 async function getAllConfig() {
   logOperation('getAllConfig');
 
-  const allConfigs = await getAllConfigFromSheets();
+  const allConfigs = await getAllConfigFromJson();
   const configObject = {};
 
   for (const config of allConfigs) {
@@ -385,8 +318,8 @@ async function setConfig(key, value, type, category, description = '', updatedBy
 
   const config = Configuration.create(configData, updatedBy);
 
-  // Save to sheets
-  const savedConfig = await saveConfigToSheets(config);
+  // Save to JSON
+  const savedConfig = await saveConfigToJson(config);
 
   logOperation('setConfig', {
     key,
@@ -502,13 +435,13 @@ const DEFAULT_CONFIGS = {
  * @param {Object} [customDefaults] - Custom default configuration object (optional)
  * @param {string} [updatedBy] - Admin initializing the config
  */
-async function initializeDefaults(customDefaults = {}, updatedBy = 'system') {
+async function initializeDefaults(customDefaults = {}, updatedBy = null) {
   const defaults = { ...DEFAULT_CONFIGS, ...customDefaults };
 
   logOperation('initializeDefaults', { defaultKeys: Object.keys(defaults) });
 
   try {
-    const existingConfigs = await getAllConfigFromSheets();
+    const existingConfigs = await getAllConfigFromJson();
     const existingKeys = new Set(existingConfigs.map(c => c.key));
 
     let initializedCount = 0;

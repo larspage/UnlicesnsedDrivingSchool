@@ -8,12 +8,12 @@ const request = require('supertest');
 const express = require('express');
 const reportsRouter = require('../../../server/routes/reports');
 const reportService = require('../../../server/services/reportService');
-const googleDriveService = require('../../../server/services/googleDriveService');
+const localFileService = require('../../../server/services/localFileService');
 const auditService = require('../../../server/services/auditService');
 
 // Mock dependencies
 jest.mock('../../../server/services/reportService');
-jest.mock('../../../server/services/googleDriveService');
+jest.mock('../../../server/services/localFileService');
 jest.mock('../../../server/services/auditService');
 jest.mock('../../../server/middleware/auth', () => ({
   authenticateAdmin: (req, res, next) => {
@@ -90,14 +90,16 @@ describe('Reports API Routes', () => {
         status: 'Added'
       };
 
-      const mockDriveFile = { id: 'drive_file_id' };
-      const mockPublicUrl = 'https://drive.google.com/file/test.jpg';
+      const mockUploadedFile = {
+        localPath: '/uploads/rep_ABC123/test_123456789.jpg',
+        url: '/uploads/rep_ABC123/test_123456789.jpg',
+        thumbnailUrl: '/uploads/rep_ABC123/test_thumb_123456789.jpg'
+      };
 
       reportService.checkRateLimit.mockResolvedValue(false);
       reportService.createReport.mockResolvedValue(mockReport);
-      googleDriveService.uploadFile.mockResolvedValue(mockDriveFile);
-      googleDriveService.generatePublicUrl.mockResolvedValue(mockPublicUrl);
-      googleDriveService.generateThumbnail.mockResolvedValue('https://drive.google.com/thumbnail/test.jpg');
+      reportService.updateReport.mockResolvedValue(mockReport);
+      localFileService.uploadFile.mockResolvedValue(mockUploadedFile);
 
       const response = await request(app)
         .post('/api/reports')
@@ -107,8 +109,7 @@ describe('Reports API Routes', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.uploadedFiles).toHaveLength(1);
       expect(response.body.data.uploadedFiles[0].name).toBe('test.jpg');
-      expect(googleDriveService.uploadFile).toHaveBeenCalled();
-      expect(googleDriveService.generatePublicUrl).toHaveBeenCalled();
+      expect(localFileService.uploadFile).toHaveBeenCalled();
     });
 
     // Negative tests
@@ -190,7 +191,7 @@ describe('Reports API Routes', () => {
 
       reportService.checkRateLimit.mockResolvedValue(false);
       reportService.createReport.mockResolvedValue(mockReport);
-      googleDriveService.uploadFile.mockRejectedValue(new Error('Upload failed'));
+      localFileService.uploadFile.mockRejectedValue(new Error('Upload failed'));
 
       const response = await request(app)
         .post('/api/reports')

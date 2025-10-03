@@ -288,50 +288,6 @@ class Configuration {
     }
   }
 
-  /**
-   * Converts the configuration to a Google Sheets row array
-   * @returns {Array} Array of values for the sheet row
-   */
-  toSheetsRow() {
-    return [
-      this.key || '',
-      this.getStringValue() || '',
-      this.type || '',
-      this.category || '',
-      this.description || '',
-      this.updatedAt || '',
-      this.updatedBy || ''
-    ];
-  }
-
-  /**
-   * Creates a Configuration instance from a Google Sheets row array
-   * @param {Array} row - Array of values from the sheet row
-   * @returns {Configuration} New Configuration instance
-   * @throws {Error} If row data is invalid
-   */
-  static fromSheetsRow(row) {
-    if (!Array.isArray(row) || row.length < 7) {
-      throw new Error('Invalid row data: must be an array with at least 7 elements');
-    }
-
-    const data = {
-      key: row[0] || null,
-      value: row[1] || null,
-      type: row[2] || null,
-      category: row[3] || null,
-      description: row[4] || null,
-      updatedAt: row[5] || null,
-      updatedBy: row[6] || null
-    };
-
-    // Filter out null values for required fields validation
-    const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([_, value]) => value !== null)
-    );
-
-    return new Configuration(cleanData);
-  }
 
   /**
    * Creates a new configuration entry

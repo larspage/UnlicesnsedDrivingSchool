@@ -6,22 +6,11 @@
  */
 
 const Report = require('../models/Report');
-const googleSheetsService = require('./googleSheetsService');
+const localJsonService = require('./localJsonService');
 const configService = require('./configService');
 
 // Configuration constants
-const REPORTS_SHEET_NAME = 'Reports';
-const REPORTS_SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-
-/**
- * Validates spreadsheet configuration
- * @throws {Error} If configuration is invalid
- */
-function validateSpreadsheetConfig() {
-  if (!REPORTS_SPREADSHEET_ID) {
-    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID environment variable is required');
-  }
-}
+const REPORTS_DATA_FILE = 'reports';
 
 /**
  * Creates a new report with duplicate detection and validation
@@ -32,8 +21,6 @@ function validateSpreadsheetConfig() {
  */
 async function createReport(reportData, reporterIp = null) {
   try {
-    validateSpreadsheetConfig();
-
     // Get all existing reports for duplicate checking
     const existingReports = await getAllReports();
 
@@ -43,8 +30,8 @@ async function createReport(reportData, reporterIp = null) {
     // Validate business rules (duplicate detection, etc.)
     report.validateBusinessRules(existingReports);
 
-    // Save to Google Sheets
-    await saveReportToSheets(report);
+    // Save to local JSON storage
+    await saveReportToJson(report);
 
     return report;
   } catch (error) {
@@ -67,8 +54,6 @@ async function createReport(reportData, reporterIp = null) {
  */
 async function getReports(options = {}) {
   try {
-    validateSpreadsheetConfig();
-
     const {
       page = 1,
       limit = 20,
@@ -79,7 +64,7 @@ async function getReports(options = {}) {
       includeAdminFields = false
     } = options;
 
-    // Get all reports from sheets
+    // Get all reports from local JSON storage
     const allReports = await getAllReports();
 
     // Apply filters
@@ -159,8 +144,6 @@ async function getReports(options = {}) {
  */
 async function getReportById(reportId, includeAdminFields = false) {
   try {
-    validateSpreadsheetConfig();
-
     const allReports = await getAllReports();
     const report = allReports.find(r => r.id === reportId);
 
@@ -197,15 +180,13 @@ async function getReportById(reportId, includeAdminFields = false) {
  */
 async function updateReportStatus(reportId, updateData) {
   const startTime = Date.now();
-  
+
   try {
     console.log('[REPORT SERVICE] updateReportStatus called:', {
       reportId,
       updateData,
       timestamp: new Date().toISOString()
     });
-
-    validateSpreadsheetConfig();
 
     const { status, adminNotes, mvcReferenceNumber, updatedBy } = updateData;
 
@@ -246,9 +227,9 @@ async function updateReportStatus(reportId, updateData) {
     console.log('[REPORT SERVICE] Validating business rules');
     updatedReport.validateBusinessRules(allReports);
 
-    // Save to sheets
-    console.log('[REPORT SERVICE] Saving to Google Sheets');
-    await updateReportInSheets(updatedReport);
+    // Save to local JSON storage
+    console.log('[REPORT SERVICE] Saving to local JSON storage');
+    await updateReportInJson(updatedReport);
 
     console.log('[REPORT SERVICE] Report status updated successfully:', {
       reportId,
@@ -276,15 +257,25 @@ async function updateReportStatus(reportId, updateData) {
 }
 
 /**
- * Retrieves all reports from Google Sheets
+ * Retrieves all reports from local JSON storage
  * @returns {Promise<Array<Report>>} Array of Report instances
  */
 async function getAllReports() {
   try {
-    const reports = await googleSheetsService.getAllRows(
-      REPORTS_SPREADSHEET_ID,
-      REPORTS_SHEET_NAME
+    const reportsData = await localJsonService.getAllRows(
+      null, // spreadsheetId not needed
+      REPORTS_DATA_FILE
     );
+
+    // Convert plain objects to Report instances
+    const reports = reportsData.map(data => {
+      try {
+        return new Report(data);
+      } catch (error) {
+        console.warn('Skipping invalid report data:', data, error.message);
+        return null;
+      }
+    }).filter(report => report !== null);
 
     return reports;
   } catch (error) {
@@ -294,38 +285,107 @@ async function getAllReports() {
 }
 
 /**
- * Saves a report to Google Sheets
+ * Saves a report to local JSON storage
  * @param {Report} report - Report instance to save
  * @returns {Promise<void>}
  */
-async function saveReportToSheets(report) {
+async function saveReportToJson(report) {
   try {
-    await googleSheetsService.appendRow(
-      REPORTS_SPREADSHEET_ID,
-      REPORTS_SHEET_NAME,
+    await localJsonService.appendRow(
+      null, // spreadsheetId not needed
+      REPORTS_DATA_FILE,
       report
     );
   } catch (error) {
-    console.error('Error saving report to sheets:', error);
+    console.error('Error saving report to JSON:', error);
     throw error;
   }
 }
 
 /**
- * Updates a report in Google Sheets
+ * Updates a report in local JSON storage
  * @param {Report} report - Updated report instance
  * @returns {Promise<void>}
  */
-async function updateReportInSheets(report) {
+async function updateReportInJson(report) {
   try {
-    await googleSheetsService.updateRow(
-      REPORTS_SPREADSHEET_ID,
-      REPORTS_SHEET_NAME,
+    await localJsonService.updateRow(
+      null, // spreadsheetId not needed
+      REPORTS_DATA_FILE,
       report.id,
       report
     );
   } catch (error) {
-    console.error('Error updating report in sheets:', error);
+    console.error('Error updating report in JSON:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates a report with new data
+ * @param {string} reportId - Report ID
+ * @param {Object} updateData - Update data object
+ * @returns {Promise<Report>} Updated report
+ * @throws {Error} If report not found or validation fails
+ */
+async function updateReport(reportId, updateData) {
+  try {
+    console.log('[REPORT SERVICE] updateReport called:', {
+      reportId,
+      updateData,
+      timestamp: new Date().toISOString()
+    });
+
+    const allReports = await getAllReports();
+    const reportIndex = allReports.findIndex(r => r.id === reportId);
+
+    if (reportIndex === -1) {
+      console.error('[REPORT SERVICE ERROR] Report not found:', {
+        reportId,
+        totalReports: allReports.length,
+        timestamp: new Date().toISOString()
+      });
+      throw new Error(`Report with ID ${reportId} not found`);
+    }
+
+    const existingReport = allReports[reportIndex];
+    console.log('[REPORT SERVICE] Found existing report:', {
+      reportId,
+      currentData: existingReport
+    });
+
+    // Create a Report instance from the existing data
+    const reportInstance = new Report(existingReport);
+
+    console.log('[REPORT SERVICE] Updating report instance with data:', updateData);
+    const updatedReport = reportInstance.update(updateData);
+
+    // Validate business rules
+    console.log('[REPORT SERVICE] Validating business rules');
+    updatedReport.validateBusinessRules(allReports);
+
+    // Save to local JSON storage
+    console.log('[REPORT SERVICE] Saving to local JSON storage');
+    await updateReportInJson(updatedReport);
+
+    console.log('[REPORT SERVICE] Report updated successfully:', {
+      reportId,
+      updatedData: updateData,
+      timestamp: new Date().toISOString()
+    });
+
+    return updatedReport;
+  } catch (error) {
+    console.error('[REPORT SERVICE ERROR] Error updating report:', {
+      reportId,
+      updateData,
+      error: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      },
+      timestamp: new Date().toISOString()
+    });
     throw error;
   }
 }
@@ -364,11 +424,12 @@ module.exports = {
   createReport,
   getReports,
   getReportById,
+  updateReport,
   updateReportStatus,
   getAllReports,
   checkRateLimit,
 
   // Export for testing
-  saveReportToSheets,
-  updateReportInSheets
+  saveReportToJson,
+  updateReportInJson
 };

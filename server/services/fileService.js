@@ -6,23 +6,12 @@
  */
 
 const File = require('../models/File');
-const googleDriveService = require('./googleDriveService');
-const googleSheetsService = require('./googleSheetsService');
+const localFileService = require('./localFileService');
+const localJsonService = require('./localJsonService');
 const configService = require('./configService');
 
 // Configuration constants
-const FILES_SHEET_NAME = 'Files';
-const FILES_SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-
-/**
- * Validates spreadsheet configuration
- * @throws {Error} If configuration is invalid
- */
-function validateSpreadsheetConfig() {
-  if (!FILES_SPREADSHEET_ID) {
-    throw new Error('GOOGLE_SHEETS_SPREADSHEET_ID environment variable is required');
-  }
-}
+const FILES_DATA_FILE = 'files';
 
 /**
  * Uploads a file to Google Drive and saves metadata to Google Sheets
@@ -36,8 +25,6 @@ function validateSpreadsheetConfig() {
  */
 async function uploadFile(fileBuffer, fileName, mimeType, reportId, uploadedByIp = null) {
   try {
-    validateSpreadsheetConfig();
-
     // Validate upload parameters
     const validation = File.validateUploadParams(fileBuffer, fileName, mimeType, reportId);
     if (!validation.isValid) {
@@ -47,32 +34,45 @@ async function uploadFile(fileBuffer, fileName, mimeType, reportId, uploadedByIp
     // Get existing files for the report to check limits
     const existingFiles = await getFilesByReportId(reportId);
 
-    // Upload file to Google Drive
-    const driveFile = await googleDriveService.uploadFile(fileBuffer, fileName, mimeType);
+    // Upload file to local storage
+    const fileData = await localFileService.uploadFile(fileBuffer, fileName, mimeType, reportId);
 
-    // Generate URLs
-    const driveUrl = File.generatePublicUrl(driveFile.id);
-    const thumbnailUrl = driveFile.mimeType.startsWith('image/') ?
-      File.generateThumbnailUrl(driveFile.id) : null;
-
-    // Create file record
-    const fileData = {
+    // Create file record with local storage data
+    const fileRecordData = {
       reportId,
       originalName: fileName,
       mimeType,
       size: fileBuffer.length,
-      driveFileId: driveFile.id,
-      driveUrl,
-      thumbnailUrl
+      localFilePath: fileData.localPath,
+      publicUrl: fileData.url,
+      thumbnailUrl: fileData.thumbnailUrl
     };
 
-    const file = File.create(fileData, uploadedByIp);
+    console.log('[FILE UPLOAD] Creating file record with data:', fileRecordData);
 
-    // Validate business rules
-    file.validateBusinessRules(existingFiles);
+    try {
+      const file = File.create(fileRecordData, uploadedByIp);
+      console.log('[FILE UPLOAD] File created successfully:', { id: file.id, reportId: file.reportId });
 
-    // Save metadata to Google Sheets
-    await saveFileToSheets(file);
+      // Validate business rules
+      file.validateBusinessRules(existingFiles);
+      console.log('[FILE UPLOAD] Business rules validated');
+
+      // Save metadata to local JSON storage
+      console.log('[FILE UPLOAD] Saving to JSON storage...');
+      await saveFileToJson(file);
+      console.log('[FILE UPLOAD] File metadata saved to JSON successfully');
+
+      return file;
+    } catch (error) {
+      console.error('[FILE UPLOAD ERROR] Failed to create/save file:', error);
+      console.error('[FILE UPLOAD ERROR] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      throw error;
+    }
 
     return file;
   } catch (error) {
@@ -88,8 +88,6 @@ async function uploadFile(fileBuffer, fileName, mimeType, reportId, uploadedByIp
  */
 async function getFileById(fileId) {
   try {
-    validateSpreadsheetConfig();
-
     const allFiles = await getAllFiles();
     return allFiles.find(file => file.id === fileId) || null;
   } catch (error) {
@@ -105,8 +103,6 @@ async function getFileById(fileId) {
  */
 async function getFilesByReportId(reportId) {
   try {
-    validateSpreadsheetConfig();
-
     const allFiles = await getAllFiles();
     return allFiles.filter(file => file.reportId === reportId);
   } catch (error) {
@@ -124,8 +120,6 @@ async function getFilesByReportId(reportId) {
  */
 async function updateFileProcessingStatus(fileId, status) {
   try {
-    validateSpreadsheetConfig();
-
     const allFiles = await getAllFiles();
     const fileIndex = allFiles.findIndex(file => file.id === fileId);
 
@@ -136,8 +130,8 @@ async function updateFileProcessingStatus(fileId, status) {
     const existingFile = allFiles[fileIndex];
     const updatedFile = existingFile.updateProcessingStatus(status);
 
-    // Save to sheets
-    await updateFileInSheets(updatedFile);
+    // Save to local JSON storage
+    await updateFileInJson(updatedFile);
 
     return updatedFile;
   } catch (error) {
@@ -147,56 +141,22 @@ async function updateFileProcessingStatus(fileId, status) {
 }
 
 /**
- * Retrieves all files from Google Sheets
+ * Retrieves all files from local JSON storage
  * @returns {Promise<Array<File>>} Array of File instances
  */
 async function getAllFiles() {
   try {
-    // Use direct Google Sheets API call for Files sheet
-    const { google } = require('googleapis');
-    const SERVICE_ACCOUNT_KEY = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    const filesData = await localJsonService.getAllRows(null, FILES_DATA_FILE);
 
-    if (!SERVICE_ACCOUNT_KEY) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required');
-    }
-
-    let credentials;
-    try {
-      credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
-    } catch (error) {
-      throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
-    }
-
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
-
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: FILES_SPREADSHEET_ID,
-      range: `${FILES_SHEET_NAME}!A:L`, // Files sheet has 12 columns (A to L)
-    });
-
-    const rows = response.data.values || [];
-    const files = [];
-
-    // Skip header row if it exists
-    const dataRows = rows.length > 0 && rows[0][0] === 'id' ? rows.slice(1) : rows;
-
-    for (const row of dataRows) {
-      if (row.length > 0) { // Skip empty rows
-        try {
-          const file = File.fromSheetsRow(row);
-          if (file.id) { // Only include rows with valid IDs
-            files.push(file);
-          }
-        } catch (error) {
-          console.warn('Skipping invalid file row:', row, error.message);
-        }
+    // Convert plain objects to File instances
+    const files = filesData.map(data => {
+      try {
+        return new File(data);
+      } catch (error) {
+        console.warn('Skipping invalid file data:', data, error.message);
+        return null;
       }
-    }
+    }).filter(file => file !== null);
 
     return files;
   } catch (error) {
@@ -206,51 +166,29 @@ async function getAllFiles() {
 }
 
 /**
- * Saves a file record to Google Sheets
+ * Saves a file record to local JSON storage
  * @param {File} file - File instance to save
  * @returns {Promise<void>}
  */
-async function saveFileToSheets(file) {
+async function saveFileToJson(file) {
   try {
-    const rowData = file.toSheetsRow();
-
-    await googleSheetsService.appendRow(
-      FILES_SPREADSHEET_ID,
-      FILES_SHEET_NAME,
-      rowData
-    );
+    await localJsonService.appendRow(null, FILES_DATA_FILE, file);
   } catch (error) {
-    console.error('Error saving file to sheets:', error);
+    console.error('Error saving file to JSON:', error);
     throw error;
   }
 }
 
 /**
- * Updates a file record in Google Sheets
+ * Updates a file record in local JSON storage
  * @param {File} file - Updated file instance
  * @returns {Promise<void>}
  */
-async function updateFileInSheets(file) {
+async function updateFileInJson(file) {
   try {
-    // Get all files to find the row index
-    const allFiles = await getAllFiles();
-    const fileIndex = allFiles.findIndex(f => f.id === file.id);
-
-    if (fileIndex === -1) {
-      throw new Error(`File ${file.id} not found in sheets`);
-    }
-
-    const rowData = file.toSheetsRow();
-    const sheetRowNumber = fileIndex + 2; // +1 for header, +1 for 1-based
-
-    await googleSheetsService.updateRow(
-      FILES_SPREADSHEET_ID,
-      FILES_SHEET_NAME,
-      sheetRowNumber,
-      rowData
-    );
+    await localJsonService.updateRow(null, FILES_DATA_FILE, file.id, file);
   } catch (error) {
-    console.error('Error updating file in sheets:', error);
+    console.error('Error updating file in JSON:', error);
     throw error;
   }
 }
@@ -318,7 +256,23 @@ function processBase64File(base64Data, fileName, mimeType) {
     const cleanBase64 = base64Data.startsWith(base64Prefix) ?
       base64Data.slice(base64Prefix.length) : base64Data;
 
-    return Buffer.from(cleanBase64, 'base64');
+    // Validate base64 format
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleanBase64)) {
+      throw new Error('Invalid base64 format');
+    }
+
+    const buffer = Buffer.from(cleanBase64, 'base64');
+
+    // Additional validation: check if decoded length is reasonable
+    // Base64 encoded data should be roughly 4/3 the size of the original
+    const expectedMinLength = Math.floor(cleanBase64.replace(/=+$/, '').length * 3 / 4);
+    const expectedMaxLength = Math.ceil(cleanBase64.length * 3 / 4);
+
+    if (buffer.length < expectedMinLength - 10 || buffer.length > expectedMaxLength + 10) {
+      throw new Error('Base64 data length validation failed');
+    }
+
+    return buffer;
   } catch (error) {
     throw new Error(`Invalid base64 data for file ${fileName}: ${error.message}`);
   }
@@ -334,6 +288,6 @@ module.exports = {
   processBase64File,
 
   // Export for testing
-  saveFileToSheets,
-  updateFileInSheets
+  saveFileToJson,
+  updateFileInJson
 };

@@ -60,58 +60,6 @@ describe('Report Model', () => {
     });
   });
 
-  describe('toSheetsRow', () => {
-    test('should convert report to sheets row array', () => {
-      const data = {
-        id: 'rep_ABC123',
-        schoolName: 'Test School',
-        location: 'Test City',
-        status: 'Added',
-        lastReported: '2025-09-26T21:25:00.000Z',
-        createdAt: '2025-09-26T21:25:00.000Z',
-        updatedAt: '2025-09-26T21:25:00.000Z'
-      };
-
-      const report = new Report(data);
-      const row = report.toSheetsRow();
-
-      expect(row).toHaveLength(16);
-      expect(row[0]).toBe('rep_ABC123');
-      expect(row[1]).toBe('Test School');
-      expect(row[2]).toBe('Test City');
-      expect(row[9]).toBe('Added');
-    });
-  });
-
-  describe('fromSheetsRow', () => {
-    test('should create report from sheets row array', () => {
-      const row = [
-        'rep_ABC123',
-        'Test School',
-        'Test City',
-        'Violation description',
-        '(555) 123-4567',
-        'https://example.com',
-        '[]', // uploadedFiles
-        '[]', // socialMediaLinks
-        'Additional info',
-        'Added',
-        '2025-09-26T21:25:00.000Z',
-        '2025-09-26T21:25:00.000Z',
-        '2025-09-26T21:25:00.000Z',
-        '127.0.0.1',
-        'Admin notes',
-        'MVC123'
-      ];
-
-      const report = Report.fromSheetsRow(row);
-
-      expect(report.id).toBe('rep_ABC123');
-      expect(report.schoolName).toBe('Test School');
-      expect(report.location).toBe('Test City');
-      expect(report.status).toBe('Added');
-    });
-  });
 
   describe('validateBusinessRules', () => {
     test('should pass validation for unique school name', () => {

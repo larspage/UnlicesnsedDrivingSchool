@@ -11,7 +11,7 @@ const path = require('path');
 describe('Admin Status Change E2E Tests', () => {
   let browser;
   let page;
-  const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5000';
+  const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
   const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
   const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 

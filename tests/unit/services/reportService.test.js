@@ -6,15 +6,17 @@
 
 const reportService = require('../../../server/services/reportService');
 const Report = require('../../../server/models/Report');
-const googleSheetsService = require('../../../server/services/googleSheetsService');
+const localJsonService = require('../../../server/services/localJsonService');
 
 // Mock dependencies
-jest.mock('../../../server/services/googleSheetsService');
+jest.mock('../../../server/services/localJsonService');
 jest.mock('../../../server/services/configService');
 
 describe('Report Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear any existing data in the JSON files for clean tests
+    localJsonService.writeJsonFile = jest.fn().mockResolvedValue();
   });
 
   describe('createReport', () => {
@@ -39,17 +41,17 @@ describe('Report Service', () => {
       });
 
       // Mock getAllReports to return empty array (no duplicates)
-      googleSheetsService.getAllRows.mockResolvedValue(mockExistingReports);
-      // Mock saveReportToSheets to succeed
-      googleSheetsService.appendRow.mockResolvedValue();
+      localJsonService.getAllRows.mockResolvedValue(mockExistingReports);
+      // Mock appendRow to succeed
+      localJsonService.appendRow.mockResolvedValue();
 
       const result = await reportService.createReport(mockReportData, mockReporterIp);
 
       expect(result).toBeInstanceOf(Report);
       expect(result.schoolName).toBe('Test Driving School');
       expect(result.status).toBe('Added');
-      expect(googleSheetsService.getAllRows).toHaveBeenCalled();
-      expect(googleSheetsService.appendRow).toHaveBeenCalled();
+      expect(localJsonService.getAllRows).toHaveBeenCalledWith(null, 'reports');
+      expect(localJsonService.appendRow).toHaveBeenCalledWith(null, 'reports', expect.any(Object));
     });
 
     // Negative tests
@@ -79,7 +81,7 @@ describe('Report Service', () => {
         })
       ];
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockExistingReports);
+      localJsonService.getAllRows.mockResolvedValue(mockExistingReports);
 
       await expect(reportService.createReport(mockReportData)).rejects.toThrow('Duplicate report found');
     });
@@ -90,7 +92,7 @@ describe('Report Service', () => {
         location: 'Test City'
       };
 
-      googleSheetsService.getAllRows.mockRejectedValue(new Error('Google Sheets API error'));
+      localJsonService.getAllRows.mockRejectedValue(new Error('Google Sheets API error'));
 
       await expect(reportService.createReport(mockReportData)).rejects.toThrow('Google Sheets API error');
     });
@@ -118,7 +120,7 @@ describe('Report Service', () => {
         })
       ];
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue(mockReports);
 
       const options = {
         page: 1,
@@ -158,7 +160,7 @@ describe('Report Service', () => {
         })
       ];
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue(mockReports);
 
       const result = await reportService.getReports({ status: 'Added' });
 
@@ -186,7 +188,7 @@ describe('Report Service', () => {
         })
       ];
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue(mockReports);
 
       const result = await reportService.getReports({ search: 'ABC' });
 
@@ -214,7 +216,7 @@ describe('Report Service', () => {
         })
       ];
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue(mockReports);
 
       // Test descending order (default)
       const resultDesc = await reportService.getReports({
@@ -238,7 +240,7 @@ describe('Report Service', () => {
     test('should handle pagination correctly', async () => {
       const mockReports = Array.from({ length: 25 }, (_, i) =>
         new Report({
-          id: `rep_${i}`,
+          id: `rep_${String(i).padStart(6, '0')}`,
           schoolName: `School ${i}`,
           status: 'Added',
           createdAt: new Date(2023, 0, i + 1).toISOString(),
@@ -247,7 +249,7 @@ describe('Report Service', () => {
         })
       );
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue(mockReports);
 
       // Test page 1
       const result1 = await reportService.getReports({ page: 1, limit: 10 });
@@ -271,7 +273,7 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should handle Google Sheets API errors', async () => {
-      googleSheetsService.getAllRows.mockRejectedValue(new Error('API Error'));
+      localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       await expect(reportService.getReports()).rejects.toThrow('API Error');
     });
@@ -289,7 +291,7 @@ describe('Report Service', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      googleSheetsService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.getAllRows.mockResolvedValue([mockReport]);
 
       const result = await reportService.getReports();
 
@@ -312,7 +314,7 @@ describe('Report Service', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      googleSheetsService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.getAllRows.mockResolvedValue([mockReport]);
 
       const result = await reportService.getReportById('rep_ABC123');
 
@@ -334,7 +336,7 @@ describe('Report Service', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      googleSheetsService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.getAllRows.mockResolvedValue([mockReport]);
 
       const result = await reportService.getReportById('rep_ABC123', true);
 
@@ -345,7 +347,7 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should return null for non-existent report', async () => {
-      googleSheetsService.getAllRows.mockResolvedValue([]);
+      localJsonService.getAllRows.mockResolvedValue([]);
 
       const result = await reportService.getReportById('rep_nonexistent');
 
@@ -353,7 +355,7 @@ describe('Report Service', () => {
     });
 
     test('should handle Google Sheets API errors', async () => {
-      googleSheetsService.getAllRows.mockRejectedValue(new Error('API Error'));
+      localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       await expect(reportService.getReportById('rep_test')).rejects.toThrow('API Error');
     });
@@ -381,8 +383,8 @@ describe('Report Service', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      googleSheetsService.getAllRows.mockResolvedValue([mockExistingReport]);
-      googleSheetsService.updateRow.mockResolvedValue({ success: true });
+      localJsonService.getAllRows.mockResolvedValue([mockExistingReport]);
+      localJsonService.updateRow.mockResolvedValue({ success: true });
 
       const updateData = {
         status: 'Confirmed by NJDSC',
@@ -393,12 +395,12 @@ describe('Report Service', () => {
 
       expect(result.status).toBe('Confirmed by NJDSC');
       expect(result.adminNotes).toBe('Confirmed by admin');
-      expect(googleSheetsService.updateRow).toHaveBeenCalled();
+      expect(localJsonService.updateRow).toHaveBeenCalledWith(null, 'reports', 'rep_ABC123', expect.any(Object));
     });
 
     // Negative tests
     test('should throw error for non-existent report', async () => {
-      googleSheetsService.getAllRows.mockResolvedValue([]);
+      localJsonService.getAllRows.mockResolvedValue([]);
 
       const updateData = {
         status: 'Confirmed by NJDSC'
@@ -418,7 +420,7 @@ describe('Report Service', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      googleSheetsService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.getAllRows.mockResolvedValue([mockReport]);
 
       const updateData = {
         status: 'Invalid Status'
@@ -438,8 +440,8 @@ describe('Report Service', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      googleSheetsService.getAllRows.mockResolvedValue([mockReport]);
-      googleSheetsService.updateRow.mockRejectedValue(new Error('Update failed'));
+      localJsonService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.updateRow.mockRejectedValue(new Error('Update failed'));
 
       const updateData = {
         status: 'Confirmed by NJDSC'
@@ -472,19 +474,19 @@ describe('Report Service', () => {
         })
       ];
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue(mockReports);
 
       const result = await reportService.getAllReports();
 
       expect(result).toHaveLength(2);
       expect(result[0].schoolName).toBe('School 1');
       expect(result[1].schoolName).toBe('School 2');
-      expect(googleSheetsService.getAllRows).toHaveBeenCalled();
+      expect(localJsonService.getAllRows).toHaveBeenCalledWith(null, 'reports');
     });
 
     // Negative tests
     test('should handle Google Sheets API errors', async () => {
-      googleSheetsService.getAllRows.mockRejectedValue(new Error('API Error'));
+      localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       await expect(reportService.getAllReports()).rejects.toThrow('API Error');
     });
@@ -498,6 +500,7 @@ describe('Report Service', () => {
         new Report({
           id: 'rep_0001AB',
           schoolName: 'School 1',
+          status: 'Added',
           reporterIp: mockReporterIp,
           createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
           updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
@@ -505,7 +508,7 @@ describe('Report Service', () => {
         })
       ];
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockRecentReports);
+      localJsonService.getAllRows.mockResolvedValue(mockRecentReports);
 
       const result = await reportService.checkRateLimit(mockReporterIp);
 
@@ -519,8 +522,9 @@ describe('Report Service', () => {
       // Create 6 reports within the last hour (exceeding limit of 5)
       const mockRecentReports = Array.from({ length: 6 }, (_, i) =>
         new Report({
-          id: `rep_${i}`,
+          id: `rep_${String(i).padStart(6, '0')}`,
           schoolName: `School ${i}`,
+          status: 'Added',
           reporterIp: mockReporterIp,
           createdAt: new Date(now.getTime() - (i * 10 * 60 * 1000)).toISOString(), // Within last hour
           updatedAt: new Date(now.getTime() - (i * 10 * 60 * 1000)).toISOString(),
@@ -528,7 +532,7 @@ describe('Report Service', () => {
         })
       );
 
-      googleSheetsService.getAllRows.mockResolvedValue(mockRecentReports);
+      localJsonService.getAllRows.mockResolvedValue(mockRecentReports);
 
       const result = await reportService.checkRateLimit(mockReporterIp);
 
@@ -537,7 +541,7 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should return false when Google Sheets API fails', async () => {
-      googleSheetsService.getAllRows.mockRejectedValue(new Error('API Error'));
+      localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       const result = await reportService.checkRateLimit('192.168.1.1');
 
@@ -545,7 +549,7 @@ describe('Report Service', () => {
     });
 
     test('should handle empty reports array', async () => {
-      googleSheetsService.getAllRows.mockResolvedValue([]);
+      localJsonService.getAllRows.mockResolvedValue([]);
 
       const result = await reportService.checkRateLimit('192.168.1.1');
 
@@ -553,84 +557,4 @@ describe('Report Service', () => {
     });
   });
 
-  describe('saveReportToSheets', () => {
-    // Happy path tests
-    test('should save report to sheets successfully', async () => {
-      const mockReport = new Report({
-        id: 'rep_ABC123',
-        schoolName: 'Test School',
-        status: 'Added',
-        createdAt: '2023-01-01T00:00:00.000Z',
-        updatedAt: '2023-01-01T00:00:00.000Z',
-        lastReported: '2023-01-01T00:00:00.000Z'
-      });
-
-      googleSheetsService.appendRow.mockResolvedValue();
-
-      await reportService.saveReportToSheets(mockReport);
-
-      expect(googleSheetsService.appendRow).toHaveBeenCalledWith(
-        process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
-        'Reports',
-        mockReport
-      );
-    });
-
-    // Negative tests
-    test('should handle Google Sheets API errors', async () => {
-      const mockReport = new Report({
-        id: 'rep_ABC123',
-        schoolName: 'Test School',
-        status: 'Added',
-        createdAt: '2023-01-01T00:00:00.000Z',
-        updatedAt: '2023-01-01T00:00:00.000Z',
-        lastReported: '2023-01-01T00:00:00.000Z'
-      });
-
-      googleSheetsService.appendRow.mockRejectedValue(new Error('Append failed'));
-
-      await expect(reportService.saveReportToSheets(mockReport)).rejects.toThrow('Append failed');
-    });
-  });
-
-  describe('updateReportInSheets', () => {
-    // Happy path tests
-    test('should update report in sheets successfully', async () => {
-      const mockReport = new Report({
-        id: 'rep_ABC123',
-        schoolName: 'Test School',
-        status: 'Confirmed by NJDSC',
-        createdAt: '2023-01-01T00:00:00.000Z',
-        updatedAt: '2023-01-01T00:00:00.000Z',
-        lastReported: '2023-01-01T00:00:00.000Z'
-      });
-
-      googleSheetsService.updateRow.mockResolvedValue({ success: true });
-
-      await reportService.updateReportInSheets(mockReport);
-
-      expect(googleSheetsService.updateRow).toHaveBeenCalledWith(
-        process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
-        'Reports',
-        'rep_ABC123',
-        mockReport
-      );
-    });
-
-    // Negative tests
-    test('should handle Google Sheets API errors', async () => {
-      const mockReport = new Report({
-        id: 'rep_ABC123',
-        schoolName: 'Test School',
-        status: 'Confirmed by NJDSC',
-        createdAt: '2023-01-01T00:00:00.000Z',
-        updatedAt: '2023-01-01T00:00:00.000Z',
-        lastReported: '2023-01-01T00:00:00.000Z'
-      });
-
-      googleSheetsService.updateRow.mockRejectedValue(new Error('Update failed'));
-
-      await expect(reportService.updateReportInSheets(mockReport)).rejects.toThrow('Update failed');
-    });
-  });
 });

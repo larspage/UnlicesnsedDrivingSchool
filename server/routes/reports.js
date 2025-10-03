@@ -8,7 +8,7 @@ const express = require('express');
 const router = express.Router();
 const reportService = require('../services/reportService');
 const fileService = require('../services/fileService');
-const googleDriveService = require('../services/googleDriveService');
+const localFileService = require('../services/localFileService');
 const File = require('../models/File');
 const { authenticateAdmin } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
@@ -73,38 +73,29 @@ router.post('/', reportLimiter, async (req, res) => {
           // Convert base64 to buffer
           const fileBuffer = Buffer.from(fileData.data, 'base64');
 
-          // Upload directly to Google Drive (bypass file service sheet dependency)
-          const driveFile = await googleDriveService.uploadFile(
+          // Upload to local file storage
+          const uploadedFile = await localFileService.uploadFile(
             fileBuffer,
             fileData.name,
             fileData.type,
             report.id
           );
 
-          // Generate public URL using the Google Drive file ID
-          const publicUrl = await googleDriveService.generatePublicUrl(driveFile.driveFileId);
-
-          // Generate thumbnail for images using the Google Drive file ID
-          let thumbnailUrl = null;
-          if (fileData.type.startsWith('image/')) {
-            thumbnailUrl = await googleDriveService.generateThumbnail(driveFile.driveFileId);
-          }
-
-          // Create file record for Files sheet
+          // Create file record for local storage
           const fileRecord = {
-            reportId: report.id, // Use the report ID from the created report
+            reportId: report.id,
             originalName: fileData.name,
-            mimeType: fileData.type, // Use fileData.type (frontend sends as 'type')
+            mimeType: fileData.type,
             size: fileBuffer.length,
-            driveFileId: driveFile.driveFileId, // Use the actual Google Drive file ID
-            driveUrl: publicUrl,
-            thumbnailUrl: thumbnailUrl
+            localFilePath: uploadedFile.localPath,
+            publicUrl: uploadedFile.url,
+            thumbnailUrl: '' // For local storage, we don't use separate thumbnail URLs
           };
 
           const file = File.create(fileRecord, reporterIp);
 
-          // TODO: Save file metadata to Files sheet (currently disabled due to validation issues)
-          // await fileService.saveFileToSheets(file);
+          // Save file metadata to local JSON storage
+          await fileService.saveFileToJson(file);
 
           uploadedFiles.push({
             id: file.id, // Use internal file ID for frontend
@@ -112,7 +103,7 @@ router.post('/', reportLimiter, async (req, res) => {
             type: fileData.type, // Use fileData.type (matches Report validation)
             size: fileBuffer.length,
             url: `${req.protocol}://${req.get('host')}/api/files/${file.id}/download`, // Use proxy URL for CORS
-            thumbnailUrl: thumbnailUrl
+            thumbnailUrl: uploadedFile.thumbnailUrl
             // Note: uploadedAt removed as it's not allowed in Report validation
           });
 
@@ -123,12 +114,11 @@ router.post('/', reportLimiter, async (req, res) => {
         }
       }
 
-      // Update the report with uploaded files data and save to Google Sheets
+      // Update the report with uploaded files data and save to local JSON storage
       if (uploadedFiles.length > 0) {
         console.log(`Updating report ${report.id} with ${uploadedFiles.length} uploaded files`);
-        const updatedReport = report.update({ uploadedFiles: uploadedFiles });
-        await reportService.updateReportInSheets(updatedReport);
-        console.log(`Report ${report.id} updated in Google Sheets with file URLs`);
+        await reportService.updateReport(report.id, { uploadedFiles: uploadedFiles });
+        console.log(`Report ${report.id} updated in local storage with file URLs`);
       }
     }
 
@@ -223,6 +213,51 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/reports/stats
+ * Get report statistics for dashboard overview
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const allReports = await reportService.getAllReports();
+
+    // Calculate statistics
+    const totalReports = allReports.length;
+    const pendingReports = allReports.filter(r => r.status === 'Added').length;
+    const completedReports = allReports.filter(r => r.status === 'Closed').length;
+
+    // Calculate total files
+    const totalFiles = allReports.reduce((acc, report) => {
+      return acc + (report.uploadedFiles ? report.uploadedFiles.length : 0);
+    }, 0);
+
+    // Get recent reports (last 5)
+    const recentReports = allReports
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5);
+
+    res.json({
+      success: true,
+      data: {
+        totalReports,
+        pendingReports,
+        completedReports,
+        totalFiles,
+        recentReports
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error retrieving report statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Statistics retrieval failed',
+      message: 'Unable to retrieve report statistics. Please try again later.'
+    });
+  }
+});
+
+/**
  * GET /api/reports/:id
  * Get a specific report by ID
  */
@@ -262,13 +297,114 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
+ * PUT /api/reports/bulk/status
+ * Bulk update report statuses (Admin only)
+ */
+router.put('/bulk/status', authenticateAdmin, async (req, res) => {
+  try {
+    const { reportIds, status, adminNotes } = req.body;
+
+    if (!Array.isArray(reportIds) || reportIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid report IDs array is required'
+      });
+    }
+
+    if (!status || typeof status !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid status is required'
+      });
+    }
+
+    // Validate status values
+    const validStatuses = ['Added', 'Confirmed by NJDSC', 'Reported to MVC', 'Under Investigation', 'Closed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status value',
+        message: `Status must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Update each report status
+    const results = [];
+    const auditService = require('../services/auditService');
+
+    for (const reportId of reportIds) {
+      try {
+        const updatedReport = await reportService.updateReportStatus(reportId, {
+          status,
+          adminNotes,
+          updatedBy: 'admin'
+        });
+
+        results.push({
+          reportId,
+          success: true,
+          updatedAt: updatedReport.updatedAt
+        });
+
+        // Log the status update to audit trail
+        const oldReport = await reportService.getReportById(reportId, true);
+        if (oldReport) {
+          await auditService.logStatusUpdate(
+            reportId,
+            oldReport.status,
+            status,
+            adminNotes
+          );
+        }
+      } catch (reportError) {
+        console.error(`Error updating report ${reportId}:`, reportError);
+        results.push({
+          reportId,
+          success: false,
+          error: reportError.message
+        });
+      }
+    }
+
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    // Log the bulk status update
+    await auditService.logBulkStatusUpdate(
+      reportIds,
+      'bulk', // We don't know the old status for bulk operations
+      status,
+      adminNotes
+    );
+
+    res.json({
+      success: true,
+      data: {
+        updated: successful,
+        failed,
+        results
+      },
+      message: `Bulk update completed: ${successful} updated, ${failed} failed`
+    });
+
+  } catch (error) {
+    console.error('Error in bulk status update:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to perform bulk status update',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * PUT /api/reports/:id/status
  * Update report status (Admin only)
  */
 router.put('/:id/status', authenticateAdmin, async (req, res) => {
   const startTime = Date.now();
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   try {
     const { id } = req.params;
     const { status, adminNotes, mvcReferenceNumber } = req.body;
@@ -390,152 +526,6 @@ router.put('/:id/status', authenticateAdmin, async (req, res) => {
       success: false,
       error: 'Failed to update report status',
       message: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
-    });
-  }
-});
-
-/**
- * PUT /api/reports/bulk/status
- * Bulk update report statuses (Admin only)
- */
-router.put('/bulk/status', authenticateAdmin, async (req, res) => {
-  try {
-    const { reportIds, status, adminNotes } = req.body;
-
-    if (!Array.isArray(reportIds) || reportIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Valid report IDs array is required'
-      });
-    }
-
-    if (!status || typeof status !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Valid status is required'
-      });
-    }
-
-    // Validate status values
-    const validStatuses = ['Added', 'Confirmed by NJDSC', 'Reported to MVC', 'Under Investigation', 'Closed'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid status value',
-        message: `Status must be one of: ${validStatuses.join(', ')}`
-      });
-    }
-
-    // Update each report status
-    const results = [];
-    const auditService = require('../services/auditService');
-
-    for (const reportId of reportIds) {
-      try {
-        const updatedReport = await reportService.updateReportStatus(reportId, {
-          status,
-          adminNotes,
-          updatedBy: 'admin'
-        });
-
-        results.push({
-          reportId,
-          success: true,
-          updatedAt: updatedReport.updatedAt
-        });
-
-        // Log the status update to audit trail
-        const oldReport = await reportService.getReportById(reportId, true);
-        if (oldReport) {
-          await auditService.logStatusUpdate(
-            reportId,
-            oldReport.status,
-            status,
-            adminNotes
-          );
-        }
-      } catch (reportError) {
-        console.error(`Error updating report ${reportId}:`, reportError);
-        results.push({
-          reportId,
-          success: false,
-          error: reportError.message
-        });
-      }
-    }
-
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-
-    // Log the bulk status update
-    await auditService.logBulkStatusUpdate(
-      reportIds,
-      'bulk', // We don't know the old status for bulk operations
-      status,
-      adminNotes
-    );
-
-    res.json({
-      success: true,
-      data: {
-        updated: successful,
-        failed,
-        results
-      },
-      message: `Bulk update completed: ${successful} updated, ${failed} failed`
-    });
-
-  } catch (error) {
-    console.error('Error in bulk status update:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to perform bulk status update',
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-/**
- * GET /api/reports/stats
- * Get report statistics for dashboard overview
- */
-router.get('/stats', async (req, res) => {
-  try {
-    const allReports = await reportService.getAllReports();
-
-    // Calculate statistics
-    const totalReports = allReports.length;
-    const pendingReports = allReports.filter(r => r.status === 'Added').length;
-    const completedReports = allReports.filter(r => r.status === 'Closed').length;
-
-    // Calculate total files
-    const totalFiles = allReports.reduce((acc, report) => {
-      return acc + (report.uploadedFiles ? report.uploadedFiles.length : 0);
-    }, 0);
-
-    // Get recent reports (last 5)
-    const recentReports = allReports
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 5);
-
-    res.json({
-      success: true,
-      data: {
-        totalReports,
-        pendingReports,
-        completedReports,
-        totalFiles,
-        recentReports
-      },
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Error retrieving report statistics:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Statistics retrieval failed',
-      message: 'Unable to retrieve report statistics. Please try again later.'
     });
   }
 });

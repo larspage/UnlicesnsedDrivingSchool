@@ -1,0 +1,92 @@
+[
+  {
+    "key": "email.toAddress",
+    "value": "mvc.blsdrivingschools@mvc.nj.gov",
+    "type": "string",
+    "category": "email",
+    "description": "Email address for MVC driving school complaints",
+    "updatedAt": "2025-10-03T15:54:54.022Z",
+    "updatedBy": null
+  },
+  {
+    "key": "email.fromAddress",
+    "value": "treasurer@njdsc.org",
+    "type": "string",
+    "category": "email",
+    "description": "Sender email address for MVC communications",
+    "updatedAt": "2025-10-03T15:54:54.049Z",
+    "updatedBy": null
+  },
+  {
+    "key": "email.subjectTemplate",
+    "value": "Unlicensed driving school [[School Name]]",
+    "type": "string",
+    "category": "email",
+    "description": "Email subject template for MVC reports",
+    "updatedAt": "2025-10-03T15:54:54.058Z",
+    "updatedBy": null
+  },
+  {
+    "key": "email.bodyTemplate",
+    "value": "Dear MVC,\n\nPlease investigate the following unlicensed driving school: [[School Name]] at [[Location]].\n\nViolation Description: [[ViolationDescription]]\n\nContact Information: [[PhoneNumber]]\n\nAdditional Information: [[AdditionalInfo]]\n\nReported via NJDSC Compliance Portal.\n\nSincerely,\nNJDSC Compliance Team",
+    "type": "string",
+    "category": "email",
+    "description": "Email body template for MVC reports",
+    "updatedAt": "2025-10-03T15:54:54.067Z",
+    "updatedBy": null
+  },
+  {
+    "key": "google.sheets.spreadsheetId",
+    "value": "1hhp0ekSjMHO-IDOrw17tH6LmWsQXOiyCEGgCLisTmcs",
+    "type": "string",
+    "category": "google",
+    "description": "Google Sheets spreadsheet ID for storing reports",
+    "updatedAt": "2025-10-03T15:54:54.075Z",
+    "updatedBy": null
+  },
+  {
+    "key": "google.drive.folderId",
+    "value": "0AJWm05sZHR3pUk9PVA",
+    "type": "string",
+    "category": "google",
+    "description": "Google Drive folder ID for storing uploaded files",
+    "updatedAt": "2025-10-03T15:54:54.084Z",
+    "updatedBy": null
+  },
+  {
+    "key": "system.rateLimitPerHour",
+    "value": 100,
+    "type": "number",
+    "category": "system",
+    "description": "Maximum reports allowed per hour per IP address",
+    "updatedAt": "2025-10-03T15:54:54.092Z",
+    "updatedBy": null
+  },
+  {
+    "key": "system.maxFileSize",
+    "value": 10485760,
+    "type": "number",
+    "category": "system",
+    "description": "Maximum file size for uploads in bytes (default: 10MB)",
+    "updatedAt": "2025-10-03T15:54:54.100Z",
+    "updatedBy": null
+  },
+  {
+    "key": "system.maxFilesPerReport",
+    "value": 10,
+    "type": "number",
+    "category": "system",
+    "description": "Maximum number of files allowed per report",
+    "updatedAt": "2025-10-03T15:54:54.112Z",
+    "updatedBy": null
+  },
+  {
+    "key": "system.sessionTimeout",
+    "value": 3600000,
+    "type": "number",
+    "category": "system",
+    "description": "Session timeout in milliseconds",
+    "updatedAt": "2025-10-03T15:54:54.120Z",
+    "updatedBy": null
+  }
+]
