@@ -2,44 +2,129 @@
 
 ## 1. Overview
 
-The NJDSC School Compliance Portal uses Google Sheets as its primary data store, with Google Drive for file storage. This document defines the schema for all data entities, including column definitions, data types, constraints, and relationships.
+The NJDSC School Compliance Portal uses local JSON file storage on DigitalOcean droplets as its primary data store, with local file system storage for uploaded images. This document defines the schema for all data entities, including field definitions, data types, constraints, and relationships.
 
 ### 1.1 Data Storage Architecture
-- **Primary Database:** Google Sheets (NJDSC Workspace)
-- **File Storage:** Google Drive (NJDSC Workspace)
-- **Backup Strategy:** Automated daily exports
+- **Primary Database:** Local JSON files on DigitalOcean droplet
+- **File Storage:** Local directory structure on DigitalOcean droplet
+- **Backup Strategy:** Automated file system backups and snapshots
 - **Data Retention:** Indefinite (regulatory compliance)
 
 ### 1.2 Schema Versioning
 - Schema changes require migration scripts
 - Backward compatibility maintained
-- Version tracking in configuration
+- Version tracking in configuration files
 
-## 2. Reports Table (Google Sheets)
+## 2. Reports JSON File
 
-### 2.1 Table Structure
-**Spreadsheet:** NJDSC_Compliance_Reports  
-**Sheet Name:** Reports  
-**Primary Key:** ID (Column A)
+### 2.1 File Structure
+**File Location:** `/var/www/data/reports.json`
+**Format:** JSON Array of report objects
+**Primary Key:** id (unique identifier)
 
-| Column | Field Name | Data Type | Required | Default | Validation | Description |
-|--------|------------|-----------|----------|---------|------------|-------------|
-| A | id | String | Yes | Auto-generated | `^rep_[a-zA-Z0-9]{6}$` | Unique report identifier |
-| B | schoolName | String | Yes | - | Max 255 chars | Name of the driving school |
-| C | location | String | No | - | Max 100 chars | Town/city where school was spotted |
-| D | violationDescription | String | No | - | Max 1000 chars | Description of the violation |
-| E | phoneNumber | String | No | - | Phone format | Contact phone number |
-| F | websiteUrl | String | No | - | URL format | Website or primary social media URL |
-| G | uploadedFiles | String | No | - | JSON Array | Array of file IDs/URLs |
-| H | socialMediaLinks | String | No | Auto-populated | JSON Array | Discovered social media links |
-| I | additionalInfo | String | No | Auto-populated | Max 2000 chars | Auto-enriched information |
-| J | status | String | Yes | "Added" | Enum | Current investigation status |
-| K | lastReported | DateTime | Yes | Current timestamp | ISO 8601 | Last report submission date |
-| L | createdAt | DateTime | Yes | Current timestamp | ISO 8601 | Initial report creation date |
-| M | updatedAt | DateTime | Yes | Current timestamp | ISO 8601 | Last modification date |
-| N | reporterIp | String | No | - | IP format | Submitter's IP address |
-| O | adminNotes | String | No | - | Max 500 chars | Internal administrative notes |
-| P | mvcReferenceNumber | String | No | - | Max 50 chars | MVC case reference number |
+### 2.2 JSON Schema
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^rep_[a-zA-Z0-9]{6}$",
+        "description": "Unique report identifier"
+      },
+      "schoolName": {
+        "type": "string",
+        "maxLength": 255,
+        "description": "Name of the driving school"
+      },
+      "location": {
+        "type": "string",
+        "maxLength": 100,
+        "description": "Town/city where school was spotted"
+      },
+      "violationDescription": {
+        "type": "string",
+        "maxLength": 1000,
+        "description": "Description of the violation"
+      },
+      "phoneNumber": {
+        "type": "string",
+        "description": "Contact phone number (E.164 format)"
+      },
+      "websiteUrl": {
+        "type": "string",
+        "format": "uri",
+        "maxLength": 500,
+        "description": "Website or primary social media URL"
+      },
+      "uploadedFiles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "size": {"type": "number"},
+            "url": {"type": "string", "format": "uri"},
+            "uploadedAt": {"type": "string", "format": "date-time"}
+          }
+        },
+        "description": "Array of uploaded file metadata"
+      },
+      "socialMediaLinks": {
+        "type": "array",
+        "items": {"type": "string", "format": "uri"},
+        "description": "Discovered social media links"
+      },
+      "additionalInfo": {
+        "type": "string",
+        "maxLength": 2000,
+        "description": "Auto-enriched information"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["Added", "Confirmed by NJDSC", "Reported to MVC", "Under Investigation", "Closed"],
+        "default": "Added",
+        "description": "Current investigation status"
+      },
+      "lastReported": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Last report submission date"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Initial report creation date"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Last modification date"
+      },
+      "reporterIp": {
+        "type": "string",
+        "description": "Submitter's IP address"
+      },
+      "adminNotes": {
+        "type": "string",
+        "maxLength": 500,
+        "description": "Internal administrative notes"
+      },
+      "mvcReferenceNumber": {
+        "type": "string",
+        "maxLength": 50,
+        "description": "MVC case reference number"
+      }
+    },
+    "required": ["id", "schoolName", "status", "lastReported", "createdAt", "updatedAt"]
+  }
+}
+```
 
 ### 2.2 Status Enum Values
 - **Added**: Initial status after submission and enrichment
@@ -78,38 +163,74 @@ The NJDSC School Compliance Portal uses Google Sheets as its primary data store,
     "name": "evidence.jpg",
     "type": "image/jpeg",
     "size": 2048000,
-    "url": "https://drive.google.com/...",
-    "thumbnailUrl": "https://drive.google.com/..."
+    "url": "/uploads/reports/rep_abc123/evidence.jpg",
+    "uploadedAt": "2025-10-03T15:00:00.000Z"
   }
   ```
 
 ### 2.4 Indexes and Performance
-- **Primary Index:** ID column (unique)
-- **Search Index:** School Name (case-insensitive)
-- **Filter Index:** Status column
-- **Sort Index:** Last Reported Date (descending)
-- **IP Index:** Reporter IP for rate limiting
+- **Primary Index:** id field (unique, in-memory for fast lookup)
+- **Search Index:** schoolName field (case-insensitive text search)
+- **Filter Index:** status field (enum-based filtering)
+- **Sort Index:** lastReported field (timestamp-based sorting)
+- **IP Index:** reporterIp field (for rate limiting)
 
 ### 2.5 Data Relationships
 - **One-to-Many:** Report → Files (via uploadedFiles array)
 - **One-to-One:** Report → MVC Reference (future enhancement)
 
-## 3. Configuration Table (Google Sheets)
+## 3. Configuration JSON File
 
-### 3.1 Table Structure
-**Spreadsheet:** NJDSC_Compliance_Config  
-**Sheet Name:** Configuration  
-**Primary Key:** Key (Column A)
+### 3.1 File Structure
+**File Location:** `/var/www/data/config.json`
+**Format:** JSON object with configuration entries
+**Primary Key:** key (unique identifier)
 
-| Column | Field Name | Data Type | Required | Default | Validation | Description |
-|--------|------------|-----------|----------|---------|------------|-------------|
-| A | key | String | Yes | - | Max 100 chars | Configuration key |
-| B | value | String | Yes | - | Max 5000 chars | Configuration value |
-| C | type | String | Yes | "string" | Enum | Data type (string, number, boolean, json) |
-| D | category | String | Yes | "system" | Enum | Configuration category |
-| E | description | String | No | - | Max 500 chars | Human-readable description |
-| F | updatedAt | DateTime | Yes | Current timestamp | ISO 8601 | Last update timestamp |
-| G | updatedBy | String | No | - | Email format | Admin who last updated |
+### 3.2 JSON Schema
+
+```json
+{
+  "type": "object",
+  "patternProperties": {
+    ".*": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": ["string", "number", "boolean", "object", "array"],
+          "description": "Configuration value"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "json"],
+          "default": "string",
+          "description": "Data type of the value"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["system", "email", "google", "storage"],
+          "default": "system",
+          "description": "Configuration category"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Human-readable description"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "Admin who last updated"
+        }
+      },
+      "required": ["value", "type", "category", "updatedAt"]
+    }
+  }
+}
+```
 
 ### 3.2 Configuration Categories
 
@@ -150,22 +271,22 @@ The NJDSC School Compliance Portal uses Google Sheets as its primary data store,
 }
 ```
 
-#### Google API Configuration
+#### Storage Configuration
 ```json
 {
-  "key": "google.sheets.spreadsheetId",
-  "value": "1ABC123...",
+  "key": "storage.uploadsDir",
+  "value": "/var/www/uploads",
   "type": "string",
-  "category": "google"
+  "category": "storage"
 }
 ```
 
 ```json
 {
-  "key": "google.drive.folderId",
-  "value": "1XYZ456...",
-  "type": "string",
-  "category": "google"
+  "key": "storage.maxFileSize",
+  "value": 10485760,
+  "type": "number",
+  "category": "storage"
 }
 ```
 
@@ -188,26 +309,40 @@ The NJDSC School Compliance Portal uses Google Sheets as its primary data store,
 }
 ```
 
-## 4. Files Metadata Table (Google Sheets)
+## 4. Files Metadata (Integrated in Reports)
 
-### 4.1 Table Structure
-**Spreadsheet:** NJDSC_Compliance_Files  
-**Sheet Name:** Files  
-**Primary Key:** ID (Column A)
+### 4.1 File Storage Structure
+**Storage Location:** `/var/www/uploads/reports/{reportId}/`
+**Metadata Storage:** Embedded in reports.json uploadedFiles array
+**File Naming:** `{fileId}_{timestamp}_{originalName}`
 
-| Column | Field Name | Data Type | Required | Default | Validation | Description |
-|--------|------------|-----------|----------|---------|------------|-------------|
-| A | id | String | Yes | Auto-generated | `^file_[a-zA-Z0-9]{6}$` | Unique file identifier |
-| B | reportId | String | Yes | - | Report ID format | Associated report ID |
-| C | originalName | String | Yes | - | Max 255 chars | Original filename |
-| D | mimeType | String | Yes | - | MIME type | File MIME type |
-| E | size | Number | Yes | - | Max 10485760 | File size in bytes |
-| F | driveFileId | String | Yes | - | Google Drive ID | Google Drive file ID |
-| G | driveUrl | String | Yes | - | URL format | Public access URL |
-| H | thumbnailUrl | String | No | - | URL format | Thumbnail URL (images only) |
-| I | uploadedAt | DateTime | Yes | Current timestamp | ISO 8601 | Upload timestamp |
-| J | uploadedByIp | String | No | - | IP format | Uploader's IP address |
-| K | processingStatus | String | Yes | "pending" | Enum | File processing status |
+### 4.2 File Metadata Schema
+
+Files metadata is stored within each report's `uploadedFiles` array:
+
+```json
+{
+  "uploadedFiles": [
+    {
+      "id": "file_abc123",
+      "name": "evidence.jpg",
+      "type": "image/jpeg",
+      "size": 2048000,
+      "url": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence.jpg",
+      "uploadedAt": "2025-10-03T15:00:00.000Z",
+      "reportId": "rep_xyz789",
+      "uploadedByIp": "192.168.1.100",
+      "processingStatus": "completed"
+    }
+  ]
+}
+```
+
+### 4.3 File Processing Status
+- **pending**: File uploaded, processing not started
+- **processing**: File being processed (resizing, optimization)
+- **completed**: Processing finished successfully
+- **failed**: Processing failed
 
 ### 4.2 File Processing Status
 - **pending**: File uploaded, processing not started
@@ -220,25 +355,72 @@ The NJDSC School Compliance Portal uses Google Sheets as its primary data store,
 - **Videos:** video/mp4, video/avi, video/mov
 - **Documents:** application/pdf (future enhancement)
 
-## 5. Audit Log Table (Google Sheets)
+## 5. Audit Log JSON File
 
-### 5.1 Table Structure
-**Spreadsheet:** NJDSC_Compliance_Audit  
-**Sheet Name:** AuditLog  
-**Primary Key:** ID (Column A)
+### 5.1 File Structure
+**File Location:** `/var/www/data/audit.json`
+**Format:** JSON Array of audit entries
+**Primary Key:** id (unique identifier)
 
-| Column | Field Name | Data Type | Required | Default | Validation | Description |
-|--------|------------|-----------|----------|---------|------------|-------------|
-| A | id | String | Yes | Auto-generated | `^audit_[a-zA-Z0-9]{8}$` | Unique audit entry ID |
-| B | timestamp | DateTime | Yes | Current timestamp | ISO 8601 | Event timestamp |
-| C | action | String | Yes | - | Enum | Action performed |
-| D | entityType | String | Yes | - | Enum | Type of entity affected |
-| E | entityId | String | Yes | - | Max 100 chars | ID of affected entity |
-| F | userId | String | No | - | Email format | User who performed action |
-| G | userIp | String | No | - | IP format | User's IP address |
-| H | oldValue | String | No | - | Max 5000 chars | Previous value (JSON) |
-| I | newValue | String | No | - | Max 5000 chars | New value (JSON) |
-| J | details | String | No | - | Max 1000 chars | Additional context |
+### 5.2 JSON Schema
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^audit_[a-zA-Z0-9]{8}$",
+        "description": "Unique audit entry ID"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Event timestamp"
+      },
+      "action": {
+        "type": "string",
+        "enum": ["report_created", "report_updated", "status_changed", "file_uploaded", "config_updated", "email_sent"],
+        "description": "Action performed"
+      },
+      "entityType": {
+        "type": "string",
+        "enum": ["report", "file", "config"],
+        "description": "Type of entity affected"
+      },
+      "entityId": {
+        "type": "string",
+        "maxLength": 100,
+        "description": "ID of affected entity"
+      },
+      "userId": {
+        "type": "string",
+        "description": "User who performed action"
+      },
+      "userIp": {
+        "type": "string",
+        "description": "User's IP address"
+      },
+      "oldValue": {
+        "type": ["string", "object", "null"],
+        "description": "Previous value (JSON)"
+      },
+      "newValue": {
+        "type": ["string", "object", "null"],
+        "description": "New value (JSON)"
+      },
+      "details": {
+        "type": "string",
+        "maxLength": 1000,
+        "description": "Additional context"
+      }
+    },
+    "required": ["id", "timestamp", "action", "entityType", "entityId"]
+  }
+}
+```
 
 ### 5.2 Audited Actions
 - **report_created**: New report submitted
@@ -251,23 +433,23 @@ The NJDSC School Compliance Portal uses Google Sheets as its primary data store,
 ## 6. Data Migration Strategy
 
 ### 6.1 Schema Changes
-1. Create new sheet with updated schema
-2. Migrate existing data with transformation scripts
-3. Update application code to use new schema
-4. Validate data integrity
-5. Switch to new schema in production
+1. Create migration scripts to convert Google Sheets data to JSON format
+2. Transform existing data with proper type conversion
+3. Update application code to use JSON file storage
+4. Validate data integrity and relationships
+5. Switch to JSON storage in production
 
 ### 6.2 Data Backup
-- Daily automated exports to JSON/CSV
-- Weekly full spreadsheet backups
-- Monthly archival snapshots
-- Emergency restore procedures
+- Daily automated JSON file backups to DigitalOcean Spaces
+- Weekly full file system snapshots
+- Monthly archival backups with offsite storage
+- Emergency restore procedures with data validation
 
 ### 6.3 Future Database Migration
-- Path defined for migration to PostgreSQL/MySQL
-- Schema compatibility maintained
-- Migration scripts prepared
-- Performance benchmarks established
+- Path defined for migration to PostgreSQL/MySQL if needed
+- JSON schema compatibility maintained
+- Migration scripts prepared for relational database
+- Performance benchmarks established for scaling
 
 ## 7. Data Privacy & Compliance
 
@@ -278,13 +460,14 @@ The NJDSC School Compliance Portal uses Google Sheets as its primary data store,
 - GDPR/CCPA compliance considerations
 
 ### 7.2 Data Security
-- Google Workspace security settings
-- Access restricted to NJDSC administrators
-- Audit logging for all data access
-- Encryption at rest and in transit
+- File system permissions and access controls
+- Server-level security with firewalls and intrusion detection
+- Encrypted data storage with file system encryption
+- HTTPS enforcement for all data transmission
+- Regular security updates and patches
 
 ---
 
-**Schema Version:** 1.0
-**Last Updated:** September 26, 2025
+**Schema Version:** 2.0
+**Last Updated:** October 3, 2025
 **Next Review:** October 15, 2025

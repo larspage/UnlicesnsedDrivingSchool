@@ -4,7 +4,7 @@ Complete reference for all environment variables used in the NJDSC School Compli
 
 ## Table of Contents
 - [Server Configuration](#server-configuration)
-- [Google APIs Configuration](#google-apis-configuration)
+- [Local Storage Configuration](#local-storage-configuration)
 - [Security Configuration](#security-configuration)
 - [File Upload Configuration](#file-upload-configuration)
 - [Logging Configuration](#logging-configuration)
@@ -38,105 +38,75 @@ Complete reference for all environment variables used in the NJDSC School Compli
 
 ---
 
-## Google APIs Configuration
+## Local Storage Configuration
 
-### GOOGLE_SERVICE_ACCOUNT_KEY
-- **Description**: Complete JSON key for Google Cloud service account
-- **Type**: JSON string (minified to single line)
-- **Example**: 
-  ```
-  GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"njdsc-portal",...}
-  ```
+### DATA_DIR
+- **Description**: Directory path for JSON data files
+- **Type**: String (absolute path)
+- **Default**: `/var/www/data`
+- **Example**: `DATA_DIR=/var/www/data`
 - **Required**: Yes
-- **How to Get**:
-  1. Go to Google Cloud Console
-  2. Navigate to IAM & Admin → Service Accounts
-  3. Create or select service account
-  4. Go to Keys tab → Add Key → Create new key
-  5. Choose JSON format
-  6. Download and copy entire contents
-- **Security**: 
-  - Never commit to version control
-  - Store securely (environment variables, secrets manager)
-  - Rotate every 90 days
-- **Format Notes**:
-  - Must be valid JSON
-  - Keep `\n` characters in private_key field
-  - Remove all other newlines
-
-### GOOGLE_CLIENT_ID
-- **Description**: OAuth 2.0 Client ID (if using OAuth)
-- **Type**: String
-- **Example**: `GOOGLE_CLIENT_ID=123456789-abc123.apps.googleusercontent.com`
-- **Required**: No (only if implementing OAuth)
-- **How to Get**:
-  1. Google Cloud Console → APIs & Services → Credentials
-  2. Create OAuth 2.0 Client ID
-  3. Application type: Web application
-  4. Copy Client ID
-
-### GOOGLE_CLIENT_SECRET
-- **Description**: OAuth 2.0 Client Secret (if using OAuth)
-- **Type**: String
-- **Example**: `GOOGLE_CLIENT_SECRET=GOCSPX-abc123def456`
-- **Required**: No (only if implementing OAuth)
-- **How to Get**: Same as Client ID, copy the secret
-
-### GOOGLE_SHEETS_SPREADSHEET_ID
-- **Description**: ID of the Google Sheets spreadsheet storing report data
-- **Type**: String
-- **Example**: `GOOGLE_SHEETS_SPREADSHEET_ID=1hhp0ekSjMHO-IDOrw17tH6LmWsQXOiyCEGgCLisTmcs`
-- **Required**: Yes
-- **How to Get**:
-  1. Open your Google Sheets spreadsheet
-  2. Look at the URL:
-     ```
-     https://docs.google.com/spreadsheets/d/[SPREADSHEET_ID]/edit
-     ```
-  3. Copy the ID between `/d/` and `/edit`
 - **Setup**:
-  1. Create spreadsheet with "Reports" sheet
-  2. Share with service account email (Editor permissions)
-  3. Add column headers (see GOOGLE_WORKSPACE_DEPLOYMENT.md)
+  - Create directory with proper permissions
+  - Initialize with empty JSON files
+  - Ensure web server cannot access directly
 
-### GOOGLE_CONFIG_SPREADSHEET_ID
-- **Description**: ID of spreadsheet storing application configuration
-- **Type**: String
-- **Example**: `GOOGLE_CONFIG_SPREADSHEET_ID=1u7Xc7jwCiWo4rPyhiYXXWRFk5prG0g8r74ipYijeqgA`
-- **Required**: No (optional feature)
-- **How to Get**: Same as GOOGLE_SHEETS_SPREADSHEET_ID
-- **Setup**:
-  1. Create spreadsheet with "Config" sheet
-  2. Share with service account
-  3. Add columns: key, value, description
-
-### GOOGLE_DRIVE_FOLDER_ID
-- **Description**: ID of Google Shared Drive for file storage
-- **Type**: String
-- **Example**: `GOOGLE_DRIVE_FOLDER_ID=0AExampleSharedDriveID`
+### UPLOADS_DIR
+- **Description**: Directory path for uploaded files
+- **Type**: String (absolute path)
+- **Default**: `/var/www/uploads`
+- **Example**: `UPLOADS_DIR=/var/www/uploads`
 - **Required**: Yes
-- **How to Get**:
-  1. Create Shared Drive in Google Drive
-  2. Add service account as Manager
-  3. Click on Shared Drive
-  4. Copy ID from URL:
-     ```
-     https://drive.google.com/drive/folders/[SHARED_DRIVE_ID]
-     ```
-- **Important**: 
-  - Must be a Shared Drive (ID starts with `0A`)
-  - Regular folder IDs will NOT work for file uploads
-  - Service accounts cannot upload to regular folders
+- **Setup**:
+  - Create directory with proper permissions
+  - Configure web server for public access
+  - Organize files by report ID subdirectories
 
-### GOOGLE_GMAIL_USER
-- **Description**: Email address for domain-wide delegation and Gmail operations
-- **Type**: String (email)
-- **Example**: `GOOGLE_GMAIL_USER=admin@yourdomain.com`
+### UPLOADS_URL_BASE
+- **Description**: Base URL for accessing uploaded files
+- **Type**: String (URL)
+- **Example**: `UPLOADS_URL_BASE=https://unlicenseddrivingschoolnj.com/uploads`
 - **Required**: Yes
 - **Notes**:
+  - Must be publicly accessible
+  - Used to generate file URLs in responses
+  - Configure web server to serve files from UPLOADS_DIR
+
+### BACKUP_DIR
+- **Description**: Directory for automated backups
+- **Type**: String (absolute path)
+- **Default**: `/var/www/backups`
+- **Example**: `BACKUP_DIR=/var/www/backups`
+- **Required**: No
+- **Setup**:
+  - Create directory with secure permissions
+  - Configure automated backup scripts
+  - Consider off-server backup storage
+
+### BACKUP_RETENTION_DAYS
+- **Description**: Number of days to keep backups
+- **Type**: Number
+- **Default**: 30
+- **Example**: `BACKUP_RETENTION_DAYS=30`
+- **Required**: No
+
+### BACKUP_SCHEDULE
+- **Description**: Backup frequency schedule
+- **Type**: String
+- **Values**: `daily`, `weekly`, `hourly`
+- **Default**: `daily`
+- **Example**: `BACKUP_SCHEDULE=daily`
+- **Required**: No
+
+### GOOGLE_GMAIL_USER
+- **Description**: Email address for Gmail API operations (retained for email functionality)
+- **Type**: String (email)
+- **Example**: `GOOGLE_GMAIL_USER=admin@yourdomain.com`
+- **Required**: Yes (for email notifications)
+- **Notes**:
   - Must be a user in your Google Workspace domain
-  - Service account will act as this user
-  - Used for sending emails and accessing user's Drive
+  - Used only for sending MVC notification emails
+  - Requires service account with Gmail API access
 
 ---
 
@@ -245,22 +215,30 @@ Complete reference for all environment variables used in the NJDSC School Compli
 ```env
 PORT=5000
 NODE_ENV=production
-FRONTEND_URL=https://compliance.njdsc.org
+FRONTEND_URL=https://unlicenseddrivingschoolnj.com
 
+# Local storage configuration
+DATA_DIR=/var/www/data
+UPLOADS_DIR=/var/www/uploads
+UPLOADS_URL_BASE=https://unlicenseddrivingschoolnj.com/uploads
+
+# Backup configuration
+BACKUP_DIR=/var/www/backups
+BACKUP_RETENTION_DAYS=30
+BACKUP_SCHEDULE=daily
+
+# Gmail for email notifications (retained)
 GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-GOOGLE_SHEETS_SPREADSHEET_ID=1hhp0ekSjMHO-IDOrw17tH6LmWsQXOiyCEGgCLisTmcs
-GOOGLE_CONFIG_SPREADSHEET_ID=1u7Xc7jwCiWo4rPyhiYXXWRFk5prG0g8r74ipYijeqgA
-GOOGLE_DRIVE_FOLDER_ID=0AExampleSharedDriveID
-GOOGLE_GMAIL_USER=admin@yourdomain.com
+GOOGLE_GMAIL_USER=treasurer@njdsc.org
 
 JWT_SECRET=production-secret-key-32-chars-minimum
 ADMIN_API_KEY=production-admin-key
 
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
+RATE_LIMIT_WINDOW_MS=3600000
+RATE_LIMIT_MAX_REQUESTS=5
 
 MAX_FILE_SIZE=10485760
-ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,application/pdf
+ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,video/mp4
 
 LOG_LEVEL=info
 ```
@@ -271,11 +249,19 @@ PORT=5000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:3000
 
+# Local storage configuration
+DATA_DIR=./data
+UPLOADS_DIR=./uploads
+UPLOADS_URL_BASE=http://localhost:5000/uploads
+
+# Backup configuration (optional for development)
+BACKUP_DIR=./backups
+BACKUP_RETENTION_DAYS=7
+BACKUP_SCHEDULE=daily
+
+# Gmail for email notifications (retained)
 GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-GOOGLE_SHEETS_SPREADSHEET_ID=1hhp0ekSjMHO-IDOrw17tH6LmWsQXOiyCEGgCLisTmcs
-GOOGLE_CONFIG_SPREADSHEET_ID=1u7Xc7jwCiWo4rPyhiYXXWRFk5prG0g8r74ipYijeqgA
-GOOGLE_DRIVE_FOLDER_ID=0AExampleSharedDriveID
-GOOGLE_GMAIL_USER=dev@yourdomain.com
+GOOGLE_GMAIL_USER=dev-treasurer@njdsc.org
 
 JWT_SECRET=development-secret-key
 ADMIN_API_KEY=dev-admin-key
@@ -284,7 +270,7 @@ RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=1000
 
 MAX_FILE_SIZE=10485760
-ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,application/pdf
+ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,video/mp4
 
 LOG_LEVEL=debug
 ```
@@ -295,11 +281,19 @@ PORT=5001
 NODE_ENV=test
 FRONTEND_URL=http://localhost:3001
 
+# Local storage configuration for testing
+DATA_DIR=./test-data
+UPLOADS_DIR=./test-uploads
+UPLOADS_URL_BASE=http://localhost:5001/uploads
+
+# No backups in testing
+BACKUP_DIR=./test-backups
+BACKUP_RETENTION_DAYS=1
+BACKUP_SCHEDULE=daily
+
+# Gmail for email testing (mock or retained)
 GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-GOOGLE_SHEETS_SPREADSHEET_ID=test-spreadsheet-id
-GOOGLE_CONFIG_SPREADSHEET_ID=test-config-id
-GOOGLE_DRIVE_FOLDER_ID=0ATestSharedDriveID
-GOOGLE_GMAIL_USER=test@yourdomain.com
+GOOGLE_GMAIL_USER=test-treasurer@njdsc.org
 
 JWT_SECRET=test-secret-key
 ADMIN_API_KEY=test-admin-key
@@ -321,9 +315,10 @@ LOG_LEVEL=error
 - [ ] PORT
 - [ ] NODE_ENV
 - [ ] FRONTEND_URL
-- [ ] GOOGLE_SERVICE_ACCOUNT_KEY
-- [ ] GOOGLE_SHEETS_SPREADSHEET_ID
-- [ ] GOOGLE_DRIVE_FOLDER_ID
+- [ ] DATA_DIR
+- [ ] UPLOADS_DIR
+- [ ] UPLOADS_URL_BASE
+- [ ] GOOGLE_SERVICE_ACCOUNT_KEY (for Gmail only)
 - [ ] GOOGLE_GMAIL_USER
 - [ ] JWT_SECRET
 
@@ -335,9 +330,10 @@ const required = [
   'PORT',
   'NODE_ENV',
   'FRONTEND_URL',
+  'DATA_DIR',
+  'UPLOADS_DIR',
+  'UPLOADS_URL_BASE',
   'GOOGLE_SERVICE_ACCOUNT_KEY',
-  'GOOGLE_SHEETS_SPREADSHEET_ID',
-  'GOOGLE_DRIVE_FOLDER_ID',
   'GOOGLE_GMAIL_USER',
   'JWT_SECRET'
 ];
@@ -385,6 +381,7 @@ console.log('✅ All required variables present');
 
 ## Related Documentation
 
-- [GOOGLE_WORKSPACE_DEPLOYMENT.md](GOOGLE_WORKSPACE_DEPLOYMENT.md) - Full deployment guide
-- [GOOGLE_SHARED_DRIVE_SETUP.md](GOOGLE_SHARED_DRIVE_SETUP.md) - Shared Drive setup
+- [deployment_guide.md](deployment_guide.md) - DigitalOcean droplet deployment
+- [database_schema.md](database_schema.md) - JSON file schema specifications
+- [STORAGE_CONFIGURATION.md](STORAGE_CONFIGURATION.md) - Local storage setup
 - [.env.example](.env.example) - Template file

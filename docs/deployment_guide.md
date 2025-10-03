@@ -5,10 +5,10 @@
 This guide provides comprehensive instructions for deploying the NJDSC School Compliance Portal across development, staging, and production environments. The application consists of a React frontend and Node.js/Express backend, with Google Workspace integrations.
 
 ### 1.1 Architecture Summary
-- **Frontend:** React + TypeScript, deployed to Vercel/Netlify
-- **Backend:** Node.js + Express, deployed to Vercel/Netlify
-- **Database:** Google Sheets (NJDSC Workspace)
-- **File Storage:** Google Drive (NJDSC Workspace)
+- **Frontend:** React + TypeScript, served by Nginx on DigitalOcean droplet
+- **Backend:** Node.js + Express, running on DigitalOcean droplet
+- **Database:** Local JSON files on DigitalOcean droplet
+- **File Storage:** Local file system on DigitalOcean droplet
 - **Email:** Gmail API
 - **Domain:** unlicenseddrivingschoolnj.com
 
@@ -24,20 +24,18 @@ This guide provides comprehensive instructions for deploying the NJDSC School Co
 ### 2.1 System Requirements
 - Node.js 18+ and npm
 - Git
-- Google Cloud Console account with NJDSC Workspace access
-- Vercel/Netlify account
+- DigitalOcean account
 - Domain registrar access (for production)
+- SSH access to server
 
-### 2.2 Google Cloud Console Setup
+### 2.2 Google Cloud Console Setup (Gmail API Only)
 1. Create a new Google Cloud Project: `njdsc-compliance-portal`
 2. Enable required APIs:
-   - Google Sheets API
-   - Google Drive API
-   - Gmail API
-   - Google Custom Search API
-3. Create service account credentials
-4. Share Google Sheets and Drive folders with service account
-5. Configure OAuth consent screen (if using OAuth flow)
+   - Gmail API (for email notifications)
+   - Google Custom Search API (for data enrichment)
+3. Create service account credentials for Gmail API
+4. Configure domain-wide delegation for service account
+5. Configure OAuth consent screen for Gmail API
 
 ### 2.3 Repository Setup
 ```bash
@@ -72,9 +70,11 @@ PORT=3001
 VITE_API_URL=http://localhost:3001/api
 VITE_APP_NAME="NJDSC Compliance Portal (Dev)"
 
-# Google APIs (Development)
-GOOGLE_SHEETS_SPREADSHEET_ID=1ABC123... # Dev spreadsheet
-GOOGLE_DRIVE_FOLDER_ID=1XYZ456...       # Dev drive folder
+# Data Storage (Development)
+DATA_DIR=./data
+UPLOADS_DIR=./uploads
+
+# Google APIs (Development - Gmail only)
 GOOGLE_CLIENT_EMAIL=dev-service@njdsc-portal.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 
@@ -110,9 +110,11 @@ PORT=3001
 VITE_API_URL=https://api-staging.unlicenseddrivingschoolnj.com/api
 VITE_APP_NAME="NJDSC Compliance Portal (Staging)"
 
-# Google APIs (Staging)
-GOOGLE_SHEETS_SPREADSHEET_ID=1STAGING123... # Staging spreadsheet
-GOOGLE_DRIVE_FOLDER_ID=1STAGING456...       # Staging drive folder
+# Data Storage (Staging)
+DATA_DIR=/var/www/data
+UPLOADS_DIR=/var/www/uploads
+
+# Google APIs (Staging - Gmail only)
 GOOGLE_CLIENT_EMAIL=staging-service@njdsc-portal.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 
@@ -148,9 +150,11 @@ PORT=3001
 VITE_API_URL=https://api.unlicenseddrivingschoolnj.com/api
 VITE_APP_NAME="NJDSC School Compliance Portal"
 
-# Google APIs (Production)
-GOOGLE_SHEETS_SPREADSHEET_ID=1PROD123... # Production spreadsheet
-GOOGLE_DRIVE_FOLDER_ID=1PROD456...       # Production drive folder
+# Data Storage (Production)
+DATA_DIR=/var/www/data
+UPLOADS_DIR=/var/www/uploads
+
+# Google APIs (Production - Gmail only)
 GOOGLE_CLIENT_EMAIL=prod-service@njdsc-portal.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 
@@ -188,17 +192,12 @@ GOOGLE_ANALYTICS_ID=GA-XXXXXXXXX
 3. Generate JSON key file
 4. Extract `client_email` and `private_key` for environment variables
 
-#### Google Sheets Setup
-1. Create spreadsheet in NJDSC Google Workspace
-2. Share with service account email (Editor permissions)
-3. Create "Reports" sheet with proper headers
-4. Get spreadsheet ID from URL
-
-#### Google Drive Setup
-1. Create folder in NJDSC Google Drive
-2. Share with service account email (Editor permissions)
-3. Get folder ID from URL
-4. Set up subfolders for organization
+#### Gmail API Setup
+1. Enable Gmail API in Google Cloud Console
+2. Configure OAuth consent screen for NJDSC domain
+3. Create OAuth 2.0 Client ID credentials
+4. Set up domain-wide delegation for service account
+5. Configure Gmail user permissions in Google Workspace admin
 
 #### Gmail API Setup
 1. Enable Gmail API in Google Cloud Console
@@ -319,27 +318,66 @@ docker run -p 3001:3001 njdsc-compliance-portal
 
 ## 6. Deployment Procedures
 
-### 6.1 Vercel Deployment (Recommended)
+### 6.1 DigitalOcean Droplet Setup
 
-#### Frontend Deployment
-1. Connect GitHub repository to Vercel
-2. Configure build settings:
-   - **Framework Preset:** Vite
-   - **Root Directory:** `./` (or `./frontend` if separate)
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `dist`
-3. Set environment variables in Vercel dashboard
-4. Deploy to production
+#### Prerequisites
+1. Create DigitalOcean account
+2. Choose droplet size (recommended: 1GB RAM, 1 vCPU for starter)
+3. Select Ubuntu 22.04 LTS as operating system
+4. Add SSH keys for secure access
+5. Choose datacenter region (preferably close to users)
 
-#### Backend Deployment
-1. Create new Vercel project for API
-2. Configure build settings:
-   - **Framework Preset:** Other
-   - **Root Directory:** `./server` (if separate)
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `.`
-3. Set environment variables
-4. Deploy API to `api.unlicenseddrivingschoolnj.com`
+#### Initial Server Setup
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Install Node.js 18
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install Nginx
+sudo apt install nginx -y
+
+# Install PM2 for process management
+sudo npm install -g pm2
+
+# Configure firewall
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw --force enable
+```
+
+#### Application Deployment
+```bash
+# Create application directory
+sudo mkdir -p /var/www
+sudo chown -R $USER:$USER /var/www
+
+# Clone repository
+cd /var/www
+git clone https://github.com/njdsc/compliance-portal.git
+cd compliance-portal
+
+# Install dependencies
+npm install
+
+# Create data and uploads directories
+mkdir -p data uploads
+chmod 755 uploads
+
+# Copy environment file and configure
+cp .env.example .env
+nano .env  # Edit with production values
+
+# Build application
+npm run build
+
+# Start application with PM2
+pm2 start ecosystem.config.js --env production
+pm2 startup
+pm2 save
+```
 
 ### 6.2 Netlify Deployment (Alternative)
 
@@ -415,25 +453,41 @@ server {
     server_name unlicenseddrivingschoolnj.com www.unlicenseddrivingschoolnj.com;
 
     # SSL configuration
-    ssl_certificate /path/to/ssl/cert.pem;
-    ssl_certificate_key /path/to/ssl/private.key;
+    ssl_certificate /etc/letsencrypt/live/unlicenseddrivingschoolnj.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/unlicenseddrivingschoolnj.com/privkey.pem;
 
-    # Serve static files
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+
+    # Serve static files (React app)
     location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        root /var/www/compliance-portal/dist;
+        index index.html index.htm;
+        try_files $uri $uri/ /index.html;
     }
 
-    # API proxy
+    # Serve uploaded files publicly
+    location /uploads/ {
+        alias /var/www/uploads/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # API proxy to Node.js application
     location /api {
         proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
@@ -455,9 +509,17 @@ www.unlicenseddrivingschoolnj.com -> CNAME to your-deployment-provider
 
 ### 7.2 SSL Certificate
 ```bash
-# Using Let's Encrypt
-sudo apt install certbot python3-certbot-nginx
+# Install Certbot
+sudo apt install snapd -y
+sudo snap install core; sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+# Get SSL certificate
 sudo certbot --nginx -d unlicenseddrivingschoolnj.com -d www.unlicenseddrivingschoolnj.com
+
+# Set up auto-renewal
+sudo certbot renew --dry-run
 ```
 
 ### 7.3 CDN Setup (Optional)
@@ -517,17 +579,25 @@ pm2 restart njdsc-compliance-portal
 
 ### 9.4 Backup Procedures
 ```bash
-# Database backup (Google Sheets)
-# Note: Google Sheets has built-in versioning
+# Data files backup
+tar -czf backup_$(date +%Y%m%d_%H%M%S).tar.gz /var/www/data/
+cp backup_*.tar.gz /var/www/backups/
 
-# File backup (Google Drive)
-# Note: Google Drive has built-in backup
+# Uploads backup (incremental)
+rsync -av --delete /var/www/uploads/ /var/www/backups/uploads/
 
 # Application logs
-pm2 logs njdsc-compliance-portal --lines 1000 > backup.log
+pm2 logs njdsc-compliance-portal --lines 1000 > /var/www/backups/logs_$(date +%Y%m%d).log
 
 # Configuration backup
-cp .env.production .env.production.backup
+cp /var/www/compliance-portal/.env /var/www/backups/.env.$(date +%Y%m%d)
+
+# Automated backup script
+#!/bin/bash
+# /var/www/backup.sh
+DATE=$(date +%Y%m%d_%H%M%S)
+tar -czf /var/www/backups/data_$DATE.tar.gz /var/www/data/
+find /var/www/backups/ -name "*.tar.gz" -mtime +30 -delete
 ```
 
 ### 9.5 Security Updates
@@ -549,29 +619,29 @@ npm run security:scan
 
 ### 10.1 Common Issues
 
-#### Google API Authentication Errors
+#### File System Permission Errors
 ```
-Error: invalid_grant
+Error: EACCES: permission denied
 ```
-- Check service account credentials
-- Verify Google Workspace sharing permissions
-- Ensure correct spreadsheet/folder IDs
+- Check directory permissions: `ls -la /var/www/`
+- Fix permissions: `sudo chown -R www-data:www-data /var/www/uploads/`
+- Ensure application user has write access
 
 #### File Upload Failures
 ```
 Error: File too large
 ```
 - Check MAX_FILE_SIZE environment variable
-- Verify Google Drive permissions
-- Check file type restrictions
+- Verify disk space with `df -h`
+- Check file type restrictions in ALLOWED_FILE_TYPES
 
-#### Database Connection Issues
+#### JSON File Corruption
 ```
-Error: Spreadsheet not found
+Error: Unexpected end of JSON input
 ```
-- Verify spreadsheet ID
-- Check service account has edit permissions
-- Ensure spreadsheet exists and is accessible
+- Check file integrity: `cat /var/www/data/reports.json | jq .`
+- Restore from backup if needed
+- Implement atomic writes in application code
 
 #### Authentication Problems
 ```
@@ -606,9 +676,9 @@ pm2 stop njdsc-compliance-portal
 pm2 delete njdsc-compliance-portal
 pm2 start ecosystem.config.js
 
-# Database rollback (Google Sheets)
-# Use Google Sheets version history
-# Or restore from backup spreadsheet
+# Data rollback (JSON files)
+# Restore from backup: tar -xzf /var/www/backups/data_*.tar.gz -C /var/www/
+# Or use git to revert data changes if version controlled
 ```
 
 ---
@@ -620,7 +690,8 @@ pm2 start ecosystem.config.js
 - [ ] Performance benchmarks met
 - [ ] Security audit completed
 - [ ] Domain and SSL configured
-- [ ] Google APIs properly configured
+- [ ] Data directories created and permissions set
+- [ ] Gmail API properly configured
 - [ ] Admin accounts created
 - [ ] User documentation ready
 
@@ -641,6 +712,6 @@ pm2 start ecosystem.config.js
 
 ---
 
-**Deployment Guide Version:** 1.0
-**Last Updated:** September 26, 2025
-**Supported Platforms:** Vercel, Netlify, Self-hosted
+**Deployment Guide Version:** 2.0
+**Last Updated:** October 3, 2025
+**Supported Platforms:** DigitalOcean Droplets, Self-hosted

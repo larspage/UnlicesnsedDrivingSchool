@@ -19,7 +19,7 @@ This document organizes the development of the NJDSC School Compliance Portal in
 
 ## Current Project Status
 
-The infrastructure foundation is complete and data layer integrations are implemented, enabling API development to begin.
+The infrastructure foundation is complete. The data layer is undergoing architectural changes from Google Workspace to local JSON file storage on DigitalOcean droplets, enabling cost-effective deployment.
 
 ---
 
@@ -69,67 +69,69 @@ The infrastructure foundation is complete and data layer integrations are implem
 
 ---
 
-## Phase 2: Data Layer & External Integrations
+## Phase 2: Data Layer & Local Storage
 **Duration:** 1.5 weeks
-**Objective:** Implement Google Workspace integrations and data persistence
-**Status:** Completed
+**Objective:** Implement local JSON file storage and file management
+**Status:** In Progress (Architecture Change)
 
 ### Primary Goals
-- Configure Google API credentials and permissions
-- Implement Google Sheets data operations
-- Create Google Drive file management
-- Establish data models and validation
+- Set up local JSON file storage for reports and configuration
+- Implement local directory structure for file uploads
+- Configure Nginx for public file serving
+- Establish data models and validation for JSON storage
 
 ### Agent Assignments
 
 #### Data Layer Team
-- **Google Sheets Agent:** Implement Sheets API wrapper and CRUD operations
-- **Google Drive Agent:** File upload, storage, and URL generation
-- **Data Modeling Agent:** Define schemas, validation, and data transformation
-- **Configuration Agent:** Admin-configurable API settings and credentials
+- **JSON Storage Agent:** Implement file-based data persistence and CRUD operations
+- **Local File System Agent:** Directory structure setup and file management
+- **Data Modeling Agent:** Define JSON schemas, validation, and data transformation
+- **Configuration Agent:** Local configuration file management
 
 #### Integration Team
 - **Gmail Integration Agent:** Email service setup and template handling
 - **Search Integration Agent:** Google Custom Search and social media APIs
-- **Security Agent:** API authentication and secure credential management
+- **Security Agent:** File system permissions and access control
 
 ### Parallel Work Opportunities
-- Google Sheets and Drive services can develop independently
-- Data models can be defined parallel with API implementations
+- JSON storage and file system services can develop independently
+- Data models can be defined parallel with storage implementations
 - Security implementation spans all integrations
 
 ### Dependencies
 - Phase 1 infrastructure complete
-- Google Cloud Console project set up (manual prerequisite)
+- DigitalOcean droplet or local development environment set up
 
 ### Key Interfaces Defined
 ```javascript
-// Google Sheets Service Contract
+// JSON Storage Service Contract
 {
-  appendRow: (spreadsheetId, data) => Promise<RowResult>,
-  findRows: (spreadsheetId, query) => Promise<Row[]>,
-  updateRow: (spreadsheetId, rowId, data) => Promise<UpdateResult>
+  saveReport: (report) => Promise<void>,
+  getReports: (filters) => Promise<Report[]>,
+  updateReport: (id, data) => Promise<void>,
+  deleteReport: (id) => Promise<void>
 }
 
-// Data Model Contracts
+// File System Service Contract
 {
-  Report: { validate(), toSheets(), fromSheets() },
-  File: { validate(), getUrl(), getThumbnailUrl() }
+  saveFile: (file, reportId) => Promise<FileMetadata>,
+  getFileUrl: (fileId, reportId) => string,
+  deleteFile: (fileId, reportId) => Promise<void>
 }
 ```
 
 ### Deliverables
-- ✅ Google Sheets read/write operations
-- ✅ File upload to Google Drive
-- ✅ Data validation and transformation
-- ✅ Configurable API credentials
-- ✅ Basic Gmail API integration
+- 🔄 Local JSON file read/write operations
+- 🔄 Local directory file upload and storage
+- 🔄 Data validation and transformation for JSON
+- 🔄 Nginx configuration for public file access
+- ✅ Basic Gmail API integration (retained)
 
 ### Success Criteria
-- Can create/read/update/delete reports in Google Sheets
-- File uploads work with proper permissions
+- Can create/read/update/delete reports in local JSON files
+- File uploads work with proper directory permissions
 - Data validation prevents invalid entries
-- API credentials configurable without code changes
+- Files accessible via public URLs through Nginx
 
 ---
 
@@ -517,6 +519,6 @@ Phase 1 (Infrastructure)
 
 ---
 
-**Development Phases Version:** 1.0
-**Last Updated:** September 27, 2025
+**Development Phases Version:** 2.0
+**Last Updated:** October 3, 2025
 **Total Timeline:** 10-12 weeks

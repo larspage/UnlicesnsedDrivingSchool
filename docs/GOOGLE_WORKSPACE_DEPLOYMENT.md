@@ -1,4 +1,10 @@
-# Google Workspace Deployment Guide
+# Legacy: Google Workspace Deployment Guide (DEPRECATED)
+
+**⚠️ DEPRECATED:** This guide is for legacy Google Workspace deployments. The application now uses DigitalOcean droplets with local storage.
+
+**For current deployments, see:** [deployment_guide.md](deployment_guide.md)
+
+---
 
 Complete guide for deploying the NJDSC School Compliance Portal to a client's Google Workspace environment.
 

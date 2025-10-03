@@ -1,136 +1,155 @@
 # Storage Configuration Guide
 
-This document explains how to configure file storage for the NJDSC School Compliance Portal, including both Google Shared Drive (Option 1) and alternative storage solutions (Option 2).
+This document explains how to configure file storage for the NJDSC School Compliance Portal using local directory storage on DigitalOcean droplets.
 
 ## Overview
 
-The application supports two storage approaches:
-1. **Google Shared Drive** (Current implementation)
-2. **External Storage** (AWS S3, Cloudinary, etc.) - Configurable for future use
+The application uses local file system storage for cost-effective, reliable file management:
+- **Local Directory Storage** (Current implementation)
+- **Public Access** via Nginx web server
+- **Organized Structure** with report-specific subdirectories
 
-## Option 1: Google Shared Drive (Current)
+## Local Directory Storage (Current Implementation)
 
-### Why Shared Drive?
+### Why Local Storage?
 
-Service accounts cannot upload files to regular Google Drive folders because they lack storage quota. Shared Drives have their own storage quota and support service account uploads.
+Local directory storage provides cost-effective, high-performance file storage with direct control over access and organization. Files are stored on the same DigitalOcean droplet as the application, ensuring low latency and eliminating third-party service dependencies.
 
 ### Prerequisites
 
-- Google Workspace account (Business Starter or higher)
-- Admin access to create Shared Drives
-- Service account already configured
+- DigitalOcean droplet with sufficient storage space
+- Nginx web server configured
+- Application user with proper directory permissions
+- Backup strategy in place
 
 ### Setup Steps
 
-#### 1. Create Shared Drive
+#### 1. Create Storage Directories
 
-**Via Google Drive:**
-1. Go to [Google Drive](https://drive.google.com)
-2. Click **Shared drives** in left sidebar
-3. Click **+ New**
-4. Name it: `NJDSC Reports`
-5. Click **Create**
-
-#### 2. Add Service Account
-
-1. Click on your Shared Drive
-2. Click **Manage members** (person icon with +)
-3. Add service account email (from your `.env` file)
-4. Set role to **Manager**
-5. Click **Send**
-
-#### 3. Get Shared Drive ID
-
-**Method A - From URL:**
-```
-https://drive.google.com/drive/folders/0AExampleSharedDriveID
-                                      ^^^^^^^^^^^^^^^^^^^^^^
-                                      This is your Shared Drive ID
-```
-
-**Method B - Using Script:**
 ```bash
-node list_shared_drives.js
+# Create main storage directory
+sudo mkdir -p /var/www/uploads
+
+# Create data directory for JSON files
+sudo mkdir -p /var/www/data
+
+# Set proper ownership and permissions
+sudo chown -R www-data:www-data /var/www/uploads
+sudo chown -R www-data:www-data /var/www/data
+sudo chmod 755 /var/www/uploads
+sudo chmod 755 /var/www/data
 ```
 
-#### 4. Update Configuration
+#### 2. Configure Nginx for Public Access
+
+Add to your Nginx configuration (`/etc/nginx/sites-available/unlicenseddrivingschoolnj.com`):
+
+```nginx
+# Serve uploaded files publicly
+location /uploads/ {
+    alias /var/www/uploads/;
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+    add_header X-Robots-Tag "noindex, nofollow";
+}
+```
+
+#### 3. Update Environment Configuration
 
 Update `.env`:
 ```env
-GOOGLE_DRIVE_FOLDER_ID=0AExampleSharedDriveID
+UPLOADS_DIR=/var/www/uploads
+DATA_DIR=/var/www/data
+MAX_FILE_SIZE=10485760
+ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,video/mp4
 ```
 
-**Important:** Shared Drive IDs start with `0A`. Regular folder IDs start with `1`.
-
-#### 5. Test Setup
+#### 4. Test Setup
 
 ```bash
-node test_shared_drive_upload.js
+# Test directory permissions
+ls -la /var/www/uploads
+
+# Test file creation
+touch /var/www/uploads/test.txt && rm /var/www/uploads/test.txt
+
+# Test Nginx configuration
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 Expected output:
 ```
-✅ Shared Drive folder creation working
-✅ File uploads working
-✅ Multiple files per report working
+✅ Directories created with correct permissions
+✅ File operations working
+✅ Nginx serving files correctly
 ```
 
-### Code Implementation
+### Directory Structure
 
-The `googleDriveService.js` has been updated to support Shared Drives with these parameters:
-
-```javascript
-// All Drive API calls now include:
-supportsAllDrives: true
-includeItemsFromAllDrives: true  // For list operations
+```
+/var/www/uploads/
+├── reports/
+│   ├── rep_abc123/
+│   │   ├── file_xyz789_1633360000000_evidence.jpg
+│   │   └── file_xyz790_1633360000001_document.pdf
+│   └── rep_def456/
+│       └── file_uvw101_1633360000002_video.mp4
+└── temp/  # For temporary uploads during processing
 ```
 
 ### Storage Limits
 
-| Plan | Storage per User | Pooled |
-|------|-----------------|--------|
-| Business Starter | 30 GB | Yes |
-| Business Standard | 2 TB | Yes |
-| Business Plus | 5 TB | Yes |
-| Enterprise | Unlimited* | Yes |
-
-*Subject to fair use policy
+| Resource | DigitalOcean Basic Droplet | Recommended |
+|----------|---------------------------|-------------|
+| Storage | 25-200 GB SSD | 50+ GB |
+| Bandwidth | 1-5 TB/month | 2+ TB |
+| File Size Limit | Configurable | 10 MB |
+| Files per Report | Configurable | 10 files |
 
 ### Troubleshooting
 
-#### "Service Accounts do not have storage quota"
-- **Cause**: Using regular folder instead of Shared Drive
-- **Solution**: 
-  1. Verify folder ID starts with `0A`
-  2. Create Shared Drive if needed
-  3. Update `GOOGLE_DRIVE_FOLDER_ID`
+#### Permission Denied Errors
+- **Cause**: Incorrect directory permissions
+- **Solution**:
+  ```bash
+  sudo chown -R www-data:www-data /var/www/uploads
+  sudo chmod 755 /var/www/uploads
+  ```
 
-#### "Shared drive not found" (404)
-- **Cause**: Service account not added to Shared Drive
-- **Solution**: Add service account as Manager
+#### Files Not Accessible via Web
+- **Cause**: Nginx configuration issue
+- **Solution**:
+  ```bash
+  sudo nginx -t
+  sudo systemctl reload nginx
+  ```
 
-#### "Insufficient permissions" (403)
-- **Cause**: Service account has wrong role
-- **Solution**: Change role to "Content Manager" or "Manager"
+#### Disk Space Issues
+- **Cause**: Insufficient storage space
+- **Solution**:
+  ```bash
+  df -h  # Check disk usage
+  # Consider upgrading droplet or implementing cleanup
+  ```
 
 ---
 
-## Option 2: External Storage (Future)
+## Future Storage Options
 
-### Why External Storage?
+### Why Consider External Storage?
 
-**Advantages:**
-- No Google Workspace required
-- Better performance for file serving
-- More control over access and security
-- Easier CDN integration
-- Lower costs at scale
-- No storage quota concerns
+**Advantages over local storage:**
+- Scalable storage without server upgrades
+- Built-in CDN and global distribution
+- Automatic backups and redundancy
+- Advanced image processing features
+- Better performance for high-traffic sites
 
 **Disadvantages:**
-- Additional service to manage
-- Separate billing
-- More complex initial setup
+- Additional service costs
+- Dependency on third-party services
+- More complex configuration
+- Potential vendor lock-in
 
 ### Supported Providers
 
@@ -163,27 +182,21 @@ When implementing external storage:
 ### Configuration Structure
 
 ```env
-# Storage Provider Selection
-STORAGE_PROVIDER=google_drive  # or 's3', 'cloudinary', 'azure'
+# Local Storage Configuration
+UPLOADS_DIR=/var/www/uploads
+DATA_DIR=/var/www/data
+MAX_FILE_SIZE=10485760
+ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,video/mp4
 
-# Google Drive (current)
-GOOGLE_DRIVE_FOLDER_ID=0AExampleSharedDriveID
+# File Organization
+UPLOADS_URL_BASE=https://unlicenseddrivingschoolnj.com/uploads
+CREATE_REPORT_SUBDIRS=true
+FILE_NAMING_PATTERN={id}_{timestamp}_{originalName}
 
-# AWS S3 (future)
-AWS_S3_BUCKET=njdsc-reports
-AWS_S3_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your-key
-AWS_SECRET_ACCESS_KEY=your-secret
-
-# Cloudinary (future)
-CLOUDINARY_CLOUD_NAME=your-cloud
-CLOUDINARY_API_KEY=your-key
-CLOUDINARY_API_SECRET=your-secret
-
-# Azure (future)
-AZURE_STORAGE_ACCOUNT=njdscreports
-AZURE_STORAGE_KEY=your-key
-AZURE_CONTAINER=reports
+# Backup Configuration
+BACKUP_DIR=/var/www/backups
+BACKUP_RETENTION_DAYS=30
+BACKUP_SCHEDULE=daily
 ```
 
 ### Code Structure for Multi-Provider Support
@@ -215,50 +228,64 @@ To migrate from Google Drive to external storage:
 
 ## Comparison Matrix
 
-| Feature | Google Shared Drive | AWS S3 | Cloudinary |
-|---------|-------------------|--------|------------|
-| Setup Complexity | Medium | Medium | Easy |
-| Google Workspace Required | Yes | No | No |
-| Storage Quota | Plan-dependent | Unlimited | Unlimited |
-| Cost (10GB) | Included | $0.23/mo | Free tier |
-| CDN | Via Google | Via CloudFront | Built-in |
-| Image Optimization | No | Manual | Automatic |
-| Video Support | Yes | Yes | Yes |
-| Access Control | Google permissions | IAM/Bucket policies | API-based |
+| Feature | Local Storage | AWS S3 | Cloudinary | DigitalOcean Spaces |
+|---------|---------------|--------|------------|-------------------|
+| Setup Complexity | Low | Medium | Easy | Low |
+| Infrastructure Required | Yes | No | No | No |
+| Storage Cost | Included in server | $0.023/GB/mo | Free tier + $0.01/GB | $0.01/GB/mo |
+| Bandwidth Cost | Included in server | $0.09/GB | $0.10/GB | $0.01/GB |
+| CDN | Manual config | Via CloudFront | Built-in | Via CDN |
+| Image Optimization | Manual | Via Lambda | Automatic | Manual |
+| Video Support | Yes | Yes | Yes | Yes |
+| Access Control | File permissions | IAM/Bucket policies | API-based | Token-based |
+| Backup | Manual | Automatic | Automatic | Manual |
 
 ---
 
 ## Recommendations
 
-### For Small Deployments (< 100 GB)
-- **Use Google Shared Drive** if you have Google Workspace
-- Simple setup, integrated with existing Google services
-- No additional costs
+### For Cost-Effective Deployments (< 100 GB)
+- **Use Local Storage** on DigitalOcean droplets
+- Lowest cost option with full control
+- Suitable for most small to medium applications
+- Easy to set up and maintain
 
-### For Medium Deployments (100 GB - 1 TB)
-- **Consider Cloudinary** for image-heavy applications
-- **Consider AWS S3** for general file storage
-- Better performance and scalability
+### For High-Traffic Sites (> 10,000 visits/month)
+- **Consider DigitalOcean Spaces** with CDN
+- Better performance for global users
+- Automatic scaling and backups
+- Still cost-effective compared to AWS/Cloudinary
 
-### For Large Deployments (> 1 TB)
-- **Use AWS S3 or Azure Blob**
-- Implement CDN for global distribution
-- Consider lifecycle policies for cost optimization
+### For Enterprise Deployments (> 1 TB)
+- **Use AWS S3 or Cloudinary**
+- Advanced features and global CDN
+- Professional support and SLAs
+- Consider cost vs. features trade-off
 
 ---
 
 ## Testing
 
-### Test Shared Drive Setup
+### Test Local Storage Setup
 ```bash
-# List available Shared Drives
-node list_shared_drives.js
+# Test directory permissions
+ls -la /var/www/uploads /var/www/data
 
-# Test folder creation
-node test_api_folder_creation.js
+# Test file creation and access
+touch /var/www/uploads/test.txt
+curl http://localhost/uploads/test.txt
+rm /var/www/uploads/test.txt
 
-# Test file upload
-node test_shared_drive_upload.js
+# Test JSON file operations
+node -e "
+const fs = require('fs');
+const data = {test: 'data'};
+fs.writeFileSync('/var/www/data/test.json', JSON.stringify(data));
+console.log('✅ JSON write successful');
+const read = JSON.parse(fs.readFileSync('/var/www/data/test.json'));
+console.log('✅ JSON read successful:', read);
+fs.unlinkSync('/var/www/data/test.json');
+"
 ```
 
 ### Verify Configuration
@@ -277,11 +304,11 @@ console.log('  Gmail User:', process.env.GOOGLE_GMAIL_USER);
 
 ## Security Considerations
 
-### Google Shared Drive
-- Service account has full access to Shared Drive
-- Files can be made public or private
-- Access controlled via Google permissions
-- Audit logs available in Admin Console
+### Local File System
+- Application user has controlled access to storage directories
+- Files served publicly via Nginx with proper permissions
+- Access controlled via file system permissions and web server config
+- Server-level logging and monitoring
 
 ### External Storage
 - Use IAM roles/policies for access control
@@ -294,10 +321,11 @@ console.log('  Gmail User:', process.env.GOOGLE_GMAIL_USER);
 
 ## Monitoring
 
-### Google Shared Drive
-- Monitor storage usage in Admin Console
-- Check API quotas in Cloud Console
-- Review audit logs for file access
+### Local File System
+- Monitor disk usage with `df -h` and `du -sh`
+- Check file permissions regularly
+- Monitor Nginx access logs for file requests
+- Set up alerts for low disk space
 
 ### External Storage
 - Monitor storage costs
@@ -309,7 +337,7 @@ console.log('  Gmail User:', process.env.GOOGLE_GMAIL_USER);
 
 ## Related Documentation
 
-- [GOOGLE_SHARED_DRIVE_SETUP.md](GOOGLE_SHARED_DRIVE_SETUP.md) - Detailed Shared Drive setup
-- [GOOGLE_WORKSPACE_DEPLOYMENT.md](GOOGLE_WORKSPACE_DEPLOYMENT.md) - Full deployment guide
+- [deployment_guide.md](deployment_guide.md) - DigitalOcean droplet deployment
+- [database_schema.md](database_schema.md) - JSON file schema specifications
 - [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) - All configuration options
-- [ALTERNATIVE_STORAGE.md](ALTERNATIVE_STORAGE.md) - External storage implementation (future)
+- [system_architecture.md](system_architecture.md) - Overall system architecture

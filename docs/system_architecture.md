@@ -39,16 +39,16 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 - **Process Management:** PM2 for production
 
 ### 2.3 Data Layer
-- **Primary Database:** Google Sheets API (admin-configurable)
-- **File Storage:** Google Drive API (admin-configurable)
+- **Primary Database:** Local JSON file storage on DigitalOcean droplet
+- **File Storage:** Local directory storage on DigitalOcean droplet (publicly accessible)
 - **Email Service:** Gmail API (admin-configurable)
 - **Search Services:** Google Custom Search API, Facebook Graph API, Instagram API
 
 ### 2.4 Infrastructure
-- **Hosting:** Vercel/Netlify (TBD based on requirements)
+- **Hosting:** DigitalOcean Droplet (cost-effective VPS hosting)
 - **Domain:** unlicenseddrivingschoolnj.com
-- **SSL:** HTTPS enforcement
-- **CDN:** Built-in with hosting platform
+- **SSL:** HTTPS enforcement via Let's Encrypt
+- **CDN:** Cloudflare (optional for static assets)
 - **Monitoring:** Google Analytics, error tracking (Sentry)
 
 ## 3. System Architecture Diagram
@@ -87,19 +87,21 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 │  └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                                    │
-                                   │ Google APIs
+                                   │ Local Storage + APIs
                                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Data Layer (Google Workspace)               │
+│                 Data Layer (DigitalOcean Droplet)               │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  Google Sheets - Primary data store                         │ │
-│  │  ├── Reports sheet with full schema                         │ │
-│  │  └── Configuration sheet for system settings                │ │
+│  │  Local JSON Files - Primary data store                      │ │
+│  │  ├── reports.json - All report data                         │ │
+│  │  ├── config.json - System configuration                     │ │
+│  │  └── audit.json - Admin action logs                         │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  Google Drive - File storage                                │ │
-│  │  ├── Organized folder structure                             │ │
-│  │  └── Thumbnail generation for images                        │ │
+│  │  Local File System - Image storage                          │ │
+│  │  ├── /var/www/uploads/ directory                            │ │
+│  │  ├── Public web access via Nginx                            │ │
+│  │  └── Organized subdirectories by report ID                  │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │  External Integrations                                       │ │
@@ -231,9 +233,9 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 ## 8. Deployment Architecture
 
 ### 8.1 Environment Strategy
-- **Development:** Local development with mock APIs
-- **Staging:** Production-like environment with limited API access
-- **Production:** Full Google Workspace integration
+- **Development:** Local development with local JSON files and file storage
+- **Staging:** Production-like environment on DigitalOcean droplet with test data
+- **Production:** Full production deployment on DigitalOcean droplet with live data
 
 ### 8.2 CI/CD Pipeline
 - Automated testing on commits
@@ -243,10 +245,10 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 - Environment-specific configurations
 
 ### 8.3 Backup & Recovery
-- Google Sheets data export capabilities
-- File backup procedures
-- Configuration backup
-- Disaster recovery plan
+- Automated JSON file backups to DigitalOcean Spaces or external storage
+- File system snapshots and incremental backups
+- Configuration file versioning
+- Disaster recovery with droplet snapshots and data restoration
 
 ## 9. Implementation Status
 
@@ -263,15 +265,21 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 - **CI/CD Pipeline:** GitHub Actions workflow for automated testing and security checks
 - **Code Quality:** Linting, formatting, and testing standards established
 
-### Phase 2: Data Layer & External Integrations ✅ COMPLETED
-**Completion Date:** September 30, 2025
+### Phase 2: Data Layer & External Integrations 🔄 IN PROGRESS (Architecture Change)
+**Updated:** October 3, 2025 - Migrating to local storage on DigitalOcean droplet
 
-#### ✅ Completed Components:
-- **Google Sheets API:** Full integration with CRUD operations and data validation
-- **Google Drive API:** Shared Drive support for file storage with service accounts
-- **Gmail API:** Email service framework implemented
-- **Data Models:** Complete Report and File models with validation
-- **Domain-wide Delegation:** Configured and tested for Google Workspace integration
+#### ✅ Previously Completed Components:
+- **Google Sheets API:** Full integration with CRUD operations and data validation (to be replaced)
+- **Google Drive API:** Shared Drive support for file storage with service accounts (to be replaced)
+- **Gmail API:** Email service framework implemented (retained)
+- **Data Models:** Complete Report and File models with validation (adapting to JSON)
+- **Domain-wide Delegation:** Configured and tested for Google Workspace integration (no longer needed)
+
+#### 🔄 Migration Components:
+- **Local JSON Storage:** Implementing file-based data persistence
+- **Local File System:** Setting up directory structure for image storage
+- **Public Access:** Configuring Nginx for public image serving
+- **Data Migration:** Converting existing Google Sheets data to JSON format
 
 ### Phase 3: Backend API Development ✅ COMPLETED
 **Completion Date:** September 30, 2025
@@ -311,6 +319,6 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** September 30, 2025
+**Document Version:** 1.3
+**Last Updated:** October 3, 2025
 **Next Review:** October 15, 2025
