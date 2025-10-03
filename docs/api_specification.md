@@ -218,8 +218,8 @@ Retrieve paginated list of reports with optional filtering.
             "id": "file_789",
             "name": "evidence.jpg",
             "type": "image/jpeg",
-            "url": "https://drive.google.com/file/d/123...",
-            "thumbnailUrl": "https://drive.google.com/thumbnail/123..."
+            "url": "/uploads/reports/rep_123456/file_789_1633360000000_evidence.jpg",
+            "thumbnailUrl": "/uploads/reports/rep_123456/file_789_1633360000000_evidence.jpg"
           }
         ],
         "socialMediaLinks": ["https://facebook.com/abcdrivingschool"],
@@ -345,8 +345,8 @@ Upload multiple media files for a report.
         "name": "evidence1.jpg",
         "type": "image/jpeg",
         "size": 2048000,
-        "url": "https://drive.google.com/uc?export=download&id=drive123",
-        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+        "url": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence1.jpg",
+        "thumbnailUrl": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence1.jpg",
         "uploadedAt": "2025-09-26T17:30:00Z"
       },
       {
@@ -354,8 +354,8 @@ Upload multiple media files for a report.
         "name": "evidence2.png",
         "type": "image/png",
         "size": 1536000,
-        "url": "https://drive.google.com/uc?export=download&id=drive456",
-        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive456&sz=s400",
+        "url": "/uploads/reports/rep_xyz789/file_def456_1633360000001_evidence2.png",
+        "thumbnailUrl": "/uploads/reports/rep_xyz789/file_def456_1633360000001_evidence2.png",
         "uploadedAt": "2025-09-26T17:30:01Z"
       }
     ],
@@ -391,8 +391,8 @@ Get metadata for a specific file.
     "name": "evidence.jpg",
     "type": "image/jpeg",
     "size": 2048000,
-    "url": "https://drive.google.com/uc?export=download&id=drive123",
-    "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+    "url": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence.jpg",
+    "thumbnailUrl": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence.jpg",
     "uploadedAt": "2025-09-26T17:30:00Z",
     "uploadedByIp": "192.168.1.100",
     "processingStatus": "completed"
@@ -426,8 +426,8 @@ Get all files associated with a specific report.
         "name": "evidence1.jpg",
         "type": "image/jpeg",
         "size": 2048000,
-        "url": "https://drive.google.com/uc?export=download&id=drive123",
-        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+        "url": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence1.jpg",
+        "thumbnailUrl": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence1.jpg",
         "uploadedAt": "2025-09-26T17:30:00Z",
         "processingStatus": "completed"
       },
@@ -436,8 +436,8 @@ Get all files associated with a specific report.
         "name": "evidence2.png",
         "type": "image/png",
         "size": 1536000,
-        "url": "https://drive.google.com/uc?export=download&id=drive456",
-        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive456&sz=s400",
+        "url": "/uploads/reports/rep_xyz789/file_def456_1633360000001_evidence2.png",
+        "thumbnailUrl": "/uploads/reports/rep_xyz789/file_def456_1633360000001_evidence2.png",
         "uploadedAt": "2025-09-26T17:30:01Z",
         "processingStatus": "completed"
       }
@@ -471,8 +471,8 @@ Get all files in the system (Admin/Debugging).
         "name": "evidence.jpg",
         "type": "image/jpeg",
         "size": 2048000,
-        "url": "https://drive.google.com/uc?export=download&id=drive123",
-        "thumbnailUrl": "https://drive.google.com/thumbnail?id=drive123&sz=s400",
+        "url": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence.jpg",
+        "thumbnailUrl": "/uploads/reports/rep_xyz789/file_abc123_1633360000000_evidence.jpg",
         "uploadedAt": "2025-09-26T17:30:00Z",
         "processingStatus": "completed"
       }
@@ -540,15 +540,15 @@ Update the processing status of a file (Internal use).
 
 ### 5.7 File Storage Architecture
 
-**Google Drive Integration:**
-- Files are uploaded to Google Drive for storage
-- Public URLs are generated using Google's export/download API
-- Thumbnail URLs are generated for image files using Google's thumbnail API
+**Local Directory Storage:**
+- Files are stored in organized directory structure on DigitalOcean droplet
+- Public URLs are served through Nginx with proper security headers
+- File metadata is stored in local JSON files alongside report data
 
-**Google Sheets Integration:**
-- File metadata is stored in Google Sheets for tracking
-- Processing status is updated in real-time
-- File relationships with reports are maintained
+**Directory Organization:**
+- Files organized by report ID: `/var/www/uploads/reports/{reportId}/`
+- File naming: `{fileId}_{timestamp}_{originalName}`
+- Public access via Nginx location blocks
 
 **Error Handling:**
 - Failed uploads are logged but don't prevent other files from uploading
@@ -784,8 +784,8 @@ Triggered when file processing (thumbnail generation) completes.
 - `PUT /api/config` - Update/create configuration value (Admin only)
 - `POST /api/config/validate` - Validate configuration input (Admin only)
 
-#### ✅ Implemented Endpoints (Phase 3, Files API):
-- `POST /api/files/upload` - Upload multiple files with validation
+#### ✅ Implemented Endpoints (Phase 2-3, Files API):
+- `POST /api/files/upload` - Upload multiple files with local storage
 - `GET /api/files/{id}` - Get file metadata by ID
 - `GET /api/files/report/{reportId}` - Get all files for a report
 - `GET /api/files` - Get all files (admin/debugging)
@@ -799,14 +799,14 @@ Triggered when file processing (thumbnail generation) completes.
 - `PUT /api/reports/bulk/status` - Bulk status updates (Admin only)
 - `GET /api/reports/stats` - Get report statistics for dashboard
 
-#### 🔄 Next Phase: Admin Features & Email Integration
-- Enhanced email composition and MVC notifications
-- Advanced admin dashboard features
-- Audit logging and compliance tracking
-- Production deployment and monitoring
+#### ✅ Implemented Endpoints (Phase 6, Admin Features):
+- `POST /api/auth/login` - Admin authentication
+- `POST /api/auth/logout` - Admin logout
+- `GET /api/auth/verify` - Token verification
+- `POST /api/reports/{id}/send-mvc` - Send MVC email notifications
 
 ---
 
-**API Version:** 1.1
-**Last Updated:** September 30, 2025
+**API Version:** 1.2
+**Last Updated:** October 3, 2025
 **Base URL:** https://api.unlicenseddrivingschoolnj.com/v1
