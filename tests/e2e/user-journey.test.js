@@ -9,6 +9,55 @@ const { GoogleSpreadsheet } = require('google-spreadsheet');
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * Helper function to make requests with rate limit retry logic
+ * @param {Function} requestFn - Function that returns a supertest request
+ * @param {number} maxRetries - Maximum number of retries (default: 3)
+ * @param {number} baseDelay - Base delay in ms (default: 1000)
+ * @returns {Promise} - The final response or throws error
+ */
+async function requestWithRetry(requestFn, maxRetries = 3, baseDelay = 1000) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await requestFn();
+
+      // If we get a 429 (rate limited), wait and retry
+      if (response.status === 429) {
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+          console.log(`Rate limited (attempt ${attempt + 1}/${maxRetries + 1}), waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        } else {
+          console.log(`Rate limited after ${maxRetries + 1} attempts, giving up`);
+          throw new Error(`Rate limited after ${maxRetries + 1} attempts`);
+        }
+      }
+
+      // Return successful response or non-429 error response
+      return response;
+
+    } catch (error) {
+      lastError = error;
+
+      // If it's a network error and we have retries left, try again
+      if (attempt < maxRetries && error.code !== 'ECONNREFUSED') {
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.log(`Request failed (attempt ${attempt + 1}/${maxRetries + 1}), waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // No more retries, throw the error
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
 // Mock Google APIs to avoid actual API calls during testing
 jest.mock('googleapis', () => ({
   google: {
@@ -224,31 +273,6 @@ describe('NJDSC School Compliance Portal - End-to-End User Journeys', () => {
       expect(response.body.data.mvcReferenceNumber).toBe(updateData.mvcReferenceNumber);
     });
 
-    test('should perform bulk status updates', async () => {
-      // Get a few report IDs for bulk update
-      const reportsResponse = await request(app)
-        .get('/api/reports?admin=true&limit=3')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
-
-      const reportIds = reportsResponse.body.data.items.map(r => r.id);
-
-      const bulkUpdateData = {
-        reportIds,
-        status: 'Under Investigation',
-        adminNotes: 'Bulk investigation update'
-      };
-
-      const response = await request(app)
-        .put('/api/reports/bulk-status')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send(bulkUpdateData)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.updated).toBe(reportIds.length);
-      expect(response.body.data.failed).toBe(0);
-    });
   });
 
   describe('Email Communication Journey', () => {

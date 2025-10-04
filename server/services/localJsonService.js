@@ -33,30 +33,61 @@ async function ensureDataDirectory() {
 async function readJsonFile(filename) {
   const filePath = path.join(DATA_DIR, `${filename}.json`);
 
-  try {
-    await ensureDataDirectory();
-    const data = await fs.readFile(filePath, 'utf8');
-    
-    // Handle empty or whitespace-only files
-    const trimmedData = data.trim();
-    if (!trimmedData) {
-      return [];
+  // Retry logic for file access issues
+  const maxRetries = 3;
+  const baseDelay = 100;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      await ensureDataDirectory();
+
+      let data;
+      try {
+        data = await fs.readFile(filePath, 'utf8');
+      } catch (readError) {
+        if (readError.code === 'ENOENT') {
+          // File doesn't exist, return empty array
+          return [];
+        }
+        throw readError;
+      }
+
+      // Ensure data is a valid string
+      if (data === undefined || data === null) {
+        console.warn(`File ${filename} returned undefined or null data`);
+        return [];
+      }
+
+      // Handle empty or whitespace-only files
+      const trimmedData = data.trim();
+      if (!trimmedData) {
+        return [];
+      }
+
+      return JSON.parse(trimmedData);
+
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        // File doesn't exist, return empty array
+        return [];
+      }
+
+      // Handle JSON parse errors (corrupted or empty files)
+      if (error instanceof SyntaxError) {
+        console.warn(`JSON parse error in ${filename}, returning empty array:`, error.message);
+        return [];
+      }
+
+      // If this is the last attempt, throw the error
+      if (attempt === maxRetries - 1) {
+        throw new Error(`Failed to read JSON file ${filename} after ${maxRetries} attempts: ${error.message}`);
+      }
+
+      // Wait before retrying
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.warn(`File read attempt ${attempt + 1} failed for ${filename}, retrying in ${delay}ms:`, error.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-    
-    return JSON.parse(trimmedData);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      // File doesn't exist, return empty array
-      return [];
-    }
-    
-    // Handle JSON parse errors (corrupted or empty files)
-    if (error instanceof SyntaxError) {
-      console.warn(`JSON parse error in ${filename}, returning empty array:`, error.message);
-      return [];
-    }
-    
-    throw new Error(`Failed to read JSON file ${filename}: ${error.message}`);
   }
 }
 

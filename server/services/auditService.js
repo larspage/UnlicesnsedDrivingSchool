@@ -567,32 +567,6 @@ async function logStatusUpdate(reportId, oldStatus, newStatus, adminNotes) {
   });
 }
 
-/**
- * Logs a bulk status update event
- * @param {Array<string>} reportIds - IDs of reports being updated
- * @param {string} oldStatus - Previous status (may be mixed)
- * @param {string} newStatus - New status
- * @param {string} adminNotes - Admin notes
- */
-async function logBulkStatusUpdate(reportIds, oldStatus, newStatus, adminNotes) {
-  return createAuditLog({
-    action: 'BULK_STATUS_UPDATE',
-    adminUser: 'admin', // This should be passed from the authenticated user
-    targetType: 'report',
-    targetId: null,
-    details: `Bulk status update: ${reportIds.length} reports changed to "${newStatus}"`,
-    ipAddress: 'system', // This should be passed from the request
-    changes: {
-      status: { old: oldStatus, new: newStatus },
-      affectedReports: reportIds.length
-    },
-    metadata: {
-      adminNotes: adminNotes || null,
-      reportIds: reportIds,
-      eventType: 'bulk_operation'
-    }
-  });
-}
 
 module.exports = {
   getAuditLogs,
@@ -610,7 +584,6 @@ module.exports = {
   logLogout,
   logPasswordChange,
   logStatusUpdate,
-  logBulkStatusUpdate,
 
   // Utility functions for testing
   getCachedAuditLogs,

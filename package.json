@@ -14,6 +14,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:report": "jest --outputFile=test-results.json --json && node scripts/process-test-results.js",
     "lint": "eslint src server --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint src server --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" \"server/**/*.{js,json,md}\"",

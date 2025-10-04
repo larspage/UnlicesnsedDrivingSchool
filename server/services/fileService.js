@@ -194,6 +194,42 @@ async function updateFileInJson(file) {
 }
 
 /**
+ * Deletes a file and its associated data
+ * @param {string} fileId - File ID to delete
+ * @returns {Promise<boolean>} True if file was deleted, false if not found
+ * @throws {Error} If deletion fails
+ */
+async function deleteFile(fileId) {
+  try {
+    // Get file information before deletion
+    const file = await getFileById(fileId);
+    if (!file) {
+      return false;
+    }
+
+    // Delete from local file system if it exists
+    if (file.localFilePath) {
+      try {
+        await localFileService.deleteFile(file.localFilePath);
+        console.log(`[FILE DELETE] Deleted local file: ${file.localFilePath}`);
+      } catch (error) {
+        console.warn(`[FILE DELETE] Failed to delete local file ${file.localFilePath}:`, error.message);
+        // Continue with metadata deletion even if local file deletion fails
+      }
+    }
+
+    // Delete metadata from JSON storage
+    await localJsonService.deleteRow(null, FILES_DATA_FILE, fileId);
+    console.log(`[FILE DELETE] Deleted file metadata for ID: ${fileId}`);
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    throw error;
+  }
+}
+
+/**
  * Validates file upload against business rules
  * @param {string} reportId - Report ID
  * @param {number} fileSize - File size in bytes
@@ -286,6 +322,7 @@ module.exports = {
   getAllFiles,
   validateFileUpload,
   processBase64File,
+  deleteFile,
 
   // Export for testing
   saveFileToJson,

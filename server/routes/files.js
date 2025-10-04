@@ -360,6 +360,45 @@ router.put('/:id/status', validateFileId, validateStatusUpdate, async (req, res)
   }
 });
 
+/**
+ * DELETE /api/files/:id
+ * Delete a file and its associated data (for testing cleanup)
+ */
+router.delete('/:id', validateFileId, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid file ID is required'
+      });
+    }
+
+    const deleted = await fileService.deleteFile(id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // Error handling middleware for file routes
 router.use(handleFileErrors);
 

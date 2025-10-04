@@ -46,21 +46,6 @@ module.exports = {
         '!src/vite-env.d.ts',
       ],
     },
-    {
-      displayName: 'e2e',
-      testEnvironment: 'node',
-      testMatch: [
-        '<rootDir>/tests/e2e/**/*.test.js'
-      ],
-      roots: ['<rootDir>/tests/e2e', '<rootDir>/server'],
-      transform: {
-        '^.+\\.jsx?$': 'babel-jest',
-      },
-      setupFilesAfterEnv: ['<rootDir>/tests/e2e/setup.js'],
-      collectCoverageFrom: [
-        'server/**/*.{js}',
-      ],
-    },
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],

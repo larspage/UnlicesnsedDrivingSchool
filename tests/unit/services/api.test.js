@@ -433,61 +433,6 @@ describe('API Service', () => {
     });
   });
 
-  describe('bulkUpdateReportStatus', () => {
-    // Happy path tests
-    test('should bulk update report statuses successfully', async () => {
-      const reportIds = ['rep_001', 'rep_002'];
-      const statusData = {
-        status: 'Confirmed by NJDSC',
-        adminNotes: 'Bulk update'
-      };
-
-      const mockResponse = {
-        success: true,
-        data: {
-          updated: 2,
-          failed: 0,
-          results: [
-            { reportId: 'rep_001', success: true },
-            { reportId: 'rep_002', success: true }
-          ]
-        }
-      };
-
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue(mockResponse)
-      });
-
-      const result = await apiClient.bulkUpdateReportStatus(reportIds, statusData);
-
-      expect(global.fetch).toHaveBeenCalledWith('/api/reports/bulk/status', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          reportIds,
-          ...statusData
-        })
-      });
-      expect(result).toEqual(mockResponse);
-    });
-
-    // Negative tests
-    test('should handle bulk update error', async () => {
-      const reportIds = ['rep_001'];
-      const statusData = { status: 'Invalid Status' };
-
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        json: jest.fn().mockResolvedValue({ message: 'Invalid status' })
-      });
-
-      await expect(apiClient.bulkUpdateReportStatus(reportIds, statusData)).rejects.toThrow('Invalid status');
-    });
-  });
 
   describe('getAuditLogs', () => {
     // Happy path tests

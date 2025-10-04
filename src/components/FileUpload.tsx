@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { validateFileForUpload, apiClient, UploadedFile } from '../services/api';
 
 interface FileUploadProps {
@@ -136,7 +137,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   const removeFile = (index: number) => {
     const newFiles = files.filter((_, i) => i !== index);
-    setFiles(newFiles);
+    flushSync(() => {
+      setFiles(newFiles);
+    });
     const validFiles = newFiles.filter(f => !f.error);
     onFilesChange(validFiles);
   };
