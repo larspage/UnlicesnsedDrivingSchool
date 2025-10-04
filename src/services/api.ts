@@ -6,6 +6,8 @@
 
 /// <reference types="vite/client" />
 
+import AuthService from './authService';
+
 const API_BASE_URL = '/api';
 
 // API Response types
@@ -91,8 +93,6 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
 
-    // Import auth service dynamically to avoid circular dependencies
-    const { default: AuthService } = await import('./authService');
     const authService = AuthService.getInstance();
 
     const headers: Record<string, string> = {

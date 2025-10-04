@@ -7,6 +7,19 @@ import '@testing-library/jest-dom';
 // Mock fetch for tests
 global.fetch = jest.fn();
 
+// Mock authService for tests
+jest.mock('./services/authService', () => ({
+  default: class MockAuthService {
+    static getInstance() {
+      return {
+        getAuthToken: jest.fn(() => 'mock-token'),
+        isAuthenticated: jest.fn(() => true),
+        getCurrentUser: jest.fn(() => ({ id: '1', username: 'test', role: 'admin' })),
+      };
+    }
+  },
+}));
+
 // Setup React Testing Library
 import { configure } from '@testing-library/react';
 

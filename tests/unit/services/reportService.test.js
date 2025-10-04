@@ -61,7 +61,7 @@ describe('Report Service', () => {
         // missing schoolName
       };
 
-      await expect(reportService.createReport(mockReportData)).rejects.toThrow('validation failed');
+      await expect(reportService.createReport(mockReportData)).rejects.toThrow('Report validation failed');
     });
 
     test('should throw error for duplicate school name', async () => {
