@@ -372,7 +372,10 @@ describe('FileUpload Component', () => {
         value: [mockFile],
         writable: false,
       });
-      fireEvent.change(input);
+
+      await act(async () => {
+        fireEvent.change(input);
+      });
 
       // Wait for file display
       await waitFor(() => {
@@ -404,7 +407,10 @@ describe('FileUpload Component', () => {
         value: [mockFile],
         writable: false,
       });
-      fireEvent.change(input);
+
+      await act(async () => {
+        fireEvent.change(input);
+      });
 
       // Wait for error display
       await waitFor(() => {

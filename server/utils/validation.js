@@ -389,7 +389,7 @@ function safeJsonParse(jsonString, defaultValue = null) {
   try {
     return JSON.parse(jsonString);
   } catch (error) {
-    console.warn('Failed to parse JSON:', jsonString, error.message);
+    console.warn('Failed to parse JSON string');
     return defaultValue;
   }
 }
