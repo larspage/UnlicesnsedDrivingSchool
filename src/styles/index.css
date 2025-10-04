@@ -1,3 +1,5 @@
+@reference "tailwindcss";
+
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
@@ -18,7 +20,7 @@ body {
 
 /* Compact and higher density styles */
 .container {
-  @apply max-w-6xl;
+  @apply max-w-7xl;
 }
 
 main {
