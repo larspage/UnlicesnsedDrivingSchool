@@ -6,7 +6,7 @@
 jest.mock('googleapis');
 jest.mock('../../../server/services/configService');
 
-// Set up environment variable before requiring the service
+// Set up environment variables before requiring the service
 process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({
   type: 'service_account',
   project_id: 'test-project',
@@ -18,6 +18,7 @@ process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({
   token_uri: 'https://oauth2.googleapis.com/token',
   auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs'
 });
+process.env.GOOGLE_GMAIL_USER = 'test@example.com';
 
 const { google } = require('googleapis');
 const configService = require('../../../server/services/configService');

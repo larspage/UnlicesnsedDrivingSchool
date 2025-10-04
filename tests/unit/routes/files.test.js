@@ -4,6 +4,20 @@
  * Tests for file upload, retrieval, and management endpoints.
  */
 
+// Set up environment variables before requiring any services
+process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({
+  type: 'service_account',
+  project_id: 'test-project',
+  private_key_id: 'test-key-id',
+  private_key: '-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n',
+  client_email: 'test@test-project.iam.gserviceaccount.com',
+  client_id: 'test-client-id',
+  auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+  token_uri: 'https://oauth2.googleapis.com/token',
+  auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs'
+});
+process.env.GOOGLE_SHEETS_SPREADSHEET_ID = 'test_spreadsheet_id';
+
 const request = require('supertest');
 const express = require('express');
 const fileRoutes = require('../../../server/routes/files');
