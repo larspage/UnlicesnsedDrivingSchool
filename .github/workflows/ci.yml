@@ -151,7 +151,7 @@ jobs:
 
           # Install only production dependencies (no build tools needed!)
           echo "📦 Installing production dependencies"
-          npm ci --production
+          npm install --production
 
           # Configure environment variables
           echo "🔧 Configuring environment variables"
