@@ -7,14 +7,7 @@
 // Mock fetch globally
 global.fetch = jest.fn();
 
-// Mock auth service
-jest.mock('../../../src/services/authService', () => ({
-  default: {
-    getInstance: jest.fn(() => ({
-      getAuthToken: jest.fn()
-    }))
-  }
-}));
+// AuthService is mocked globally in setupTests.ts
 
 const apiService = require('../../../src/services/api');
 const { apiClient, convertFileToBase64, validateFileForUpload } = apiService;
@@ -30,8 +23,8 @@ describe('API Service', () => {
     mockAuthService = {
       getAuthToken: jest.fn()
     };
-    const mockAuthModule = require('../../../src/services/authService');
-    mockAuthModule.default.getInstance.mockReturnValue(mockAuthService);
+    const AuthService = require('../../../src/services/authService').default;
+    AuthService.getInstance.mockReturnValue(mockAuthService);
   });
 
   describe('ApiClient.request', () => {
@@ -355,15 +348,19 @@ describe('API Service', () => {
       };
 
       // Mock fetch for base64 conversion
-      global.fetch.mockResolvedValueOnce({
-        blob: jest.fn().mockResolvedValue(new Blob(['test'], { type: 'image/jpeg' }))
-      });
+      global.fetch.mockImplementationOnce(() =>
+        Promise.resolve({
+          blob: () => Promise.resolve(new Blob(['test'], { type: 'image/jpeg' }))
+        })
+      );
 
       // Mock fetch for upload
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue(mockResponse)
-      });
+      global.fetch.mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockResponse)
+        })
+      );
 
       const result = await apiClient.uploadBase64Files([fileData], 'rep_ABC123');
 

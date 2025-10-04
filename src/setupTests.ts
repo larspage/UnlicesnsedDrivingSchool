@@ -10,13 +10,11 @@ global.fetch = jest.fn();
 // Mock authService for tests
 jest.mock('./services/authService', () => ({
   default: class MockAuthService {
-    static getInstance() {
-      return {
-        getAuthToken: jest.fn(() => 'mock-token'),
-        isAuthenticated: jest.fn(() => true),
-        getCurrentUser: jest.fn(() => ({ id: '1', username: 'test', role: 'admin' })),
-      };
-    }
+    static getInstance = jest.fn(() => ({
+      getAuthToken: jest.fn(),
+      isAuthenticated: jest.fn(() => true),
+      getCurrentUser: jest.fn(() => ({ id: '1', username: 'test', role: 'admin' })),
+    })) as any;
   },
 }));
 
