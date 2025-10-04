@@ -4,31 +4,15 @@
  * Tests for file upload, retrieval, and management endpoints.
  */
 
-// Set up environment variables before requiring any services
-process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({
-  type: 'service_account',
-  project_id: 'test-project',
-  private_key_id: 'test-key-id',
-  private_key: '-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n',
-  client_email: 'test@test-project.iam.gserviceaccount.com',
-  client_id: 'test-client-id',
-  auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-  token_uri: 'https://oauth2.googleapis.com/token',
-  auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs'
-});
-process.env.GOOGLE_SHEETS_SPREADSHEET_ID = 'test_spreadsheet_id';
-
 const request = require('supertest');
 const express = require('express');
 const fileRoutes = require('../../../server/routes/files');
 const fileService = require('../../../server/services/fileService');
 const configService = require('../../../server/services/configService');
-const googleSheetsService = require('../../../server/services/googleSheetsService');
 
 // Mock the services
 jest.mock('../../../server/services/fileService');
 jest.mock('../../../server/services/configService');
-jest.mock('../../../server/services/googleSheetsService');
 
 const app = express();
 app.use(express.json());
@@ -37,16 +21,9 @@ app.use('/files', fileRoutes);
 describe('File Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock environment variables
-    process.env.GOOGLE_SHEETS_SPREADSHEET_ID = 'test_spreadsheet_id';
 
     // Mock config service
     configService.getConfig.mockResolvedValue(null);
-
-    // Mock google sheets service
-    googleSheetsService.getAllRows.mockResolvedValue([]);
-    googleSheetsService.appendRow.mockResolvedValue(undefined);
-    googleSheetsService.updateRow.mockResolvedValue(undefined);
 
     // Mock file service functions
     fileService.validateFileUpload.mockResolvedValue({ isValid: true });
