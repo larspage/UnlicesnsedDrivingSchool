@@ -93,29 +93,34 @@ describe('FileUpload Component', () => {
     });
 
     it('should validate files on selection', async () => {
-       render(
-         <FileUpload
-           onFilesChange={mockOnFilesChange}
-           reportId="rep_abc123"
-         />
-       );
+        render(
+          <FileUpload
+            onFilesChange={mockOnFilesChange}
+            reportId="rep_abc123"
+          />
+        );
 
-       // Get the file input from the rendered component
-       const fileInput = document.querySelector('input[type="file"]');
+        // Get the file input from the rendered component
+        const fileInput = document.querySelector('input[type="file"]');
 
-       // Create a test file
-       const file = new File(['content'], 'test.jpg', { type: 'image/jpeg' });
+        // Create a test file
+        const file = new File(['content'], 'test.jpg', { type: 'image/jpeg' });
 
-       // Trigger file selection
-       await act(async () => {
-         fireEvent.change(fileInput, { target: { files: [file] } });
-       });
+        // Trigger file selection
+        await act(async () => {
+          fireEvent.change(fileInput, { target: { files: [file] } });
+        });
 
-       // The real validateFileForUpload function should have been called
-       // We can't easily test this without mocking, but the test should pass
-       // if the component handles the file selection correctly
-       expect(fileInput).toBeInTheDocument();
-     });
+        // Wait for any state updates to complete
+        await act(async () => {
+          await new Promise(resolve => setTimeout(resolve, 0));
+        });
+
+        // The real validateFileForUpload function should have been called
+        // We can't easily test this without mocking, but the test should pass
+        // if the component handles the file selection correctly
+        expect(fileInput).toBeInTheDocument();
+      });
   });
 
   describe('File Upload', () => {
@@ -346,6 +351,11 @@ describe('FileUpload Component', () => {
         await user.click(removeButton);
       });
 
+      // Wait for state update to complete
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
       // File should be removed
       expect(mockOnFilesChange).toHaveBeenCalledWith([]);
 
@@ -384,6 +394,11 @@ describe('FileUpload Component', () => {
         expect(screen.getByText('🖼️')).toBeInTheDocument(); // Image icon
       });
 
+      // Wait for any additional state updates
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
       // Restore spy
       validateSpy.mockRestore();
     });
@@ -418,6 +433,11 @@ describe('FileUpload Component', () => {
         expect(screen.getByText('File type application/x-msdownload is not supported. Allowed types: images, videos, and PDFs')).toBeInTheDocument();
       });
 
+      // Wait for any additional state updates
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
       // Restore spy
       validateSpy.mockRestore();
     });
@@ -425,7 +445,7 @@ describe('FileUpload Component', () => {
 
   describe('Drag and Drop', () => {
 
-    it('should handle file drop', () => {
+    it('should handle file drop', async () => {
       // Spy on the validation function
       const validateSpy = jest.spyOn(api, 'validateFileForUpload');
 
@@ -446,7 +466,14 @@ describe('FileUpload Component', () => {
         }
       };
 
-      fireEvent.drop(dropZone, dropEvent);
+      await act(async () => {
+        fireEvent.drop(dropZone, dropEvent);
+      });
+
+      // Wait for any state updates
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
 
       expect(validateSpy).toHaveBeenCalledWith(mockFile);
 

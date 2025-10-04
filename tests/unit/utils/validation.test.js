@@ -243,8 +243,15 @@ describe('Validation Utilities', () => {
     });
 
     test('safeJsonParse should return default for invalid JSON', () => {
+      // Mock console.warn to prevent CI from treating warnings as errors
+      const originalWarn = console.warn;
+      console.warn = jest.fn();
+
       expect(safeJsonParse('invalid', 'default')).toBe('default');
       expect(safeJsonParse('invalid')).toBe(null);
+
+      // Restore console.warn
+      console.warn = originalWarn;
     });
   });
 });
