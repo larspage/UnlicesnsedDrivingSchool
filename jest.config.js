@@ -17,7 +17,13 @@ module.exports = {
       transform: {
         '^.+\\.jsx?$': 'babel-jest',
       },
+      transformIgnorePatterns: [
+        'node_modules/(?!uuid/)',
+      ],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      moduleNameMapper: {
+        '^uuid$': '<rootDir>/tests/mocks/uuid.js',
+      },
       collectCoverageFrom: [
         'server/**/*.{js}',
       ],
@@ -35,6 +41,9 @@ module.exports = {
         '^.+\\.tsx?$': 'ts-jest',
         '^.+\\.jsx?$': 'babel-jest',
       },
+      transformIgnorePatterns: [
+        'node_modules/(?!uuid/)',
+      ],
       setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
