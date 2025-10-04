@@ -27,13 +27,6 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    # Linting removed from CI/CD pipeline
-    # - name: Run linter
-    #   run: npm run lint
-
-    # - name: Run formatter check
-    #   run: npx prettier --check "src/**/*.{js,jsx,ts,tsx}" "server/**/*.{js}"
-
     - name: Run tests
       run: npm test -- --coverage --watchAll=false
 
@@ -67,16 +60,64 @@ jobs:
     - name: Run dependency check
       run: npx npm-check-updates --errorLevel 2
 
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    needs: [security]  # Only deploy if tests and security pass
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Only deploy on push to main
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Create deployment package
+      run: |
+        mkdir -p deploy
+        cp -r dist deploy/
+        cp -r server deploy/
+        cp package.json deploy/
+        cp package-lock.json deploy/
+        tar -czf deploy.tar.gz -C deploy .
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-files
+        path: deploy.tar.gz
+        retention-days: 1
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: build-files
+
     - name: Deploy to DigitalOcean Droplet
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.UNLICENSEDDRIVINGSCHOOLIP }}
+        username: root
+        key: ${{ secrets.UNLICENSEDDRIVERSSH }}
+        source: "deploy.tar.gz"
+        target: "/tmp"
+
+    - name: Extract and restart application
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.UNLICENSEDDRIVINGSCHOOLIP }}
@@ -93,43 +134,34 @@ jobs:
           if [ -d "$APP_DIR" ]; then
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             echo "📦 Creating backup: compliance-portal_$TIMESTAMP"
-            sudo tar -czf "$BACKUP_DIR/compliance-portal_$TIMESTAMP.tar.gz" -C /var/www compliance-portal 2>/dev/null || true
+            mkdir -p "$BACKUP_DIR"
+            tar -czf "$BACKUP_DIR/compliance-portal_$TIMESTAMP.tar.gz" -C /var/www compliance-portal 2>/dev/null || true
+            # Keep only last 5 backups
+            cd "$BACKUP_DIR" && ls -t compliance-portal_*.tar.gz | tail -n +6 | xargs -r rm
           fi
 
-          # Navigate to app directory (create if doesn't exist)
-          if [ ! -d "$APP_DIR" ]; then
-            echo "📁 Creating application directory"
-            sudo mkdir -p "$APP_DIR"
-            sudo chown -R $USER:$USER "$APP_DIR"
-            cd "$APP_DIR"
-            git clone https://github.com/${{ github.repository }} .
-          else
-            cd "$APP_DIR"
-            echo "🔄 Updating existing deployment"
-            git fetch origin
-            git reset --hard origin/main
-          fi
+          # Create app directory if it doesn't exist
+          mkdir -p "$APP_DIR"
+          
+          # Extract new build
+          echo "📦 Extracting new build"
+          cd "$APP_DIR"
+          tar -xzf /tmp/deploy.tar.gz
+          rm /tmp/deploy.tar.gz
 
-          # Install dependencies
-          echo "📦 Installing dependencies"
-          npm ci --production=false
+          # Install only production dependencies (no build tools needed!)
+          echo "📦 Installing production dependencies"
+          npm ci --production
 
-          # Copy production environment file
+          # Copy production environment file if it exists
           if [ -f ".env.production" ]; then
             cp .env.production .env
             echo "✅ Environment configured"
-          else
-            echo "⚠️  Warning: .env.production not found, using existing .env"
           fi
 
-          # Build application
-          echo "🔨 Building application"
-          npm run build
-
           # Ensure data directories exist
-          sudo mkdir -p /var/www/data /var/www/uploads /var/www/backups
-          sudo chown -R $USER:$USER /var/www/data /var/www/uploads /var/www/backups
-
+          mkdir -p /var/www/data /var/www/uploads /var/www/backups
+          
           # Initialize data files if they don't exist
           if [ ! -f "/var/www/data/reports.json" ]; then
             echo "[]" > /var/www/data/reports.json
@@ -140,14 +172,16 @@ jobs:
 
           # Restart application with PM2
           echo "🔄 Restarting application"
-          pm2 stop njdsc-compliance-portal || true
-          pm2 delete njdsc-compliance-portal || true
-          pm2 start server/app.js --name "njdsc-compliance-portal"
+          pm2 stop njdsc-compliance-portal 2>/dev/null || true
+          pm2 delete njdsc-compliance-portal 2>/dev/null || true
+          pm2 start dist/server/app.js --name "njdsc-compliance-portal"
           pm2 save
 
-          # Reload Nginx
-          echo "🔄 Reloading Nginx"
-          sudo nginx -t && sudo systemctl reload nginx
+          # Reload Nginx if installed
+          if command -v nginx &> /dev/null; then
+            echo "🔄 Reloading Nginx"
+            nginx -t && systemctl reload nginx
+          fi
 
           echo "✅ Deployment completed successfully at $(date)"
           echo "🌐 Application available at: http://167.172.224.98"
