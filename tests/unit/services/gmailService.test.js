@@ -6,6 +6,19 @@
 jest.mock('googleapis');
 jest.mock('../../../server/services/configService');
 
+// Set up environment variable before requiring the service
+process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({
+  type: 'service_account',
+  project_id: 'test-project',
+  private_key_id: 'test-key-id',
+  private_key: '-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n',
+  client_email: 'test@test-project.iam.gserviceaccount.com',
+  client_id: 'test-client-id',
+  auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+  token_uri: 'https://oauth2.googleapis.com/token',
+  auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs'
+});
+
 const { google } = require('googleapis');
 const configService = require('../../../server/services/configService');
 
@@ -31,19 +44,6 @@ describe('Gmail Service', () => {
     // Reset mocks
     jest.clearAllMocks();
 
-    // Set up environment variables
-    process.env.GOOGLE_SERVICE_ACCOUNT_KEY = JSON.stringify({
-      type: 'service_account',
-      project_id: 'test-project',
-      private_key_id: 'test-key-id',
-      private_key: '-----BEGIN PRIVATE KEY-----\ntest-private-key\n-----END PRIVATE KEY-----\n',
-      client_email: 'test@test-project.iam.gserviceaccount.com',
-      client_id: 'test-client-id',
-      auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-      token_uri: 'https://oauth2.googleapis.com/token',
-      auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs'
-    });
-
     // Setup Google API mocks
     mockGmail = {
       users: {
@@ -61,11 +61,6 @@ describe('Gmail Service', () => {
     // Setup config service mocks
     configService.getConfig = jest.fn();
     configService.getAllConfig = jest.fn();
-  });
-
-  afterEach(() => {
-    // Clean up environment variables
-    delete process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   });
 
   describe('sendEmail', () => {

@@ -29,7 +29,14 @@ describe('Report Model', () => {
         status: 'InvalidStatus'
       };
 
+      // Mock console.error to prevent CI from treating validation logs as errors
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       expect(() => new Report(invalidData)).toThrow();
+
+      // Restore console.error
+      console.error = originalConsoleError;
     });
   });
 
