@@ -72,6 +72,10 @@ describe('Report Service', () => {
     });
 
     test('should throw error for duplicate school name', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const mockReportData = {
         schoolName: 'Existing School',
         location: 'Test City'
@@ -91,6 +95,8 @@ describe('Report Service', () => {
       localJsonService.getAllRows.mockResolvedValue(mockExistingReports);
 
       await expect(reportService.createReport(mockReportData)).rejects.toThrow('Duplicate report found');
+
+      console.error = originalConsoleError;
     });
 
     test('should handle Google Sheets API errors', async () => {
