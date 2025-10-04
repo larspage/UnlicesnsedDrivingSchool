@@ -58,10 +58,11 @@ describe('Report Service', () => {
     test('should throw error for missing school name', async () => {
       const mockReportData = {
         location: 'Test City'
-        // missing schoolName
+        // missing schoolName - this should cause validation to fail
       };
 
       await expect(reportService.createReport(mockReportData)).rejects.toThrow('Report validation failed');
+      // The Report model validation requires schoolName, so this should fail
     });
 
     test('should throw error for duplicate school name', async () => {
@@ -423,11 +424,12 @@ describe('Report Service', () => {
       localJsonService.getAllRows.mockResolvedValue([mockReport]);
 
       const updateData = {
-        status: 'Invalid Status'
+        status: 'Invalid Status' // Invalid status should cause validation error
       };
 
       await expect(reportService.updateReportStatus('rep_ABC123', updateData))
-        .rejects.toThrow('validation failed');
+        .rejects.toThrow('Report validation failed');
+      // The Report model validation requires status to be one of the valid enum values
     });
 
     test('should handle Google Sheets API errors', async () => {
