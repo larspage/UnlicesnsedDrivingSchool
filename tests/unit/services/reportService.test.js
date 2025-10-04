@@ -56,6 +56,10 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should throw error for missing school name', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const mockReportData = {
         location: 'Test City'
         // missing schoolName - this should cause validation to fail
@@ -63,6 +67,8 @@ describe('Report Service', () => {
 
       await expect(reportService.createReport(mockReportData)).rejects.toThrow('Report validation failed');
       // The Report model validation requires schoolName, so this should fail
+
+      console.error = originalConsoleError;
     });
 
     test('should throw error for duplicate school name', async () => {
@@ -88,6 +94,10 @@ describe('Report Service', () => {
     });
 
     test('should handle Google Sheets API errors', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const mockReportData = {
         schoolName: 'Test School',
         location: 'Test City'
@@ -96,6 +106,8 @@ describe('Report Service', () => {
       localJsonService.getAllRows.mockRejectedValue(new Error('Google Sheets API error'));
 
       await expect(reportService.createReport(mockReportData)).rejects.toThrow('Google Sheets API error');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -274,9 +286,15 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should handle Google Sheets API errors', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       await expect(reportService.getReports()).rejects.toThrow('API Error');
+
+      console.error = originalConsoleError;
     });
 
     test('should remove sensitive fields for public access', async () => {
@@ -348,17 +366,29 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should return null for non-existent report', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       localJsonService.getAllRows.mockResolvedValue([]);
 
       const result = await reportService.getReportById('rep_nonexistent');
 
       expect(result).toBeNull();
+
+      console.error = originalConsoleError;
     });
 
     test('should handle Google Sheets API errors', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       await expect(reportService.getReportById('rep_test')).rejects.toThrow('API Error');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -401,6 +431,10 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should throw error for non-existent report', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       localJsonService.getAllRows.mockResolvedValue([]);
 
       const updateData = {
@@ -409,9 +443,15 @@ describe('Report Service', () => {
 
       await expect(reportService.updateReportStatus('rep_nonexistent', updateData))
         .rejects.toThrow('Report with ID rep_nonexistent not found');
+
+      console.error = originalConsoleError;
     });
 
     test('should throw error for invalid status', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const mockReport = new Report({
         id: 'rep_ABC123',
         schoolName: 'Test School',
@@ -430,9 +470,15 @@ describe('Report Service', () => {
       await expect(reportService.updateReportStatus('rep_ABC123', updateData))
         .rejects.toThrow('Report validation failed');
       // The Report model validation requires status to be one of the valid enum values
+
+      console.error = originalConsoleError;
     });
 
     test('should handle Google Sheets API errors', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const mockReport = new Report({
         id: 'rep_ABC123',
         schoolName: 'Test School',
@@ -451,6 +497,8 @@ describe('Report Service', () => {
 
       await expect(reportService.updateReportStatus('rep_ABC123', updateData))
         .rejects.toThrow('Update failed');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -488,9 +536,15 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should handle Google Sheets API errors', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       await expect(reportService.getAllReports()).rejects.toThrow('API Error');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -543,11 +597,17 @@ describe('Report Service', () => {
 
     // Negative tests
     test('should return false when Google Sheets API fails', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       localJsonService.getAllRows.mockRejectedValue(new Error('API Error'));
 
       const result = await reportService.checkRateLimit('192.168.1.1');
 
       expect(result).toBe(false); // Should allow submission if check fails
+
+      console.error = originalConsoleError;
     });
 
     test('should handle empty reports array', async () => {

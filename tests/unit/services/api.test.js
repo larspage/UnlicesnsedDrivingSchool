@@ -93,6 +93,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle HTTP error response', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const errorResponse = {
         message: 'Not found',
         error: 'Resource not found'
@@ -106,21 +110,35 @@ describe('API Service', () => {
       });
 
       await expect(apiClient.request('/test')).rejects.toThrow('Not found');
+
+      console.error = originalConsoleError;
     });
 
     test('should handle network error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       global.fetch.mockRejectedValueOnce(new Error('Network error'));
 
       await expect(apiClient.request('/test')).rejects.toThrow('Network error');
+
+      console.error = originalConsoleError;
     });
 
     test('should handle malformed JSON response', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockRejectedValue(new Error('Invalid JSON'))
       });
 
       await expect(apiClient.request('/test')).rejects.toThrow('Invalid JSON');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -181,6 +199,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle API error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -188,6 +210,8 @@ describe('API Service', () => {
       });
 
       await expect(apiClient.getReports()).rejects.toThrow('Server error');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -264,6 +288,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle submission error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const reportData = { schoolName: 'Test School' };
 
       global.fetch.mockResolvedValueOnce({
@@ -273,6 +301,8 @@ describe('API Service', () => {
       });
 
       await expect(apiClient.submitReport(reportData)).rejects.toThrow('Validation failed');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -369,6 +399,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle base64 conversion error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const fileData = {
         name: 'test.jpg',
         type: 'image/jpeg',
@@ -379,6 +413,8 @@ describe('API Service', () => {
       global.fetch.mockRejectedValueOnce(new Error('Invalid base64'));
 
       await expect(apiClient.uploadBase64Files([fileData], 'rep_001')).rejects.toThrow('Failed to process file test.jpg');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -418,6 +454,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle status update error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const statusData = { status: 'Invalid Status' };
 
       global.fetch.mockResolvedValueOnce({
@@ -427,6 +467,8 @@ describe('API Service', () => {
       });
 
       await expect(apiClient.updateReportStatus('rep_001', statusData)).rejects.toThrow('Invalid status');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -462,6 +504,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle audit logs error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -469,6 +515,8 @@ describe('API Service', () => {
       });
 
       await expect(apiClient.getAuditLogs()).rejects.toThrow('Server error');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -496,6 +544,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle configuration error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -503,6 +555,8 @@ describe('API Service', () => {
       });
 
       await expect(apiClient.getConfiguration()).rejects.toThrow('Config error');
+
+      console.error = originalConsoleError;
     });
   });
 
@@ -544,6 +598,10 @@ describe('API Service', () => {
 
     // Negative tests
     test('should handle email sending error', async () => {
+      // Mock console.error to prevent CI from treating error logs as failures
+      const originalConsoleError = console.error;
+      console.error = jest.fn();
+
       const emailData = {
         reportId: 'rep_001',
         templateId: 'confirmation',
@@ -558,6 +616,8 @@ describe('API Service', () => {
       });
 
       await expect(apiClient.sendEmail(emailData)).rejects.toThrow('Email service unavailable');
+
+      console.error = originalConsoleError;
     });
   });
 
