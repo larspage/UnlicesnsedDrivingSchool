@@ -1,11 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Suppress deprecated CSS warnings */
+/* Global font family and background */
 * {
+  font-family: 'Montserrat', Arial, sans-serif;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+body {
+  background-color: #374151; /* Dark grey background */
+  min-height: 100vh;
+}
+
+/* Compact and higher density styles */
+.container {
+  @apply max-w-7xl;
+}
+
+main {
+  @apply py-6;
+}
+
+section {
+  @apply mb-6;
+}
+
+/* Reduce padding and margins for higher density */
+.bg-white {
+  @apply p-4 md:p-6;
+}
+
+.rounded-lg {
+  @apply rounded-md;
 }
 
 /* Custom styles */

@@ -46,11 +46,18 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white shadow-sm border-b">
-      <div className="container mx-auto px-4 py-4">
+    <header className="bg-gray-100 shadow-sm border-b">
+      <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
-          <Link to="/" className="text-xl md:text-2xl font-bold njdsc-brand">
-            NJDSC Compliance Portal
+          <Link to="/" className="flex items-center space-x-3">
+            <img
+              src="/NJDXCLogo.jpg"
+              alt="NJDXC Logo"
+              className="h-10 w-auto"
+            />
+            <div className="text-lg md:text-xl font-bold njdsc-brand">
+              NJDSC Compliance Portal
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
