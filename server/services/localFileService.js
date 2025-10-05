@@ -7,7 +7,12 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+
+// Helper function to get uuidv4 since uuid is ESM-only
+async function getUuidv4() {
+  const { v4: uuidv4 } = await import('uuid');
+  return uuidv4;
+}
 
 // Configuration
 const UPLOADS_DIR = process.env.UPLOADS_DIR || './uploads';
@@ -47,12 +52,13 @@ async function ensureReportDirectory(reportId) {
 /**
  * Generates a unique filename to avoid conflicts
  * @param {string} originalName - Original filename
- * @returns {string} Unique filename
+ * @returns {Promise<string>} Unique filename
  */
-function generateUniqueFilename(originalName) {
+async function generateUniqueFilename(originalName) {
   const extension = path.extname(originalName);
   const basename = path.basename(originalName, extension);
   const timestamp = Date.now();
+  const uuidv4 = await getUuidv4();
   const randomId = uuidv4().substring(0, 8);
 
   return `${basename}_${timestamp}_${randomId}${extension}`;
@@ -71,7 +77,7 @@ async function uploadFile(fileBuffer, originalName, mimeType, reportId) {
     await ensureUploadsDirectory();
     const reportDir = await ensureReportDirectory(reportId);
 
-    const uniqueFilename = generateUniqueFilename(originalName);
+    const uniqueFilename = await generateUniqueFilename(originalName);
     const filePath = path.join(reportDir, uniqueFilename);
 
     // Write file to disk
@@ -87,6 +93,7 @@ async function uploadFile(fileBuffer, originalName, mimeType, reportId) {
       thumbnailUrl = publicUrl; // For now, use same URL (could implement thumbnail generation later)
     }
 
+    const uuidv4 = await getUuidv4();
     const fileData = {
       id: uuidv4(),
       reportId,

@@ -77,6 +77,9 @@ jobs:
     - name: Build application
       run: npm run build
 
+    - name: Install production dependencies
+      run: npm ci --production
+
     - name: Create deployment package
       run: |
         mkdir -p deploy
@@ -84,6 +87,7 @@ jobs:
         cp -r server deploy/
         cp package.json deploy/
         cp package-lock.json deploy/
+        cp -r node_modules deploy/
         tar -czf deploy.tar.gz -C deploy .
 
     - name: Upload build artifact
@@ -148,10 +152,6 @@ jobs:
           cd "$APP_DIR"
           tar -xzf /tmp/deploy.tar.gz
           rm /tmp/deploy.tar.gz
-
-          # Install only production dependencies (no build tools needed!)
-          echo "📦 Installing production dependencies"
-          npm install --production
 
           # Configure environment variables
           echo "🔧 Configuring environment variables"
