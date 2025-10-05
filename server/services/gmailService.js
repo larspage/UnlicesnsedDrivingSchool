@@ -14,23 +14,28 @@ const GMAIL_USER = process.env.GOOGLE_GMAIL_USER;
 
 // Validate required environment variables
 if (!SERVICE_ACCOUNT_KEY) {
-  throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required');
+  console.warn('GOOGLE_SERVICE_ACCOUNT_KEY environment variable not provided. Email functionality will be disabled.');
 }
 
 if (!GMAIL_USER) {
-  throw new Error('GOOGLE_GMAIL_USER environment variable is required');
+  console.warn('GOOGLE_GMAIL_USER environment variable not provided. Email functionality will be disabled.');
 }
 
 // Parse service account credentials
-let credentials;
-try {
-  credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
-} catch (error) {
-  throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Must be valid JSON.');
+let credentials = null;
+if (SERVICE_ACCOUNT_KEY) {
+  try {
+    credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
+  } catch (error) {
+    console.warn('Invalid GOOGLE_SERVICE_ACCOUNT_KEY format. Email functionality will be disabled.');
+  }
 }
 
 // Initialize Google Gmail API client lazily
 function getGmail() {
+  if (!credentials) {
+    throw new Error('Gmail service not configured. Missing GOOGLE_SERVICE_ACCOUNT_KEY.');
+  }
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/gmail.send'],
