@@ -63,9 +63,9 @@ app.get('/health', (req, res) => {
 app.use('/api', require('./routes'));
 
 // Catch-all route for SPA routing
-app.get('/*', (req, res) => {
+app.use('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});  
+});
 
 // 404 handler
 app.use((req, res) => {
