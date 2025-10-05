@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -42,6 +43,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static file serving for uploads
 app.use('/uploads', express.static('./uploads'));
 
+// Static file serving for frontend
+app.use(express.static(path.join(__dirname, 'dist')));
+
 // Initialize configuration on startup
 const configService = require('./services/configService');
 configService.initializeDefaults().then(() => {
@@ -57,6 +61,11 @@ app.get('/health', (req, res) => {
 
 // API routes will be added here
 app.use('/api', require('./routes'));
+
+// Catch-all route for SPA routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 // 404 handler
 app.use((req, res) => {
