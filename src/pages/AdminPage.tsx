@@ -7,7 +7,7 @@ import BulkOperationsModal from '../components/BulkOperationsModal';
 import AuditLogViewer from '../components/AuditLogViewer';
 import AuditService from '../services/auditService';
 import ConfigurationService from '../services/configurationService';
-import AuthService from '../services/authService';
+import { AuthService } from '../services/authService';
 import { apiClient } from '../services/api';
 import { Report, ReportStatus, StatusUpdateData } from '../types';
 

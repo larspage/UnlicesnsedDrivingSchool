@@ -7,10 +7,8 @@
 // Mock fetch globally
 global.fetch = jest.fn();
 
-// AuthService is mocked globally in setupTests.ts
-
-const apiService = require('../../../src/services/api');
-const { apiClient, convertFileToBase64, validateFileForUpload } = apiService;
+import { apiClient, convertFileToBase64, validateFileForUpload } from '../../../src/services/api';
+import { AuthService } from '../../../src/services/authService';
 
 describe('API Service', () => {
   let mockAuthService;
@@ -19,12 +17,10 @@ describe('API Service', () => {
     jest.clearAllMocks();
     global.fetch.mockClear();
 
-    // Setup auth service mock
-    mockAuthService = {
-      getAuthToken: jest.fn()
-    };
-    const AuthService = require('../../../src/services/authService').default;
-    AuthService.getInstance.mockReturnValue(mockAuthService);
+    // AuthService is mocked in setupTests.ts
+    // Get the mock instance and reset it
+    mockAuthService = AuthService.getInstance();
+    mockAuthService.getAuthToken.mockReturnValue(null); // Default to no token
   });
 
   describe('ApiClient.request', () => {

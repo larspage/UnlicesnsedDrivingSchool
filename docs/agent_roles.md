@@ -310,42 +310,34 @@ class ReportService {
 ```
 
 ### 2.8 External Integration Agent
-**Primary Focus:** Third-party API integrations and external services
+**Primary Focus:** Email notifications and external service integrations
 
 #### Responsibilities
-- Implement Google Sheets API integration
-- Create Google Drive file management
-- Build Gmail API email functionality
-- Implement social media search APIs
-- Handle Google Custom Search integration
-- Manage API authentication and error handling
+- Build Gmail API email functionality for MVC notifications
+- Implement email template processing and variable substitution
+- Handle email delivery tracking and error handling
+- Manage Gmail API authentication and rate limiting
+- Configure email settings and templates through admin interface
 
 #### Owned Components
-- `server/services/googleSheetsService.js`
-- `server/services/googleDriveService.js`
 - `server/services/gmailService.js`
-- `server/services/socialMediaService.js`
-- `server/services/searchService.js`
-- `server/config/googleApis.js`
+- `server/services/emailService.js`
+- `server/utils/emailTemplates.js`
 
 #### Dependencies
-- **Inputs:** External API requirements and credentials
-- **Outputs:** Integration services for business logic
-- **Collaborates With:** Business Logic Agent, Configuration Agent
+- **Inputs:** Email configuration and Gmail API credentials
+- **Outputs:** Email notification services for administrative workflows
+- **Collaborates With:** Admin Interface Agent, Business Logic Agent
 
 #### Key Interfaces
 ```javascript
-// External service interfaces
-class GoogleSheetsService {
-  async appendRow(spreadsheetId, sheetName, data) {
+// Email service interfaces
+class GmailService {
+  async sendEmail(to, subject, body, options) {
     // Implementation
   }
 
-  async findRows(spreadsheetId, sheetName, query) {
-    // Implementation
-  }
-
-  async updateRow(spreadsheetId, sheetName, rowId, data) {
+  async sendMvcNotification(reportData, customMessage) {
     // Implementation
   }
 }

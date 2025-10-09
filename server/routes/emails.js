@@ -6,7 +6,7 @@
 
 const express = require('express');
 const router = express.Router();
-const gmailService = require('../services/gmailService');
+const emailService = require('../services/emailService');
 
 // Admin authentication middleware (temporary - will be replaced in Phase 3)
 const ADMIN_KEY = process.env.ADMIN_API_KEY || 'njdsc-admin-2025';
@@ -117,13 +117,12 @@ NJDSC Compliance Team
       }
     }
 
-    // Send the email using Gmail service
-    const result = await gmailService.sendEmail({
+    // Send the email using email service
+    const result = await emailService.sendEmail(
       to,
       subject,
-      body: emailContent,
-      attachments: attachments || []
-    });
+      emailContent
+    );
 
     // Log the email action to audit trail
     const auditService = require('../services/auditService');
@@ -137,8 +136,7 @@ NJDSC Compliance Team
     res.json({
       success: true,
       data: {
-        messageId: result.messageId,
-        sent: true
+        sent: result
       },
       message: `Email sent successfully to ${to}`
     });

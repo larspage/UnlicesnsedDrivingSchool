@@ -5,9 +5,10 @@ This document explains how to configure file storage for the NJDSC School Compli
 ## Overview
 
 The application uses local file system storage for cost-effective, reliable file management:
-- **Local Directory Storage** (Current implementation)
+- **Local Directory Storage** (Primary implementation)
 - **Public Access** via Nginx web server
 - **Organized Structure** with report-specific subdirectories
+- **No external service dependencies** for core functionality
 
 ## Local Directory Storage (Current Implementation)
 
@@ -174,8 +175,8 @@ Expected output:
 
 When implementing external storage:
 
-1. **Keep Google Sheets** for report metadata
-2. **Store files** in external service
+1. **Keep local JSON files** for report metadata
+2. **Store files** in external service (future enhancement)
 3. **Save URLs** in Sheets alongside report data
 4. **Use environment variable** to switch storage providers
 
@@ -217,7 +218,7 @@ module.exports = providers[storageProvider];
 
 ### Migration Path
 
-To migrate from Google Drive to external storage:
+To migrate from local storage to external storage (future enhancement):
 
 1. **Phase 1**: Implement new storage service
 2. **Phase 2**: Update upload code to use new service
@@ -294,8 +295,9 @@ fs.unlinkSync('/var/www/data/test.json');
 node -e "
 require('dotenv').config();
 console.log('Storage Config:');
-console.log('  Provider:', process.env.STORAGE_PROVIDER || 'google_drive');
-console.log('  Folder ID:', process.env.GOOGLE_DRIVE_FOLDER_ID);
+console.log('  Data Directory:', process.env.DATA_DIR);
+console.log('  Uploads Directory:', process.env.UPLOADS_DIR);
+console.log('  Uploads URL Base:', process.env.UPLOADS_URL_BASE);
 console.log('  Gmail User:', process.env.GOOGLE_GMAIL_USER);
 "
 ```

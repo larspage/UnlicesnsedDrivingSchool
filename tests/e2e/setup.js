@@ -87,7 +87,7 @@ jest.mock('../../server/services/googleDriveService', () => ({
   createFolder: jest.fn()
 }));
 
-jest.mock('../../server/services/gmailService', () => ({
+jest.mock('../../server/services/emailService', () => ({
   sendEmail: jest.fn()
 }));
 

@@ -41,8 +41,8 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 ### 2.3 Data Layer
 - **Primary Database:** Local JSON file storage on DigitalOcean droplet
 - **File Storage:** Local directory storage on DigitalOcean droplet (publicly accessible)
-- **Email Service:** Gmail API (admin-configurable)
-- **Search Services:** Google Custom Search API, Facebook Graph API, Instagram API
+- **Email Service:** SMTP with Nodemailer for administrative notifications
+- **Search Services:** Future implementation for data enrichment
 
 ### 2.4 Infrastructure
 - **Hosting:** DigitalOcean Droplet (cost-effective VPS hosting)
@@ -105,9 +105,8 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 │  └─────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │  External Integrations                                       │ │
-│  │  ├── Gmail API - Email sending                              │ │
-│  │  ├── Google Search API - Data enrichment                    │ │
-│  │  └── Social Media APIs - Link discovery                     │ │
+│  │  ├── SMTP Email Service - Administrative email notifications via Nodemailer │ │
+│  │  └── Future: Data enrichment services                       │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -151,7 +150,7 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 #### Service Layer
 - **services/localJsonService.js** - Local JSON file storage operations
 - **services/fileService.js** - Local file system management
-- **services/GmailService.js** - Email API wrapper (retained)
+- **services/emailService.js** - SMTP email service with Nodemailer
 - **services/EnrichmentService.js** - Data enrichment logic
 - **services/ValidationService.js** - Data validation utilities
 
@@ -273,7 +272,7 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 - **Local File System:** Directory structure for image storage with proper permissions
 - **Nginx Configuration:** Public file serving with security headers
 - **Data Models:** JSON schema validation and data transformation
-- **Gmail API:** Email service framework retained for MVC notifications
+- **SMTP Email Service:** Email service with Nodemailer for MVC notifications
 - **File Upload System:** Complete local file storage with validation
 
 ### Phase 3: Backend API Development ✅ COMPLETED
@@ -281,7 +280,7 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 
 #### ✅ Completed Components:
 - **Reports API:** Full REST API with GET, POST, PUT endpoints and comprehensive validation
-- **Files API:** Complete file upload system with Google Drive integration
+- **Files API:** Complete file upload system with local storage integration
 - **Configuration API:** Admin-configurable system settings
 - **Authentication:** Basic auth system with role-based access
 - **Security Middleware:** Rate limiting, input validation, CORS configuration
@@ -302,9 +301,9 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 #### ✅ Completed Components:
 - **Report Submission:** End-to-end working with file uploads and validation
 - **Report Viewing:** Card/table views with search, filtering, and pagination
-- **File Management:** Drag-and-drop uploads with Google Drive storage
-- **Admin Dashboard:** Real-time overview with statistics from Google Sheets (9 reports loaded)
-- **Data Integration:** Live connection to "Reports" sheet in Google Sheets
+- **File Management:** Drag-and-drop uploads with local storage
+- **Admin Dashboard:** Real-time overview with statistics from local JSON storage
+- **Data Integration:** Live connection to local JSON files
 
 #### 🔄 Next Phase: Admin Features & Production Deployment
 - Enhanced admin dashboard with status management
@@ -314,6 +313,6 @@ The NJDSC School Compliance Portal is a web-based platform that enables communit
 
 ---
 
-**Document Version:** 1.4
-**Last Updated:** October 3, 2025
+**Document Version:** 1.6
+**Last Updated:** October 7, 2025
 **Next Review:** October 15, 2025

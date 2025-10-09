@@ -6,12 +6,14 @@ module.exports = {
       testMatch: [
         '<rootDir>/server/**/*.test.js',
         '<rootDir>/tests/unit/models/**/*.test.js',
-        '<rootDir>/tests/unit/services/fileService.test.js',
-        '<rootDir>/tests/unit/services/gmailService.test.js',
-        '<rootDir>/tests/unit/services/reportService.test.js',
+        '<rootDir>/tests/unit/services/**/*.test.js',
         '<rootDir>/tests/unit/middleware/**/*.test.js',
         '<rootDir>/tests/unit/routes/**/*.test.js',
-        '<rootDir>/tests/unit/utils/**/*.test.js'
+        '<rootDir>/tests/unit/utils/**/*.test.js',
+        '<rootDir>/tests/e2e/**/*.test.js'
+      ],
+      testPathIgnorePatterns: [
+        '<rootDir>/tests/unit/services/api.test.js'
       ],
       roots: ['<rootDir>/server', '<rootDir>/tests'],
       transform: {

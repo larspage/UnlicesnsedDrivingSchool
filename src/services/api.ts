@@ -6,7 +6,7 @@
 
 /// <reference types="vite/client" />
 
-const AuthService = require('./authService').default;
+import { AuthService } from './authService';
 
 const API_BASE_URL = '/api';
 

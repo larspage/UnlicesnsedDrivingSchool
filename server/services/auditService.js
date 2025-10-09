@@ -588,4 +588,7 @@ module.exports = {
   // Utility functions for testing
   getCachedAuditLogs,
   setCachedAuditLogs,
+  handleApiError,
+  getAllAuditLogsFromJson,
+  validateSpreadsheetParams,
 };

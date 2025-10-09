@@ -333,5 +333,5 @@ class AuthService {
   }
 }
 
-export default AuthService;
+export { AuthService };
 export type { AuthUser, AuthResponse, LoginCredentials };

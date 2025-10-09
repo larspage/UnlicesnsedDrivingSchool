@@ -371,10 +371,10 @@ describe('Error Handling and Edge Cases', () => {
       expect(response.body.success).toBe(false);
     });
 
-    test('should handle Gmail API failures gracefully', async () => {
-      // Mock Gmail API failure
-      jest.spyOn(require('../../server/services/gmailService'), 'sendEmail')
-        .mockRejectedValueOnce(new Error('Gmail API unavailable'));
+    test('should handle email service failures gracefully', async () => {
+      // Mock email service failure
+      jest.spyOn(require('../../server/services/emailService'), 'sendEmail')
+        .mockRejectedValueOnce(new Error('Email service unavailable'));
 
       const response = await request(app)
         .post('/api/emails/send')

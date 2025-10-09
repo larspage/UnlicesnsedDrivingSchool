@@ -98,15 +98,76 @@ Complete reference for all environment variables used in the NJDSC School Compli
 - **Example**: `BACKUP_SCHEDULE=daily`
 - **Required**: No
 
-### GOOGLE_GMAIL_USER
-- **Description**: Email address for Gmail API operations (retained for email functionality)
-- **Type**: String (email)
-- **Example**: `GOOGLE_GMAIL_USER=admin@yourdomain.com`
+### GOOGLE_SERVICE_ACCOUNT_KEY
+- **Description**: Google service account credentials for Gmail API (JSON format)
+- **Type**: String (JSON)
+- **Example**: `GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}`
 - **Required**: Yes (for email notifications)
 - **Notes**:
-  - Must be a user in your Google Workspace domain
-  - Used only for sending MVC notification emails
-  - Requires service account with Gmail API access
+  - Download from Google Cloud Console → Service Accounts → Keys
+  - Used only for Gmail API email sending
+  - Never commit to version control
+
+### SMTP_HOST
+- **Description**: SMTP server hostname for email sending
+- **Type**: String
+- **Example**: `SMTP_HOST=smtp.gmail.com` or `SMTP_HOST=smtp.sendgrid.net`
+- **Required**: Yes (for email notifications)
+- **Notes**:
+  - Common providers: smtp.gmail.com, smtp.sendgrid.net, smtp.mailgun.org
+  - For Gmail: smtp.gmail.com
+  - For SendGrid: smtp.sendgrid.net
+
+### SMTP_PORT
+- **Description**: SMTP server port
+- **Type**: Number
+- **Default**: 587 (for TLS) or 465 (for SSL)
+- **Example**: `SMTP_PORT=587`
+- **Required**: No
+- **Notes**:
+  - 587: TLS (recommended)
+  - 465: SSL
+  - 25: Plain (not recommended)
+
+### SMTP_SECURE
+- **Description**: Whether to use SSL/TLS encryption
+- **Type**: Boolean string
+- **Default**: false
+- **Example**: `SMTP_SECURE=false`
+- **Required**: No
+- **Notes**:
+  - false for TLS on port 587
+  - true for SSL on port 465
+
+### SMTP_USER
+- **Description**: SMTP authentication username
+- **Type**: String
+- **Example**: `SMTP_USER=your-email@gmail.com` or `SMTP_USER=apikey`
+- **Required**: Yes (for email notifications)
+- **Notes**:
+  - For Gmail: your full email address
+  - For SendGrid: 'apikey'
+  - For Mailgun: your SMTP username
+
+### SMTP_PASS
+- **Description**: SMTP authentication password
+- **Type**: String
+- **Example**: `SMTP_PASS=your-app-password` or `SMTP_PASS=your-sendgrid-api-key`
+- **Required**: Yes (for email notifications)
+- **Notes**:
+  - For Gmail: use App Password (not regular password)
+  - For SendGrid: your API key
+  - Never commit to version control
+
+### EMAIL_FROM
+- **Description**: Default sender email address
+- **Type**: String (email)
+- **Default**: SMTP_USER value
+- **Example**: `EMAIL_FROM=noreply@njdsc.org`
+- **Required**: No
+- **Notes**:
+  - Must be authorized by your SMTP provider
+  - Can be different from SMTP_USER
 
 ---
 
@@ -227,9 +288,13 @@ BACKUP_DIR=/var/www/backups
 BACKUP_RETENTION_DAYS=30
 BACKUP_SCHEDULE=daily
 
-# Gmail for email notifications (retained)
-GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-GOOGLE_GMAIL_USER=treasurer@njdsc.org
+# Email service configuration (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=treasurer@njdsc.org
+SMTP_PASS=your-gmail-app-password
+EMAIL_FROM=treasurer@njdsc.org
 
 JWT_SECRET=production-secret-key-32-chars-minimum
 ADMIN_API_KEY=production-admin-key
@@ -259,9 +324,13 @@ BACKUP_DIR=./backups
 BACKUP_RETENTION_DAYS=7
 BACKUP_SCHEDULE=daily
 
-# Gmail for email notifications (retained)
-GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-GOOGLE_GMAIL_USER=dev-treasurer@njdsc.org
+# Email service configuration (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=dev-treasurer@njdsc.org
+SMTP_PASS=your-dev-gmail-app-password
+EMAIL_FROM=dev-treasurer@njdsc.org
 
 JWT_SECRET=development-secret-key
 ADMIN_API_KEY=dev-admin-key
@@ -291,9 +360,13 @@ BACKUP_DIR=./test-backups
 BACKUP_RETENTION_DAYS=1
 BACKUP_SCHEDULE=daily
 
-# Gmail for email testing (mock or retained)
-GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-GOOGLE_GMAIL_USER=test-treasurer@njdsc.org
+# Email service configuration for testing (optional - mocked in tests)
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_USER=test@example.com
+SMTP_PASS=test-password
+EMAIL_FROM=test@example.com
 
 JWT_SECRET=test-secret-key
 ADMIN_API_KEY=test-admin-key
@@ -318,8 +391,9 @@ LOG_LEVEL=error
 - [ ] DATA_DIR
 - [ ] UPLOADS_DIR
 - [ ] UPLOADS_URL_BASE
-- [ ] GOOGLE_SERVICE_ACCOUNT_KEY (for Gmail only)
-- [ ] GOOGLE_GMAIL_USER
+- [ ] SMTP_HOST
+- [ ] SMTP_USER
+- [ ] SMTP_PASS
 - [ ] JWT_SECRET
 
 ### Validation Script
@@ -333,8 +407,9 @@ const required = [
   'DATA_DIR',
   'UPLOADS_DIR',
   'UPLOADS_URL_BASE',
-  'GOOGLE_SERVICE_ACCOUNT_KEY',
-  'GOOGLE_GMAIL_USER',
+  'SMTP_HOST',
+  'SMTP_USER',
+  'SMTP_PASS',
   'JWT_SECRET'
 ];
 const missing = required.filter(key => !process.env[key]);
@@ -372,10 +447,11 @@ console.log('✅ All required variables present');
 - Check for missing quotes or commas
 - Ensure private_key has `\n` characters
 
-### "Cannot connect to Google APIs"
-- Verify service account key is correct
-- Check APIs are enabled in Cloud Console
-- Confirm service account has necessary permissions
+### "Cannot connect to SMTP server"
+- Verify SMTP_HOST and SMTP_PORT are correct
+- Check SMTP_USER and SMTP_PASS credentials
+- Confirm SMTP provider allows connections from your IP
+- For Gmail: ensure App Password is used (not regular password)
 
 ---
 
@@ -385,3 +461,8 @@ console.log('✅ All required variables present');
 - [database_schema.md](database_schema.md) - JSON file schema specifications
 - [STORAGE_CONFIGURATION.md](STORAGE_CONFIGURATION.md) - Local storage setup
 - [.env.example](.env.example) - Template file
+
+---
+
+**Document Version:** 1.2
+**Last Updated:** October 7, 2025

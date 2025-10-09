@@ -8,19 +8,20 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-// Configuration
-const DATA_DIR = process.env.DATA_DIR || './data';
+// Configuration - read dynamically to allow testing
+const getDataDir = () => process.env.DATA_DIR || './data';
 
 /**
  * Ensures the data directory exists
  * @throws {Error} If directory cannot be created
  */
 async function ensureDataDirectory() {
+  const dataDir = getDataDir();
   try {
-    await fs.access(DATA_DIR);
+    await fs.access(dataDir);
   } catch (error) {
     // Directory doesn't exist, create it
-    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.mkdir(dataDir, { recursive: true });
   }
 }
 
@@ -31,7 +32,7 @@ async function ensureDataDirectory() {
  * @throws {Error} If file cannot be read or parsed
  */
 async function readJsonFile(filename) {
-  const filePath = path.join(DATA_DIR, `${filename}.json`);
+  const filePath = path.join(getDataDir(), `${filename}.json`);
 
   // Retry logic for file access issues
   const maxRetries = 3;
@@ -98,7 +99,7 @@ async function readJsonFile(filename) {
  * @throws {Error} If file cannot be written
  */
 async function writeJsonFile(filename, data) {
-  const filePath = path.join(DATA_DIR, `${filename}.json`);
+  const filePath = path.join(getDataDir(), `${filename}.json`);
   const tempFilePath = `${filePath}.tmp`;
 
   try {
@@ -255,7 +256,7 @@ async function getRowsByFilter(spreadsheetId, sheetName, filterFn) {
  * @returns {Promise<void>}
  */
 async function ensureSheetExists(spreadsheetId, sheetName) {
-  const filePath = path.join(DATA_DIR, `${sheetName}.json`);
+  const filePath = path.join(getDataDir(), `${sheetName}.json`);
 
   try {
     await fs.access(filePath);
