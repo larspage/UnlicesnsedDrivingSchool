@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthService } from '../services/authService';
+import { ColorSchemeManager } from './ColorSchemeManager';
 
 const Header = () => {
   const location = useLocation();
@@ -8,6 +9,7 @@ const Header = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isColorSchemeManagerOpen, setIsColorSchemeManagerOpen] = useState(false);
   const authService = AuthService.getInstance();
 
   useEffect(() => {
@@ -46,8 +48,8 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-gray-100 shadow-sm border-b">
-      <div className="container mx-auto px-4 py-3">
+    <header className="bg-gray-100 shadow-sm border-b w-full">
+      <div className="max-w-7xl mx-auto px-4 py-3 w-full">
         <div className="flex justify-between items-center">
           <Link to="/" className="flex items-center space-x-3">
             <img
@@ -99,8 +101,21 @@ const Header = () => {
               </Link>
             ) : null}
 
-            {/* Authentication section */}
+            {/* Color Scheme Manager & Authentication section */}
             <div className="flex items-center space-x-4 ml-6 pl-6 border-l border-gray-300">
+              {/* Color Scheme Manager Button */}
+              <button
+                onClick={() => setIsColorSchemeManagerOpen(true)}
+                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 font-medium flex items-center space-x-1"
+                title="Manage color schemes"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a4 4 0 004-4V5z" />
+                </svg>
+                <span className="hidden sm:inline">Colors</span>
+              </button>
+
+              {/* Authentication section */}
               {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
                   <span className="text-sm text-gray-600">
@@ -216,6 +231,12 @@ const Header = () => {
           </div>
         )}
       </div>
+
+      {/* Color Scheme Manager Modal */}
+      <ColorSchemeManager
+        isOpen={isColorSchemeManagerOpen}
+        onClose={() => setIsColorSchemeManagerOpen(false)}
+      />
     </header>
   );
 };

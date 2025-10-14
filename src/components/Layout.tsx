@@ -8,10 +8,12 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   return (
-    <div className="min-h-screen flex flex-col relative">
+    <div className="layout-wrapper min-h-screen flex flex-col relative" data-testid="layout-wrapper">
       <Header />
-      <main className="flex-grow container mx-auto px-4 py-6">
-        {children}
+      <main className="main-content flex-grow w-full max-w-7xl mx-auto px-4 py-6" data-testid="main-content">
+        <div className="content-container" data-testid="content-container">
+          {children}
+        </div>
       </main>
       <Footer />
 

@@ -159,31 +159,32 @@ const ReportForm: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4">
-      <h1 className="text-3xl md:text-4xl font-bold text-dim-gray mb-8 text-center tracking-tight">
+    <div className="form-wrapper max-w-3xl mx-auto px-4" data-testid="form-wrapper">
+      <h1 className="text-3xl md:text-4xl font-bold text-dim-gray mb-8 text-center tracking-tight" data-testid="form-title">
         Report an Unlicensed Driving School
       </h1>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-8" data-testid="report-form">
         {/* School Details Section */}
-        <div className="card">
+        <div className="school-details-card card" data-testid="school-details-card">
           <h2 className="text-2xl font-semibold text-dim-gray mb-6 pb-3 border-b-2 border-pearl">School Details</h2>
-          <table className="w-full border-collapse table-fixed">
-            <colgroup>
-              <col className="w-[180px]" />
-              <col />
-              <col className="w-[180px] hidden lg:table-column" />
-              <col className="hidden lg:table-column" />
-            </colgroup>
+          <div className="table-container overflow-x-auto" data-testid="school-details-table-container">
+            <table className="w-full border-collapse" data-testid="school-details-table">
+              <colgroup data-testid="school-details-colgroup">
+                <col className="w-[20%]" data-testid="school-label-col" />
+                <col className="w-[30%]" data-testid="school-input-col" />
+                <col className="w-[20%]" data-testid="location-label-col" />
+                <col className="w-[30%]" data-testid="location-input-col" />
+              </colgroup>
             <tbody>
               {/* Row 1: School Name (and Location on large screens) */}
               <tr className="border-b border-pearl/50">
-                <td className="py-3 pr-2 align-top">
-                  <label htmlFor="schoolName" className="block text-sm font-medium text-dim-gray text-right pt-2">
+                <td className="py-3 pr-3 align-top">
+                  <label htmlFor="schoolName" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     School Name <span className="text-red-500">*</span>
                   </label>
                 </td>
-                <td className="py-3 px-2">
+                <td className="py-3 px-3">
                   <input
                     type="text"
                     id="schoolName"
@@ -198,8 +199,8 @@ const ReportForm: React.FC = () => {
                   />
                   {errors.schoolName && <p className="mt-1 text-xs text-red-500">{errors.schoolName}</p>}
                 </td>
-                <td className="py-3 px-2 align-top hidden lg:table-cell">
-                  <label htmlFor="location" className="block text-sm font-medium text-dim-gray text-right pt-2">
+                <td className="py-3 px-3 align-top hidden lg:table-cell">
+                  <label htmlFor="location" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Location
                   </label>
                 </td>
@@ -222,8 +223,8 @@ const ReportForm: React.FC = () => {
 
               {/* Row 2: Location (small/medium screens only) */}
               <tr className="border-b border-pearl/50 lg:hidden">
-                <td className="py-3 pr-2 align-top">
-                  <label htmlFor="location-sm" className="block text-sm font-medium text-dim-gray text-right pt-2">
+                <td className="py-3 pr-3 align-top">
+                  <label htmlFor="location-sm" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Location
                   </label>
                 </td>
@@ -247,11 +248,11 @@ const ReportForm: React.FC = () => {
               {/* Row 3: Phone Number (and Website on large screens) */}
               <tr className="border-b border-pearl/50">
                 <td className="py-3 pr-2 align-top">
-                  <label htmlFor="phoneNumber" className="block text-sm font-medium text-dim-gray text-right pt-2">
+                  <label htmlFor="phoneNumber" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Phone Number
                   </label>
                 </td>
-                <td className="py-3 px-2">
+                <td className="py-3 px-3">
                   <input
                     type="tel"
                     id="phoneNumber"
@@ -265,8 +266,8 @@ const ReportForm: React.FC = () => {
                   />
                   {errors.phoneNumber && <p className="mt-1 text-xs text-red-500">{errors.phoneNumber}</p>}
                 </td>
-                <td className="py-3 px-2 align-top hidden lg:table-cell">
-                  <label htmlFor="websiteUrl" className="block text-sm font-medium text-dim-gray text-right pt-2">
+                <td className="py-3 px-3 align-top hidden lg:table-cell">
+                  <label htmlFor="websiteUrl" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Website/Social Media
                   </label>
                 </td>
@@ -289,11 +290,11 @@ const ReportForm: React.FC = () => {
               {/* Row 4: Website (small/medium screens only) */}
               <tr className="border-b border-pearl/50 lg:hidden">
                 <td className="py-3 pr-2 align-top">
-                  <label htmlFor="websiteUrl-sm" className="block text-sm font-medium text-dim-gray text-right pt-2">
+                  <label htmlFor="websiteUrl-sm" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Website/Social Media
                   </label>
                 </td>
-                <td className="py-3 px-2" colSpan={3}>
+                <td className="py-3 px-3" colSpan={3}>
                   <input
                     type="url"
                     id="websiteUrl-sm"
@@ -312,7 +313,7 @@ const ReportForm: React.FC = () => {
               {/* Row 5: Violation Description (full width) */}
               <tr className="border-b border-pearl/50">
                 <td className="py-3 pr-2 align-top">
-                  <label htmlFor="violationDescription" className="block text-sm font-medium text-dim-gray text-right pt-2">
+                  <label htmlFor="violationDescription" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Violation Description
                   </label>
                 </td>
@@ -339,7 +340,7 @@ const ReportForm: React.FC = () => {
               {/* Row 6: Supporting Files (full width) */}
               <tr>
                 <td className="py-3 pr-2 align-top">
-                  <label className="block text-sm font-medium text-dim-gray text-right pt-2">
+                  <label className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Supporting Files
                   </label>
                 </td>
@@ -350,176 +351,179 @@ const ReportForm: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
+             </tbody>
+           </table>
+         </div>
+       </div>
 
         {/* Reporter Information Section */}
-        <div className="card">
+        <div className="reporter-info-card card" data-testid="reporter-info-card">
           <h2 className="text-2xl font-semibold text-dim-gray mb-3 pb-3 border-b-2 border-pearl">
             Your Information <span className="text-sm font-normal text-dim-gray/70">(Optional)</span>
           </h2>
           <p className="text-sm text-dim-gray/80 mb-6">
             Your contact details are kept confidential and are only used for follow-up purposes.
           </p>
-          <table className="w-full border-collapse table-fixed">
-            <colgroup>
-              <col className="w-[180px]" />
-              <col />
-              <col className="w-[180px] hidden lg:table-column" />
-              <col className="hidden lg:table-column" />
-            </colgroup>
-            <tbody>
-              {/* Row 1: Name (and Phone on large screens) */}
-              <tr className="border-b border-pearl/50">
-                <td className="py-3 pr-2 align-top">
-                  <label htmlFor="reporterName" className="block text-sm font-medium text-dim-gray text-right pt-2">
-                    Your Name
-                  </label>
-                </td>
-                <td className="py-3 px-2">
-                  <input
-                    type="text"
-                    id="reporterName"
-                    name="reporterName"
-                    value={formData.reporterName}
-                    onChange={handleInputChange}
-                    className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
-                      errors.reporterName ? 'border-red-500' : 'border-pearl'
-                    }`}
-                    placeholder="John Doe"
-                    maxLength={255}
-                  />
-                  {errors.reporterName && <p className="mt-1 text-xs text-red-500">{errors.reporterName}</p>}
-                </td>
-                <td className="py-3 px-2 align-top hidden lg:table-cell">
-                  <label htmlFor="reporterPhone" className="block text-sm font-medium text-dim-gray text-right pt-2">
-                    Your Phone
-                  </label>
-                </td>
-                <td className="py-3 pl-2 hidden lg:table-cell">
-                  <input
-                    type="tel"
-                    id="reporterPhone"
-                    name="reporterPhone"
-                    value={formData.reporterPhone}
-                    onChange={handleInputChange}
-                    className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
-                      errors.reporterPhone ? 'border-red-500' : 'border-pearl'
-                    }`}
-                    placeholder="+1-555-987-6543"
-                  />
-                  {errors.reporterPhone && <p className="mt-1 text-xs text-red-500">{errors.reporterPhone}</p>}
-                </td>
-              </tr>
+          <div className="table-container overflow-x-auto" data-testid="reporter-info-table-container">
+            <table className="w-full border-collapse" data-testid="reporter-info-table">
+              <colgroup data-testid="reporter-info-colgroup">
+                <col className="w-[20%]" data-testid="reporter-label-col" />
+                <col className="w-[30%]" data-testid="reporter-input-col" />
+                <col className="w-[20%]" data-testid="school-label-col" />
+                <col className="w-[30%]" data-testid="school-input-col" />
+              </colgroup>
+              <tbody>
+                {/* Row 1: Name (and Phone on large screens) */}
+                <tr className="border-b border-pearl/50">
+                  <td className="py-3 pr-2 align-top">
+                    <label htmlFor="reporterName" className="block text-sm font-medium text-dim-gray text-left pt-2">
+                      Your Name
+                    </label>
+                  </td>
+                  <td className="py-3 px-3">
+                    <input
+                      type="text"
+                      id="reporterName"
+                      name="reporterName"
+                      value={formData.reporterName}
+                      onChange={handleInputChange}
+                      className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
+                        errors.reporterName ? 'border-red-500' : 'border-pearl'
+                      }`}
+                      placeholder="John Doe"
+                      maxLength={255}
+                    />
+                    {errors.reporterName && <p className="mt-1 text-xs text-red-500">{errors.reporterName}</p>}
+                  </td>
+                  <td className="py-3 px-3 align-top hidden lg:table-cell">
+                    <label htmlFor="reporterPhone" className="block text-sm font-medium text-dim-gray text-left pt-2">
+                      Your Phone
+                    </label>
+                  </td>
+                  <td className="py-3 pl-2 hidden lg:table-cell">
+                    <input
+                      type="tel"
+                      id="reporterPhone"
+                      name="reporterPhone"
+                      value={formData.reporterPhone}
+                      onChange={handleInputChange}
+                      className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
+                        errors.reporterPhone ? 'border-red-500' : 'border-pearl'
+                      }`}
+                      placeholder="+1-555-987-6543"
+                    />
+                    {errors.reporterPhone && <p className="mt-1 text-xs text-red-500">{errors.reporterPhone}</p>}
+                  </td>
+                </tr>
 
-              {/* Row 2: Phone (small/medium screens only) */}
-              <tr className="border-b border-pearl/50 lg:hidden">
-                <td className="py-3 pr-2 align-top">
-                  <label htmlFor="reporterPhone-sm" className="block text-sm font-medium text-dim-gray text-right pt-2">
-                    Your Phone
-                  </label>
-                </td>
-                <td className="py-3 px-2" colSpan={3}>
-                  <input
-                    type="tel"
-                    id="reporterPhone-sm"
-                    name="reporterPhone"
-                    value={formData.reporterPhone}
-                    onChange={handleInputChange}
-                    className={`w-full max-w-[200px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
-                      errors.reporterPhone ? 'border-red-500' : 'border-pearl'
-                    }`}
-                    placeholder="+1-555-987-6543"
-                  />
-                  {errors.reporterPhone && <p className="mt-1 text-xs text-red-500">{errors.reporterPhone}</p>}
-                </td>
-              </tr>
+                {/* Row 2: Phone (small/medium screens only) */}
+                <tr className="border-b border-pearl/50 lg:hidden">
+                  <td className="py-3 pr-3 align-top">
+                    <label htmlFor="reporterPhone-sm" className="block text-sm font-medium text-dim-gray text-left pt-2">
+                      Your Phone
+                    </label>
+                  </td>
+                  <td className="py-3 px-3" colSpan={3}>
+                    <input
+                      type="tel"
+                      id="reporterPhone-sm"
+                      name="reporterPhone"
+                      value={formData.reporterPhone}
+                      onChange={handleInputChange}
+                      className={`w-full max-w-[200px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
+                        errors.reporterPhone ? 'border-red-500' : 'border-pearl'
+                      }`}
+                      placeholder="+1-555-987-6543"
+                    />
+                    {errors.reporterPhone && <p className="mt-1 text-xs text-red-500">{errors.reporterPhone}</p>}
+                  </td>
+                </tr>
 
-              {/* Row 3: Email (and School on large screens) */}
-              <tr className="border-b border-pearl/50">
-                <td className="py-3 pr-2 align-top">
-                  <label htmlFor="reporterEmail" className="block text-sm font-medium text-dim-gray text-right pt-2">
-                    Your Email
-                  </label>
-                </td>
-                <td className="py-3 px-2">
-                  <input
-                    type="email"
-                    id="reporterEmail"
-                    name="reporterEmail"
-                    value={formData.reporterEmail}
-                    onChange={handleInputChange}
-                    className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
-                      errors.reporterEmail ? 'border-red-500' : 'border-pearl'
-                    }`}
-                    placeholder="john.doe@example.com"
-                    maxLength={255}
-                  />
-                  {errors.reporterEmail && <p className="mt-1 text-xs text-red-500">{errors.reporterEmail}</p>}
-                </td>
-                <td className="py-3 px-2 align-top hidden lg:table-cell">
-                  <label htmlFor="reporterSchool" className="block text-sm font-medium text-dim-gray text-right pt-2">
-                    Your School/Organization
-                  </label>
-                </td>
-                <td className="py-3 pl-2 hidden lg:table-cell">
-                  <input
-                    type="text"
-                    id="reporterSchool"
-                    name="reporterSchool"
-                    value={formData.reporterSchool}
-                    onChange={handleInputChange}
-                    className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
-                      errors.reporterSchool ? 'border-red-500' : 'border-pearl'
-                    }`}
-                    placeholder="XYZ High School"
-                    maxLength={255}
-                  />
-                  {errors.reporterSchool && <p className="mt-1 text-xs text-red-500">{errors.reporterSchool}</p>}
-                </td>
-              </tr>
+                {/* Row 3: Email (and School on large screens) */}
+                <tr className="border-b border-pearl/50">
+                  <td className="py-3 pr-2 align-top">
+                    <label htmlFor="reporterEmail" className="block text-sm font-medium text-dim-gray text-left pt-2">
+                      Your Email
+                    </label>
+                  </td>
+                  <td className="py-3 px-3">
+                    <input
+                      type="email"
+                      id="reporterEmail"
+                      name="reporterEmail"
+                      value={formData.reporterEmail}
+                      onChange={handleInputChange}
+                      className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
+                        errors.reporterEmail ? 'border-red-500' : 'border-pearl'
+                      }`}
+                      placeholder="john.doe@example.com"
+                      maxLength={255}
+                    />
+                    {errors.reporterEmail && <p className="mt-1 text-xs text-red-500">{errors.reporterEmail}</p>}
+                  </td>
+                  <td className="py-3 px-3 align-top hidden lg:table-cell">
+                    <label htmlFor="reporterSchool" className="block text-sm font-medium text-dim-gray text-left pt-2">
+                      Your School
+                    </label>
+                  </td>
+                  <td className="py-3 pl-2 hidden lg:table-cell">
+                    <input
+                      type="text"
+                      id="reporterSchool"
+                      name="reporterSchool"
+                      value={formData.reporterSchool}
+                      onChange={handleInputChange}
+                      className={`w-full max-w-[360px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
+                        errors.reporterSchool ? 'border-red-500' : 'border-pearl'
+                      }`}
+                      placeholder="XYZ High School"
+                      maxLength={255}
+                    />
+                    {errors.reporterSchool && <p className="mt-1 text-xs text-red-500">{errors.reporterSchool}</p>}
+                  </td>
+                </tr>
 
-              {/* Row 4: School (small/medium screens only) */}
-              <tr className="lg:hidden">
-                <td className="py-3 pr-2 align-top">
-                  <label htmlFor="reporterSchool-sm" className="block text-sm font-medium text-dim-gray text-right pt-2">
-                    Your School/Organization
-                  </label>
-                </td>
-                <td className="py-3 px-2" colSpan={3}>
-                  <input
-                    type="text"
-                    id="reporterSchool-sm"
-                    name="reporterSchool"
-                    value={formData.reporterSchool}
-                    onChange={handleInputChange}
-                    className={`w-full max-w-[280px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
-                      errors.reporterSchool ? 'border-red-500' : 'border-pearl'
-                    }`}
-                    placeholder="XYZ High School"
-                    maxLength={255}
-                  />
-                  {errors.reporterSchool && <p className="mt-1 text-xs text-red-500">{errors.reporterSchool}</p>}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                {/* Row 4: School (small/medium screens only) */}
+                <tr className="lg:hidden">
+                  <td className="py-3 pr-2 align-top">
+                    <label htmlFor="reporterSchool-sm" className="block text-sm font-medium text-dim-gray text-left pt-2">
+                      Your School
+                    </label>
+                  </td>
+                  <td className="py-3 px-3" colSpan={3}>
+                    <input
+                      type="text"
+                      id="reporterSchool-sm"
+                      name="reporterSchool"
+                      value={formData.reporterSchool}
+                      onChange={handleInputChange}
+                      className={`w-full max-w-[280px] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
+                        errors.reporterSchool ? 'border-red-500' : 'border-pearl'
+                      }`}
+                      placeholder="XYZ High School"
+                      maxLength={255}
+                    />
+                    {errors.reporterSchool && <p className="mt-1 text-xs text-red-500">{errors.reporterSchool}</p>}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Error Message */}
         {errors.submit && (
-          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
+          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4" data-testid="error-message">
             <p className="text-red-700 text-sm font-medium text-center">{errors.submit}</p>
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row justify-end gap-4 pb-8">
+        <div className="flex flex-col sm:flex-row justify-end gap-4 pb-8 mt-8" data-testid="action-buttons">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="px-8 py-3 bg-pearl text-dim-gray rounded-lg hover:bg-pearl/80 transition-all duration-300 font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-8 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all duration-300 font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isSubmitting}
           >
             Cancel
@@ -527,7 +531,7 @@ const ReportForm: React.FC = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-8 py-3 bg-desert-sand text-white rounded-lg hover:bg-desert-sand/90 transition-all duration-300 font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="px-8 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-all duration-300 font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? 'Submitting...' : 'Submit Report'}
           </button>
@@ -535,13 +539,13 @@ const ReportForm: React.FC = () => {
       </form>
 
       {/* Privacy Notice */}
-      <div className="mt-8 p-6 card bg-honeydew/30">
+      <div className="mt-8 p-6 card bg-honeydew/30" data-testid="privacy-notice-card">
         <h3 className="text-lg font-semibold text-dim-gray mb-2">Privacy Notice</h3>
         <p className="text-sm text-dim-gray/80">
           Your report is taken seriously. All submissions are reviewed by NJDSC compliance staff. Your contact information, if provided, will be kept confidential and will only be used by our team to follow up on this specific report.
         </p>
       </div>
-    </div>
+      </div>
   );
 };
 

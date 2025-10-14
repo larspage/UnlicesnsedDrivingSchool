@@ -6,45 +6,187 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Default color scheme variables (fallback) */
+:root {
+  --lapis-lazuli: #2660a4ff;
+  --azure-web: #edf7f6ff;
+  --sandy-brown: #f19953ff;
+  --copper: #c47335ff;
+  --caf-noir: #56351eff;
+
+  /* Gradient variables */
+  --gradient-primary: linear-gradient(135deg, var(--lapis-lazuli), var(--sandy-brown));
+  --gradient-secondary: linear-gradient(45deg, var(--azure-web), var(--copper));
+  --gradient-background: linear-gradient(180deg, var(--azure-web) 0%, var(--lapis-lazuli) 100%);
+}
+
 /* Global font family and background */
+html {
+  width: 100%;
+  overflow-x: hidden;
+}
+
 * {
   font-family: 'Montserrat', Arial, sans-serif;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  box-sizing: border-box;
 }
 
 body {
-  background-color: #374151; /* Dark grey background */
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: var(--gradient-background, #374151);
   min-height: 100vh;
+  transition: background 0.3s ease;
+  /* Match the blue margin on left with equivalent padding on right */
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 /* Compact and higher density styles */
 .container {
-  @apply max-w-7xl;
+  width: 100%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 main {
-  @apply py-6;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
 }
 
 section {
-  @apply mb-6;
+  margin-bottom: 1.5rem;
 }
 
-/* Reduce padding and margins for higher density */
+/* Reduce padding and margins for higher density - using CSS directly */
 .bg-white {
-  @apply p-4 md:p-6;
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .bg-white {
+    padding: 1.5rem;
+  }
 }
 
 .rounded-lg {
-  @apply rounded-md;
+  border-radius: 0.375rem;
 }
 
-/* Custom styles */
+/* Custom brand styles using dynamic colors */
 .njdsc-brand {
-  @apply text-blue-900;
+  color: var(--lapis-lazuli, #2660a4);
+  transition: color 0.3s ease;
 }
 
 .njdsc-brand:hover {
-  @apply text-blue-700;
+  color: var(--copper, #c47335);
+}
+
+/* Gradient utility classes */
+.gradient-bg-primary {
+  background: var(--gradient-primary);
+}
+
+.gradient-bg-secondary {
+  background: var(--gradient-secondary);
+}
+
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-border {
+  position: relative;
+  background: var(--gradient-primary);
+  padding: 2px;
+  border-radius: 8px;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: white;
+  border-radius: 6px;
+}
+
+/* Animation classes for gradients */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes gradientRotate {
+  0% { background-position: 0% 0%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+.animate-gradient {
+  background-size: 400% 400%;
+  animation: gradientRotate 15s ease infinite;
+}
+
+.animate-gradient-shift {
+  background-size: 200% 100%;
+  animation: gradientShift 8s ease infinite;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--gradient-background, #1f2937);
+  }
+}
+
+/* Card component styling with dynamic color scheme */
+.card {
+  background-color: rgb(var(--azure-web-rgb, 237 247 246));
+  border: 1px solid rgb(var(--lapis-lazuli-rgb, 38 96 164));
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  margin: 0 auto;
+  width: 100%;
+  overflow: hidden;
+}
+
+.card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive card padding */
+@media (min-width: 768px) {
+  .card {
+    padding: 2rem;
+  }
+}
+
+/* Dark mode card styling */
+@media (prefers-color-scheme: dark) {
+  .card {
+    background-color: rgba(var(--lapis-lazuli-rgb, 38 96 164), 0.1);
+    border-color: rgb(var(--azure-web-rgb, 237 247 246));
+  }
+}
+
+/* Smooth transitions for color scheme changes */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
