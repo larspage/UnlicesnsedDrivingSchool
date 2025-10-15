@@ -44,6 +44,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
+    "express-xss-sanitizer": "^2.0.1",
     "google-spreadsheet": "^5.0.2",
     "googleapis": "^161.0.0",
     "helmet": "^8.1.0",

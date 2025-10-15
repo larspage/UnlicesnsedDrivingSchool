@@ -24,7 +24,54 @@ async function createReport(reportData, reporterIp = null) {
     // Get all existing reports for duplicate checking
     const existingReports = await getAllReports();
 
-    // Create new report instance
+    // Check for duplicate reports
+    const duplicateReport = existingReports.find(existing =>
+      existing.schoolName.toLowerCase() === reportData.schoolName.toLowerCase()
+    );
+
+    if (duplicateReport) {
+      // Update existing report instead of creating new one
+      console.log('Duplicate report found, updating existing report:', duplicateReport.id);
+
+      // Prepare update data
+      const updateData = {
+        ...reportData,
+        updatedAt: new Date().toISOString(),
+        lastReported: new Date().toISOString(),
+        updatedBy: 'system'
+      };
+
+      // Append violation description if provided
+      if (reportData.violationDescription) {
+        updateData.violationDescription = (duplicateReport.violationDescription || '') +
+          '\n\n[Additional Report - ' + new Date().toISOString() + ']\n' +
+          reportData.violationDescription;
+      }
+
+      // Add new files up to the limit of 10
+      if (reportData.files && Array.isArray(reportData.files)) {
+        const existingFiles = duplicateReport.uploadedFiles || [];
+        const maxFiles = 10;
+        const availableSlots = maxFiles - existingFiles.length;
+
+        if (availableSlots > 0) {
+          const newFiles = reportData.files.slice(0, availableSlots);
+          updateData.uploadedFiles = [...existingFiles, ...newFiles];
+
+          if (reportData.files.length > availableSlots) {
+            console.warn(`Maximum of ${maxFiles} files reached. ${reportData.files.length - availableSlots} files were not added.`);
+          }
+        } else {
+          console.warn('Maximum number of files (10) already reached for this report. New files were not added.');
+        }
+      }
+
+      // Update the existing report
+      const updatedReport = await updateReport(duplicateReport.id, updateData);
+      return updatedReport;
+    }
+
+    // Create new report instance if no duplicate found
     const report = Report.create(reportData, reporterIp);
 
     // Validate business rules (duplicate detection, etc.)

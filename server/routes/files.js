@@ -22,6 +22,20 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
     files: 10 // Maximum 10 files per upload
+  },
+  fileFilter: (req, file, cb) => {
+    // Define allowed MIME types
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/avi', 'video/mov',
+      'application/pdf'
+    ];
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error(`Unsupported file type: ${file.mimetype}. Supported types: ${allowedTypes.join(', ')}`), false);
+    }
+
+    cb(null, true);
   }
 });
 
@@ -400,6 +414,35 @@ router.delete('/:id', validateFileId, async (req, res) => {
 });
 
 // Error handling middleware for file routes
+router.use((error, req, res, next) => {
+  // Handle multer errors
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        error: 'File too large. Maximum file size is 10MB.'
+      });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many files. Maximum 10 files per upload.'
+      });
+    }
+  }
+
+  // Handle custom file filter errors
+  if (error.message.includes('Unsupported file type')) {
+    return res.status(400).json({
+      success: false,
+      error: 'validation failed'
+    });
+  }
+
+  // Pass to general error handler
+  next(error);
+});
+
 router.use(handleFileErrors);
 
 module.exports = router;

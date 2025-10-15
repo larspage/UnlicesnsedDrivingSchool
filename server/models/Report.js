@@ -116,6 +116,7 @@ class Report {
       reporterPhone: Joi.string().pattern(/^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/).allow('', null).optional(),
       reporterSchool: Joi.string().max(255).trim().allow('', null).optional(),
       reporterEmail: Joi.string().email().max(255).allow('', null).optional(),
+      updatedBy: Joi.string().max(50).allow('', null).optional(),
       // Files field for frontend compatibility (will be processed separately)
       files: Joi.array().items(Joi.object({
         name: Joi.string().required(),

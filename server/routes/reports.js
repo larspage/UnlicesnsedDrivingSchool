@@ -13,10 +13,11 @@ const File = require('../models/File');
 const { authenticateAdmin } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
-// Rate limiting for report submissions
+// Rate limiting for report submissions - relaxed for test environments
+const testMode = process.env.NODE_ENV === 'test';
 const reportLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // limit each IP to 5 requests per hour
+  windowMs: testMode ? 1000 : 60 * 60 * 1000, // 1s for testing, 1h production
+  max: testMode ? 1000 : 5, // high limit for tests, 5 for production
   message: 'Too many report submissions from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -27,6 +28,17 @@ const reportLimiter = rateLimit({
  * Submit a new school compliance report
  */
 router.post('/', reportLimiter, async (req, res) => {
+
+  //verify that req is json format
+  if (!req.is('json')) {
+    console.log('Invalid request body format. JSON expected.');
+
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid request body format. JSON expected.'
+    });
+  }
+
   try {
     const reportData = req.body;
     const reporterIp = req.ip || req.connection.remoteAddress || 'unknown';
@@ -70,6 +82,15 @@ router.post('/', reportLimiter, async (req, res) => {
 
       for (const fileData of reportData.files) {
         try {
+
+          //fileData fileType needs to be validated
+          if (!fileData.type || !ALL_SUPPORTED_TYPES.includes(fileData.type)) {
+            return res.status(400).json({
+              success: false,
+              error: 'Invalid file type. Supported types: ' + ALL_SUPPORTED_TYPES.join(', ')
+            });
+          }
+
           // Convert base64 to buffer
           const fileBuffer = Buffer.from(fileData.data, 'base64');
 
@@ -154,8 +175,16 @@ router.post('/', reportLimiter, async (req, res) => {
     if (error.message.includes('validation failed')) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid report data',
+        error: 'Validation failed',
         message: error.message
+      });
+    }
+
+    // Handle JSON parsing errors
+    if (error.type === 'entity.parse.failed') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid JSON in request body'
       });
     }
 

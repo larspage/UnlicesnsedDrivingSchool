@@ -7,22 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const emailService = require('../services/emailService');
-
-// Admin authentication middleware (temporary - will be replaced in Phase 3)
-const ADMIN_KEY = process.env.ADMIN_API_KEY || 'njdsc-admin-2025';
-
-function requireAdmin(req, res, next) {
-  const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
-
-  if (!adminKey || adminKey !== ADMIN_KEY) {
-    return res.status(403).json({
-      error: 'Admin access required',
-      message: 'Valid admin authentication is required to access email endpoints'
-    });
-  }
-
-  next();
-}
+const { authenticateAdmin } = require('../middleware/auth');
 
 // Input validation middleware
 function validateEmailInput(req, res, next) {
@@ -56,7 +41,7 @@ function validateEmailInput(req, res, next) {
  * POST /api/emails/send
  * Send an email (Admin only)
  */
-router.post('/send', requireAdmin, validateEmailInput, async (req, res) => {
+router.post('/send', authenticateAdmin, validateEmailInput, async (req, res) => {
   try {
     const { reportId, templateId, to, subject, body, attachments } = req.body;
 

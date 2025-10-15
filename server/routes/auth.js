@@ -4,10 +4,11 @@ const authService = require('../services/authService');
 const { authenticateAdmin } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
-// Rate limiting for authentication endpoints
+// Rate limiting for authentication endpoints - relaxed for test environments
+const testMode = process.env.NODE_ENV === 'test';
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 login attempts per windowMs
+  windowMs: testMode ? 1000 : 15 * 60 * 1000, // 1s for testing, 15min production
+  max: testMode ? 1000 : 5, // high limit for tests, 5 for production
   message: 'Too many authentication attempts, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,

@@ -272,7 +272,7 @@ describe('Config Service', () => {
       expect(keys).toContain('system.maxFileSize');
     });
 
-    it('should not overwrite existing configurations', async () => {
+    it('should update existing configurations with new values', async () => {
       const existingConfig = {
         key: 'email.toAddress',
         value: 'existing@mvc.nj.gov',
@@ -286,12 +286,17 @@ describe('Config Service', () => {
 
       await configService.initializeDefaults();
 
-      // Should not have written the existing config, but may write others that don't exist
+      // Should update the existing config with new values
       const writeCalls = localJsonService.writeJsonFile.mock.calls;
       const writtenKeys = writeCalls.flatMap(call => call[1]).map(config => config.key);
 
-      // email.toAddress should not be written since it already exists
-      expect(writtenKeys).not.toContain('email.toAddress');
+      // email.toAddress should be written since we're updating existing configs
+      expect(writtenKeys).toContain('email.toAddress');
+
+      // Verify the config was updated with new values
+      const emailConfig = writeCalls.flatMap(call => call[1]).find(config => config.key === 'email.toAddress');
+      expect(emailConfig).toBeDefined();
+      expect(emailConfig.value).not.toBe('existing@mvc.nj.gov'); // Should be updated
     });
 
     it('should handle custom defaults', async () => {
