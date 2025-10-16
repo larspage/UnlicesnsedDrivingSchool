@@ -122,7 +122,7 @@ class Report {
         name: Joi.string().required(),
         type: Joi.string().required(),
         size: Joi.number().integer().min(0).required(),
-        data: Joi.string().required()
+        data: Joi.string().allow('').optional()
       })).max(10).allow(null).optional()
     });
 

@@ -96,6 +96,11 @@ router.post('/', reportLimiter, async (req, res) => {
 
       for (const fileData of reportData.files) {
         try {
+          // Validate file data is not empty
+          if (!fileData.data || fileData.data.trim() === '') {
+            console.log(`Skipping empty file: ${fileData.name}`);
+            continue; // Skip empty files instead of failing
+          }
 
           //fileData fileType needs to be validated
           if (!fileData.type || !ALL_SUPPORTED_TYPES.includes(fileData.type)) {
