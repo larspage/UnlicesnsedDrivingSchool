@@ -8,10 +8,10 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-// Helper function to get uuidv4 since uuid is ESM-only
-async function getUuidv4() {
-  const { v4: uuidv4 } = await import('uuid');
-  return uuidv4;
+// Helper function to get cuid2 since it's more secure than UUID
+async function getCuid2() {
+  const { createId } = await import('@paralleldrive/cuid2');
+  return createId;
 }
 
 // Configuration
@@ -58,10 +58,22 @@ async function generateUniqueFilename(originalName) {
   const extension = path.extname(originalName);
   const basename = path.basename(originalName, extension);
   const timestamp = Date.now();
-  const uuidv4 = await getUuidv4();
-  const randomId = uuidv4().substring(0, 8);
+  const cuid2 = await getCuid2();
+  const randomId = cuid2().substring(0, 8);
 
   return `${basename}_${timestamp}_${randomId}${extension}`;
+}
+
+/**
+ * Helper function to get uuidv4 synchronously for compatibility
+ * @returns {string} UUID v4 string
+ */
+function uuidv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 /**
@@ -93,9 +105,12 @@ async function uploadFile(fileBuffer, originalName, mimeType, reportId) {
       thumbnailUrl = publicUrl; // For now, use same URL (could implement thumbnail generation later)
     }
 
-    const uuidv4 = await getUuidv4();
+    const cuid2 = await getCuid2();
+    const fileId = cuid2();
+    console.log(`Generated file ID: ${fileId} for file: ${originalName}`);
+
     const fileData = {
-      id: uuidv4(),
+      id: fileId,
       reportId,
       originalName,
       filename: uniqueFilename,

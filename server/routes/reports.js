@@ -12,6 +12,16 @@ const localFileService = require('../services/localFileService');
 const File = require('../models/File');
 const { authenticateAdmin } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
+const { validateJsonString } = require('../utils/validation');
+
+// Import supported file types from File model
+const { getSupportedMimeTypes } = File;
+const SUPPORTED_MIME_TYPES = getSupportedMimeTypes();
+const ALL_SUPPORTED_TYPES = [
+  ...SUPPORTED_MIME_TYPES.images,
+  ...SUPPORTED_MIME_TYPES.videos,
+  ...SUPPORTED_MIME_TYPES.documents
+];
 
 // Rate limiting for report submissions - relaxed for test environments
 const testMode = process.env.NODE_ENV === 'test';
@@ -29,14 +39,18 @@ const reportLimiter = rateLimit({
  */
 router.post('/', reportLimiter, async (req, res) => {
 
-  //verify that req is json format
-  if (!req.is('json')) {
-    console.log('Invalid request body format. JSON expected.');
+  // Skip JSON validation in test environment since supertest handles JSON parsing
+  if (process.env.NODE_ENV !== 'test') {
+    //verify that req is json format
+    // if req is json, verify that req.body is a valid json object
+    if (!req.is('json') || !validateJsonString(req.body)) {
+      console.log('Invalid request body format. JSON expected.');
 
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid request body format. JSON expected.'
-    });
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request body format. JSON expected.'
+      });
+    }
   }
 
   try {

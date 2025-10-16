@@ -20,11 +20,12 @@ module.exports = {
         '^.+\\.jsx?$': 'babel-jest',
       },
       transformIgnorePatterns: [
-        'node_modules/(?!uuid/)',
+        'node_modules/(?!@paralleldrive/cuid2/)',
       ],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
       moduleNameMapper: {
         '^uuid$': '<rootDir>/tests/mocks/uuid.js',
+        '^@paralleldrive/cuid2$': '<rootDir>/tests/mocks/uuid.js',
       },
       collectCoverageFrom: [
         'server/**/*.{js}',
@@ -44,7 +45,7 @@ module.exports = {
         '^.+\\.jsx?$': 'babel-jest',
       },
       transformIgnorePatterns: [
-        'node_modules/(?!uuid/)',
+        'node_modules/(?!@paralleldrive/cuid2|google-spreadsheet/)',
       ],
       setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
       moduleNameMapper: {

@@ -71,14 +71,15 @@ describe('Report Service', () => {
       console.error = originalConsoleError;
     });
 
-    test('should throw error for duplicate school name', async () => {
+    test('should update existing report for duplicate school name', async () => {
       // Mock console.error to prevent CI from treating error logs as failures
       const originalConsoleError = console.error;
       console.error = jest.fn();
 
       const mockReportData = {
         schoolName: 'Existing School',
-        location: 'Test City'
+        location: 'Test City',
+        violationDescription: 'Updated violation description'
       };
 
       const mockExistingReports = [
@@ -93,8 +94,14 @@ describe('Report Service', () => {
       ];
 
       localJsonService.getAllRows.mockResolvedValue(mockExistingReports);
+      localJsonService.updateRow.mockResolvedValue({ success: true });
 
-      await expect(reportService.createReport(mockReportData)).rejects.toThrow('Duplicate report found');
+      const result = await reportService.createReport(mockReportData);
+
+      expect(result).toBeInstanceOf(Report);
+      expect(result.schoolName).toBe('Existing School');
+      expect(result.violationDescription).toContain('Updated violation description');
+      expect(localJsonService.updateRow).toHaveBeenCalled();
 
       console.error = originalConsoleError;
     });

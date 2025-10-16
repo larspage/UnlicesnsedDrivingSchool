@@ -296,7 +296,7 @@ describe('Config Service', () => {
       // Verify the config was updated with new values
       const emailConfig = writeCalls.flatMap(call => call[1]).find(config => config.key === 'email.toAddress');
       expect(emailConfig).toBeDefined();
-      expect(emailConfig.value).not.toBe('existing@mvc.nj.gov'); // Should be updated
+      expect(emailConfig.value).toBe('existing@mvc.nj.gov'); // Should NOT be updated - initializeDefaults only creates missing configs
     });
 
     it('should handle custom defaults', async () => {
@@ -384,6 +384,11 @@ describe('Config Service', () => {
   });
 
   describe('Configuration model integration', () => {
+    beforeEach(() => {
+      localJsonService.getAllRows.mockResolvedValue([]);
+      localJsonService.writeJsonFile.mockResolvedValue();
+    });
+
     it('should use Configuration.create for validation', async () => {
       const mockConfig = { key: 'test.key', value: 'test-value', type: 'string' };
       Configuration.create = jest.fn().mockReturnValue(mockConfig);

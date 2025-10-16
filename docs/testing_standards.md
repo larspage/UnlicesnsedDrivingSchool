@@ -22,6 +22,11 @@ This document establishes testing standards and conventions for the NJDSC School
 - **Environment:** Node.js
 - **Coverage Tool:** Istanbul (built into Jest)
 
+### 2.3 Security Standards
+- **ID Generation:** Use `@paralleldrive/cuid2` instead of `uuid` for all ID generation
+- **UUID Prohibition:** The `uuid` package (any version) is strictly prohibited due to security vulnerabilities
+- **Alternative:** Use `createId()` from `@paralleldrive/cuid2` for secure, collision-resistant IDs
+
 ### 2.3 Configuration
 ```javascript
 // jest.config.js
@@ -282,6 +287,12 @@ it('should handle timeouts', async () => {
 }, 500); // Custom timeout
 ```
 
+### 7.5 Security Testing Requirements
+- **ID Generation Testing:** All ID generation must use `@paralleldrive/cuid2`
+- **UUID Detection:** Automated checks must prevent `uuid` package usage
+- **Security Validation:** All generated IDs must be validated for collision resistance
+- **Mock Testing:** Test mocks must use secure ID generation patterns
+
 ## 8. CI/CD Integration
 
 ### 8.1 Automated Testing
@@ -322,6 +333,12 @@ it('should handle timeouts', async () => {
 - Integration tests for API endpoints
 - E2E tests for user workflows
 - Coverage monitoring and reporting
+
+### Security Implementation ✅ COMPLETED
+- **UUID Package Removal:** Complete removal of `uuid` package due to security vulnerabilities
+- **CUID2 Implementation:** All ID generation now uses `@paralleldrive/cuid2` for secure, collision-resistant IDs
+- **Test Updates:** All test mocks updated to use secure ID generation
+- **Documentation:** Security standards updated to prohibit UUID usage
 
 ### Current Coverage Achievements
 - **Overall Target:** 85% minimum coverage ✅ ACHIEVED

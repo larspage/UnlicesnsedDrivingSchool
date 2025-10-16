@@ -28,9 +28,9 @@ jest.mock('path', () => ({
   })
 }));
 
-// Mock uuid import
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => '12345678-1234-1234-1234-123456789abc')
+// Mock cuid2 import
+jest.mock('@paralleldrive/cuid2', () => ({
+  createId: jest.fn(() => '12345678-1234-1234-1234-123456789abc')
 }));
 
 const fs = require('fs');

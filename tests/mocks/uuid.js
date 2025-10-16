@@ -1,6 +1,7 @@
-const { v4: uuidv4 } = jest.requireActual('uuid');
+const { createId } = require('@paralleldrive/cuid2');
 
 module.exports = {
-  v4: uuidv4,
-  // Add other exports if needed
+  v4: createId,
+  createId: createId,
+  // Add other exports if needed for compatibility
 };
