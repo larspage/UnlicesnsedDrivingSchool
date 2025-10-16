@@ -7,12 +7,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-
-// Helper function to get cuid2 since it's more secure than UUID
-async function getCuid2() {
-  const { createId } = await import('@paralleldrive/cuid2');
-  return createId;
-}
+const { createId } = require('@paralleldrive/cuid2');
 
 // Configuration
 const UPLOADS_DIR = process.env.UPLOADS_DIR || './uploads';
@@ -58,8 +53,7 @@ async function generateUniqueFilename(originalName) {
   const extension = path.extname(originalName);
   const basename = path.basename(originalName, extension);
   const timestamp = Date.now();
-  const cuid2 = await getCuid2();
-  const randomId = cuid2().substring(0, 8);
+  const randomId = createId().substring(0, 8);
 
   return `${basename}_${timestamp}_${randomId}${extension}`;
 }
@@ -105,8 +99,7 @@ async function uploadFile(fileBuffer, originalName, mimeType, reportId) {
       thumbnailUrl = publicUrl; // For now, use same URL (could implement thumbnail generation later)
     }
 
-    const cuid2 = await getCuid2();
-    const fileId = cuid2();
+    const fileId = createId();
     console.log(`Generated file ID: ${fileId} for file: ${originalName}`);
 
     const fileData = {

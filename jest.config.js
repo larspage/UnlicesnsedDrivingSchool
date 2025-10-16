@@ -25,7 +25,7 @@ module.exports = {
       setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
       moduleNameMapper: {
         '^uuid$': '<rootDir>/tests/mocks/uuid.js',
-        '^@paralleldrive/cuid2$': '<rootDir>/tests/mocks/uuid.js',
+        '^@paralleldrive/cuid2$': '<rootDir>/tests/mocks/cuid2.js',
       },
       collectCoverageFrom: [
         'server/**/*.{js}',

@@ -314,7 +314,18 @@ it('should handle timeouts', async () => {
 - **Linting:** Must pass ESLint rules
 - **Type Checking:** Must pass TypeScript compilation
 
-## 9. Implementation Status
+## 9. Failed Tests Reporting Format
+
+### Report failed tests in a table including the following columns:
+- Row ID
+- Test Name
+- Test File
+- Test Location including line numbers
+- Code file called by Test along with line numbers
+- Expected result/Actual Result
+
+
+## 10. Implementation Status
 
 ### Phase 1: Infrastructure Setup ✅ COMPLETED
 - Jest configuration established
@@ -329,10 +340,11 @@ it('should handle timeouts', async () => {
 - Integration with Google Sheets and validation layers verified
 
 ### Phase 3-8: Feature Implementation (In Progress)
-- Unit tests for remaining services (auditService, authService, configService, googleSheetsService, googleDriveService)
+- Unit tests for remaining services (auditService, authService, configService)
 - Integration tests for API endpoints
 - E2E tests for user workflows
 - Coverage monitoring and reporting
+- **UUID Security Migration:** Complete replacement of UUID with @paralleldrive/cuid2 for enhanced security
 
 ### Security Implementation ✅ COMPLETED
 - **UUID Package Removal:** Complete removal of `uuid` package due to security vulnerabilities
@@ -346,6 +358,7 @@ it('should handle timeouts', async () => {
 - **Frontend Components:** React Testing Library integration ready
 - **E2E Testing:** Puppeteer setup for critical user journeys
 - **Error Logging:** Structured logging throughout request flows
+- **Security Enhancements:** UUID replaced with @paralleldrive/cuid2 for improved security
 
 ---
 
