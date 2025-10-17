@@ -53,11 +53,24 @@ app.use(express.static(path.join(__dirname, 'dist')));
 
 // Initialize configuration on startup
 const configService = require('./services/configService');
-configService.initializeDefaults().then(() => {
-  console.log('Configuration initialized successfully');
-}).catch((error) => {
-  console.error('Failed to initialize configuration:', error.message);
-});
+const localJsonService = require('./services/localJsonService');
+
+(async () => {
+  try {
+    await localJsonService.ensureDataDirectory();
+    await localJsonService.ensureSheetExists(null, 'reports');
+    console.log('Data directory and reports.json initialized successfully');
+  } catch (err) {
+    console.error('Failed to prepare data directory/files:', err);
+    process.exit(1); // prevent server from starting in bad state
+  }
+
+  configService.initializeDefaults().then(() => {
+    console.log('Configuration initialized successfully');
+  }).catch((error) => {
+    console.error('Failed to initialize configuration:', error.message);
+  });
+})();
 
 // Health check endpoint
 app.get('/health', (req, res) => {

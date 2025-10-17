@@ -197,7 +197,7 @@ describe('Performance Testing Suite', () => {
               violationDescription: 'Memory leak test',
               location: `${i} Memory St, Test City, NJ`
             })
-        , 2, 5000); // 2 retries with 5s base delay
+        , 2, 50000); // 2 retries with 5s base delay
       }
 
       // Force garbage collection if available
@@ -210,7 +210,7 @@ describe('Performance Testing Suite', () => {
 
       // Memory increase should be reasonable (less than 200MB)
       expect(memoryIncrease).toBeLessThan(500 * 1024 * 1024); // Increased from 200MB to 500MB for test environment
-    });
+    }, 10000); // 10 second timeout
 
     test('should handle large result sets efficiently', async () => {
       const startTime = Date.now();

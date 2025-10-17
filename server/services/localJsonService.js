@@ -9,7 +9,7 @@ const fs = require('fs').promises;
 const path = require('path');
 
 // Configuration - read dynamically to allow testing
-const getDataDir = () => process.env.DATA_DIR || './data';
+const getDataDir = () => path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
 
 /**
  * Ensures the data directory exists
@@ -99,61 +99,88 @@ async function readJsonFile(filename) {
  * @throws {Error} If file cannot be written
  */
 async function writeJsonFile(filename, data) {
-  const filePath = path.join(getDataDir(), `${filename}.json`);
+  const dataDir = getDataDir();
+  const filePath = path.join(dataDir, `${filename}.json`);
   const tempFilePath = `${filePath}.tmp`;
 
   try {
     await ensureDataDirectory();
 
-    // Write to temporary file first
     const jsonData = JSON.stringify(data, null, 2);
+
+    // Write temp file
     await fs.writeFile(tempFilePath, jsonData, 'utf8');
 
-    // Try atomic rename with retry logic for Windows file locking issues
+    // Confirm temp file exists before rename (avoid ENOENT on rename)
+    let attempts = 0;
+    const maxExistenceChecks = 5;
+    while (attempts < maxExistenceChecks) {
+      try {
+        await fs.access(tempFilePath);
+        break; // temp file exists
+      } catch (accessErr) {
+        attempts++;
+        if (attempts >= maxExistenceChecks) {
+          throw new Error(`Temporary file missing after write: ${tempFilePath}`);
+        }
+        // wait then re-check
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
+
+    // Attempt atomic rename with retries
     let retries = 3;
     let lastError;
-    
     while (retries > 0) {
       try {
-        // On Windows, try to delete the target file first if it exists
+        // On Windows: try unlinking target first to avoid EPERM
         if (process.platform === 'win32') {
           try {
             await fs.unlink(filePath);
-          } catch (unlinkError) {
-            // File might not exist, that's okay
-            if (unlinkError.code !== 'ENOENT') {
-              // If we can't delete it, wait a bit and retry
-              await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (e) {
+            if (e.code !== 'ENOENT') {
+              // if can't delete, wait then retry
+              await new Promise(r => setTimeout(r, 100));
             }
           }
         }
-        
-        // Atomic move to final location
+
         await fs.rename(tempFilePath, filePath);
-        return; // Success!
+        return; // success
       } catch (error) {
         lastError = error;
+
+        // If temp file disappeared (ENOENT), attempt to re-create it once
+        if (error.code === 'ENOENT') {
+          try {
+            await fs.writeFile(tempFilePath, jsonData, 'utf8');
+            // retry rename immediately
+            retries--;
+            continue;
+          } catch (recreateErr) {
+            lastError = recreateErr;
+            break;
+          }
+        }
+
         if (error.code === 'EPERM' || error.code === 'EBUSY') {
-          // File is locked, wait and retry
           retries--;
           if (retries > 0) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(r => setTimeout(r, 200));
+            continue;
           }
-        } else {
-          // Different error, don't retry
-          break;
         }
+        break; // don't retry for other errors
       }
     }
-    
-    // If we get here, all retries failed
+
     throw lastError;
   } catch (error) {
-    // Clean up temp file if it exists
+    // cleanup temp file if it exists
     try {
       await fs.unlink(tempFilePath);
     } catch (cleanupError) {
-      // Ignore cleanup errors
+      // ignore
     }
     throw new Error(`Failed to write JSON file ${filename}: ${error.message}`);
   }
