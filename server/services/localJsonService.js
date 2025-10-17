@@ -9,7 +9,16 @@ const fs = require('fs').promises;
 const path = require('path');
 
 // Configuration - read dynamically to allow testing
-const getDataDir = () => path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
+const getDataDir = () => {
+  const dataDir = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
+  console.log('[LOCAL JSON SERVICE] getDataDir called:', {
+    DATA_DIR: process.env.DATA_DIR,
+    cwd: process.cwd(),
+    resolvedDataDir: dataDir,
+    timestamp: new Date().toISOString()
+  });
+  return dataDir;
+};
 
 /**
  * Ensures the data directory exists
@@ -17,11 +26,19 @@ const getDataDir = () => path.resolve(process.env.DATA_DIR || path.join(process.
  */
 async function ensureDataDirectory() {
   const dataDir = getDataDir();
+  console.log('[LOCAL JSON SERVICE] ensureDataDirectory called:', {
+    dataDir,
+    timestamp: new Date().toISOString()
+  });
+
   try {
     await fs.access(dataDir);
+    console.log('[LOCAL JSON SERVICE] Data directory already exists:', dataDir);
   } catch (error) {
+    console.log('[LOCAL JSON SERVICE] Data directory does not exist, creating:', dataDir);
     // Directory doesn't exist, create it
     await fs.mkdir(dataDir, { recursive: true });
+    console.log('[LOCAL JSON SERVICE] Data directory created successfully:', dataDir);
   }
 }
 
@@ -103,6 +120,15 @@ async function writeJsonFile(filename, data) {
   const filePath = path.join(dataDir, `${filename}.json`);
   const tempFilePath = `${filePath}.tmp`;
 
+  console.log('[LOCAL JSON SERVICE] writeJsonFile called:', {
+    filename,
+    dataDir,
+    filePath,
+    tempFilePath,
+    dataLength: Array.isArray(data) ? data.length : 'not array',
+    timestamp: new Date().toISOString()
+  });
+
   try {
     await ensureDataDirectory();
 
@@ -133,12 +159,22 @@ async function writeJsonFile(filename, data) {
     let lastError;
     while (retries > 0) {
       try {
+        console.log('[LOCAL JSON SERVICE] Attempting atomic rename:', {
+          tempFilePath,
+          filePath,
+          attempt: 4 - retries,
+          platform: process.platform,
+          timestamp: new Date().toISOString()
+        });
+
         // On Windows: try unlinking target first to avoid EPERM
         if (process.platform === 'win32') {
           try {
             await fs.unlink(filePath);
+            console.log('[LOCAL JSON SERVICE] Successfully unlinked target file on Windows');
           } catch (e) {
             if (e.code !== 'ENOENT') {
+              console.log('[LOCAL JSON SERVICE] Failed to unlink target file on Windows:', e.message);
               // if can't delete, wait then retry
               await new Promise(r => setTimeout(r, 100));
             }
@@ -146,24 +182,35 @@ async function writeJsonFile(filename, data) {
         }
 
         await fs.rename(tempFilePath, filePath);
+        console.log('[LOCAL JSON SERVICE] Atomic rename successful');
         return; // success
       } catch (error) {
+        console.log('[LOCAL JSON SERVICE] Atomic rename failed:', {
+          error: error.message,
+          code: error.code,
+          attempt: 4 - retries,
+          timestamp: new Date().toISOString()
+        });
         lastError = error;
 
         // If temp file disappeared (ENOENT), attempt to re-create it once
         if (error.code === 'ENOENT') {
           try {
+            console.log('[LOCAL JSON SERVICE] Temp file disappeared, recreating...');
             await fs.writeFile(tempFilePath, jsonData, 'utf8');
+            console.log('[LOCAL JSON SERVICE] Temp file recreated');
             // retry rename immediately
             retries--;
             continue;
           } catch (recreateErr) {
+            console.log('[LOCAL JSON SERVICE] Failed to recreate temp file:', recreateErr.message);
             lastError = recreateErr;
             break;
           }
         }
 
         if (error.code === 'EPERM' || error.code === 'EBUSY') {
+          console.log('[LOCAL JSON SERVICE] Permission/busy error, retrying...');
           retries--;
           if (retries > 0) {
             await new Promise(r => setTimeout(r, 200));
