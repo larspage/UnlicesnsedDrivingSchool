@@ -87,7 +87,9 @@ router.post('/', reportLimiter, async (req, res) => {
     }
 
     // Create the report
+    console.log('[REPORTS ROUTE] Creating report for school:', reportData.schoolName);
     const report = await reportService.createReport(reportData, reporterIp);
+    console.log('[REPORTS ROUTE] Report created successfully:', report.id);
 
     // Process files if included
     const uploadedFiles = [];

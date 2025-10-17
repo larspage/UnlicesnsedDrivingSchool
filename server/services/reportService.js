@@ -78,7 +78,9 @@ async function createReport(reportData, reporterIp = null) {
     report.validateBusinessRules(existingReports);
 
     // Save to local JSON storage
+    console.log('[REPORT SERVICE] Saving report to JSON storage:', report.id);
     await saveReportToJson(report);
+    console.log('[REPORT SERVICE] Report saved to JSON storage successfully');
 
     return report;
   } catch (error) {
@@ -338,13 +340,15 @@ async function getAllReports() {
  */
 async function saveReportToJson(report) {
   try {
+    console.log('[REPORT SERVICE] saveReportToJson called for report:', report.id);
     await localJsonService.appendRow(
       null, // spreadsheetId not needed
       REPORTS_DATA_FILE,
       report
     );
+    console.log('[REPORT SERVICE] Report appended to JSON file successfully');
   } catch (error) {
-    console.error('Error saving report to JSON:', error);
+    console.error('[REPORT SERVICE] Error saving report to JSON:', error);
     throw error;
   }
 }

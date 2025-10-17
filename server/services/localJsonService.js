@@ -135,7 +135,9 @@ async function writeJsonFile(filename, data) {
     const jsonData = JSON.stringify(data, null, 2);
 
     // Write temp file
+    console.log('[LOCAL JSON SERVICE] Writing temp file:', tempFilePath);
     await fs.writeFile(tempFilePath, jsonData, 'utf8');
+    console.log('[LOCAL JSON SERVICE] Temp file written successfully');
 
     // Confirm temp file exists before rename (avoid ENOENT on rename)
     let attempts = 0;
@@ -143,10 +145,13 @@ async function writeJsonFile(filename, data) {
     while (attempts < maxExistenceChecks) {
       try {
         await fs.access(tempFilePath);
+        console.log('[LOCAL JSON SERVICE] Temp file confirmed to exist');
         break; // temp file exists
       } catch (accessErr) {
+        console.log('[LOCAL JSON SERVICE] Temp file access check failed, attempt:', attempts + 1);
         attempts++;
         if (attempts >= maxExistenceChecks) {
+          console.error('[LOCAL JSON SERVICE] Temp file missing after write:', tempFilePath);
           throw new Error(`Temporary file missing after write: ${tempFilePath}`);
         }
         // wait then re-check

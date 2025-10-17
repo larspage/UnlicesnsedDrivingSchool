@@ -57,11 +57,12 @@ const localJsonService = require('./services/localJsonService');
 
 (async () => {
   try {
+    console.log('[APP STARTUP] Initializing data directory and files...');
     await localJsonService.ensureDataDirectory();
     await localJsonService.ensureSheetExists(null, 'reports');
-    console.log('Data directory and reports.json initialized successfully');
+    console.log('[APP STARTUP] Data directory and reports.json initialized successfully');
   } catch (err) {
-    console.error('Failed to prepare data directory/files:', err);
+    console.error('[APP STARTUP] Failed to prepare data directory/files:', err);
     process.exit(1); // prevent server from starting in bad state
   }
 
