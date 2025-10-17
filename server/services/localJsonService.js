@@ -17,12 +17,8 @@ const getDataDir = () => path.resolve(process.env.DATA_DIR || path.join(process.
  */
 async function ensureDataDirectory() {
   const dataDir = getDataDir();
-  try {
-    await fs.access(dataDir);
-  } catch (error) {
-    // Directory doesn't exist, create it
-    await fs.mkdir(dataDir, { recursive: true });
-  }
+  // Using recursive: true ensures no error if directory already exists
+  await fs.mkdir(dataDir, { recursive: true });
 }
 
 /**
@@ -105,22 +101,8 @@ async function writeJsonFile(filename, data) {
 
   try {
     // Ensure directory exists before any file operations
+    // Call this both early and right before write to prevent ENOENT in CI environments
     await ensureDataDirectory();
-    
-    // Additional defensive check: ensure parent directory exists right before write
-    // This prevents ENOENT errors in ephemeral CI environments
-    const targetDir = path.dirname(filePath);
-    try {
-      await fs.mkdir(targetDir, { recursive: true });
-    } catch (mkdirError) {
-      // If mkdir fails, check if directory already exists
-      try {
-        await fs.access(targetDir);
-      } catch (accessError) {
-        // Directory doesn't exist and couldn't be created, rethrow original error
-        throw mkdirError;
-      }
-    }
 
     const jsonData = JSON.stringify(data, null, 2);
 
