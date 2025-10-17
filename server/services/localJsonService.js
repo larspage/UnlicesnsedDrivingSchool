@@ -17,12 +17,8 @@ const getDataDir = () => path.resolve(process.env.DATA_DIR || path.join(process.
  */
 async function ensureDataDirectory() {
   const dataDir = getDataDir();
-  try {
-    await fs.access(dataDir);
-  } catch (error) {
-    // Directory doesn't exist, create it
-    await fs.mkdir(dataDir, { recursive: true });
-  }
+  // Using recursive: true ensures no error if directory already exists
+  await fs.mkdir(dataDir, { recursive: true });
 }
 
 /**
@@ -104,6 +100,7 @@ async function writeJsonFile(filename, data) {
   const tempFilePath = `${filePath}.tmp`;
 
   try {
+    // Ensure directory exists before any file operations
     await ensureDataDirectory();
 
     const jsonData = JSON.stringify(data, null, 2);
@@ -288,7 +285,9 @@ async function ensureSheetExists(spreadsheetId, sheetName) {
   try {
     await fs.access(filePath);
   } catch (error) {
-    // File doesn't exist, create it with empty array
+    // File doesn't exist, ensure directory exists before creating it
+    await ensureDataDirectory();
+    // Create file with empty array
     await writeJsonFile(sheetName, []);
   }
 }

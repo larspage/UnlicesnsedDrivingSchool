@@ -123,6 +123,20 @@ describe('Local JSON Service', () => {
       expect(JSON.parse(fileContent)).toEqual(data);
     });
 
+    it('should create directory if it does not exist before writing', async () => {
+      // Remove the directory temporarily
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+
+      const data = [{ id: '1', name: 'test' }];
+      
+      // This should not throw ENOENT - directory should be created
+      await localJsonService.writeJsonFile('test', data);
+
+      const filePath = path.join(tempDir, 'test.json');
+      const fileContent = await fs.promises.readFile(filePath, 'utf8');
+      expect(JSON.parse(fileContent)).toEqual(data);
+    });
+
     it('should clean up temp file on error', async () => {
       // This test is harder to simulate with real files
       // Skip for now as it's testing error conditions
