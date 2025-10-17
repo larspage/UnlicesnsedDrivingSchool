@@ -101,7 +101,6 @@ async function writeJsonFile(filename, data) {
 
   try {
     // Ensure directory exists before any file operations
-    // Call this both early and right before write to prevent ENOENT in CI environments
     await ensureDataDirectory();
 
     const jsonData = JSON.stringify(data, null, 2);
