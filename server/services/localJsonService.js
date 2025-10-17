@@ -130,32 +130,39 @@ async function writeJsonFile(filename, data) {
   });
 
   try {
+    // Ensure directory exists before any file operations
     await ensureDataDirectory();
 
     const jsonData = JSON.stringify(data, null, 2);
 
-    // Write temp file
-    console.log('[LOCAL JSON SERVICE] Writing temp file:', tempFilePath);
-    await fs.writeFile(tempFilePath, jsonData, 'utf8');
-    console.log('[LOCAL JSON SERVICE] Temp file written successfully');
+    // Write temp file with retry logic
+    let writeAttempts = 0;
+    const maxWriteAttempts = 3;
 
-    // Confirm temp file exists before rename (avoid ENOENT on rename)
-    let attempts = 0;
-    const maxExistenceChecks = 5;
-    while (attempts < maxExistenceChecks) {
+    while (writeAttempts < maxWriteAttempts) {
       try {
-        await fs.access(tempFilePath);
-        console.log('[LOCAL JSON SERVICE] Temp file confirmed to exist');
-        break; // temp file exists
-      } catch (accessErr) {
-        console.log('[LOCAL JSON SERVICE] Temp file access check failed, attempt:', attempts + 1);
-        attempts++;
-        if (attempts >= maxExistenceChecks) {
-          console.error('[LOCAL JSON SERVICE] Temp file missing after write:', tempFilePath);
-          throw new Error(`Temporary file missing after write: ${tempFilePath}`);
+        console.log('[LOCAL JSON SERVICE] Writing temp file (attempt %d):', writeAttempts + 1, tempFilePath);
+        await fs.writeFile(tempFilePath, jsonData, 'utf8');
+        console.log('[LOCAL JSON SERVICE] Temp file written successfully');
+
+        // Verify temp file exists and has content
+        const stats = await fs.stat(tempFilePath);
+        if (stats.size === 0) {
+          throw new Error('Temp file is empty after write');
         }
-        // wait then re-check
-        await new Promise(r => setTimeout(r, 50));
+        console.log('[LOCAL JSON SERVICE] Temp file verified (size: %d bytes)', stats.size);
+        break; // Success, exit retry loop
+
+      } catch (writeError) {
+        writeAttempts++;
+        console.error('[LOCAL JSON SERVICE] Temp file write failed (attempt %d):', writeAttempts, writeError.message);
+
+        if (writeAttempts >= maxWriteAttempts) {
+          throw new Error(`Failed to write temp file after ${maxWriteAttempts} attempts: ${writeError.message}`);
+        }
+
+        // Wait before retry
+        await new Promise(r => setTimeout(r, 100));
       }
     }
 
@@ -171,6 +178,16 @@ async function writeJsonFile(filename, data) {
           platform: process.platform,
           timestamp: new Date().toISOString()
         });
+
+        // Verify temp file still exists before rename
+        try {
+          await fs.access(tempFilePath);
+          console.log('[LOCAL JSON SERVICE] Temp file exists before rename');
+        } catch (accessError) {
+          console.error('[LOCAL JSON SERVICE] Temp file missing before rename, recreating...');
+          await fs.writeFile(tempFilePath, jsonData, 'utf8');
+          console.log('[LOCAL JSON SERVICE] Temp file recreated before rename');
+        }
 
         // On Windows: try unlinking target first to avoid EPERM
         if (process.platform === 'win32') {
@@ -188,7 +205,12 @@ async function writeJsonFile(filename, data) {
 
         await fs.rename(tempFilePath, filePath);
         console.log('[LOCAL JSON SERVICE] Atomic rename successful');
+
+        // Verify final file exists
+        await fs.access(filePath);
+        console.log('[LOCAL JSON SERVICE] Final file verified to exist');
         return; // success
+
       } catch (error) {
         console.log('[LOCAL JSON SERVICE] Atomic rename failed:', {
           error: error.message,
@@ -201,14 +223,14 @@ async function writeJsonFile(filename, data) {
         // If temp file disappeared (ENOENT), attempt to re-create it once
         if (error.code === 'ENOENT') {
           try {
-            console.log('[LOCAL JSON SERVICE] Temp file disappeared, recreating...');
+            console.log('[LOCAL JSON SERVICE] Temp file disappeared during rename, recreating...');
             await fs.writeFile(tempFilePath, jsonData, 'utf8');
-            console.log('[LOCAL JSON SERVICE] Temp file recreated');
+            console.log('[LOCAL JSON SERVICE] Temp file recreated after rename failure');
             // retry rename immediately
             retries--;
             continue;
           } catch (recreateErr) {
-            console.log('[LOCAL JSON SERVICE] Failed to recreate temp file:', recreateErr.message);
+            console.log('[LOCAL JSON SERVICE] Failed to recreate temp file after rename failure:', recreateErr.message);
             lastError = recreateErr;
             break;
           }
@@ -228,11 +250,21 @@ async function writeJsonFile(filename, data) {
 
     throw lastError;
   } catch (error) {
+    console.error('[LOCAL JSON SERVICE] writeJsonFile failed completely:', {
+      filename,
+      filePath,
+      tempFilePath,
+      error: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString()
+    });
+
     // cleanup temp file if it exists
     try {
       await fs.unlink(tempFilePath);
+      console.log('[LOCAL JSON SERVICE] Temp file cleaned up after error');
     } catch (cleanupError) {
-      // ignore
+      console.log('[LOCAL JSON SERVICE] Temp file cleanup failed (may not exist):', cleanupError.message);
     }
     throw new Error(`Failed to write JSON file ${filename}: ${error.message}`);
   }
