@@ -209,10 +209,11 @@ router.post('/', reportLimiter, async (req, res) => {
       });
     }
 
+    // Return controlled HTTP 500 error instead of letting error propagate and crash server
     res.status(500).json({
       success: false,
       error: 'Failed to submit report',
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: process.env.NODE_ENV === 'development' ? error.message : 'An internal error occurred'
     });
   }
 });

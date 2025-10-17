@@ -28,6 +28,9 @@ jobs:
         mkdir -p ./data
         echo "[]" > ./data/reports.json
 
+    - name: Ensure data directory exists (defensive)
+      run: mkdir -p $GITHUB_WORKSPACE/data
+
     - name: Run tests
       run: npm test -- --coverage --watchAll=false
 
