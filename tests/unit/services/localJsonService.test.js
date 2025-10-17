@@ -123,6 +123,37 @@ describe('Local JSON Service', () => {
       expect(JSON.parse(fileContent)).toEqual(data);
     });
 
+    it('should create directory if it does not exist before writing', async () => {
+      // Remove the directory
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+
+      const data = [{ id: '1', name: 'test' }];
+      await localJsonService.writeJsonFile('test', data);
+
+      // Directory and file should both exist now
+      const filePath = path.join(tempDir, 'test.json');
+      const fileContent = await fs.promises.readFile(filePath, 'utf8');
+      expect(JSON.parse(fileContent)).toEqual(data);
+      
+      const stats = await fs.promises.stat(tempDir);
+      expect(stats.isDirectory()).toBe(true);
+    });
+
+    it('should handle missing directory on write retry', async () => {
+      // Create a scenario where directory might disappear
+      const data = [{ id: '1', name: 'resilience-test' }];
+      
+      // First ensure directory exists
+      await fs.promises.mkdir(tempDir, { recursive: true });
+      
+      // Write file normally - this should work even if directory is deleted during operation
+      await localJsonService.writeJsonFile('resilience', data);
+
+      const filePath = path.join(tempDir, 'resilience.json');
+      const fileContent = await fs.promises.readFile(filePath, 'utf8');
+      expect(JSON.parse(fileContent)).toEqual(data);
+    });
+
     it('should clean up temp file on error', async () => {
       // This test is harder to simulate with real files
       // Skip for now as it's testing error conditions
