@@ -119,6 +119,7 @@ async function writeJsonFile(filename, data) {
   const dataDir = getDataDir();
   const filePath = path.join(dataDir, `${filename}.json`);
   const tempFilePath = `${filePath}.tmp`;
+  const RENAME_RETRY_DELAY_MS = 200;
 
   console.log('[LOCAL JSON SERVICE] writeJsonFile called:', {
     filename,
@@ -129,13 +130,18 @@ async function writeJsonFile(filename, data) {
     timestamp: new Date().toISOString()
   });
 
+  // Helper function to recreate temp file with directory check
+  const recreateTempFile = async (dir, tempPath, content) => {
+    await fs.mkdir(dir, { recursive: true }); // Ensure dir exists
+    await fs.writeFile(tempPath, content, 'utf8');
+  };
+
   try {
     const jsonData = JSON.stringify(data, null, 2);
 
     // Ensure directory exists right before writing - use direct mkdir to avoid TOCTOU race
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
-    console.log('[LOCAL JSON SERVICE] Directory ensured:', dir);
 
     // Write temp file with retry logic
     let writeAttempts = 0;
@@ -201,8 +207,7 @@ async function writeJsonFile(filename, data) {
         // If temp file missing, recreate it
         if (!tempFileExists) {
           console.log('[LOCAL JSON SERVICE] Recreating missing temp file before rename');
-          await fs.mkdir(dir, { recursive: true }); // Ensure dir exists
-          await fs.writeFile(tempFilePath, jsonData, 'utf8');
+          await recreateTempFile(dir, tempFilePath, jsonData);
           console.log('[LOCAL JSON SERVICE] Temp file recreated before rename');
         }
 
@@ -255,15 +260,14 @@ async function writeJsonFile(filename, data) {
 
             if (!tempFileExists) {
               console.log('[LOCAL JSON SERVICE] ENOENT error and temp file missing, recreating for retry');
-              await fs.mkdir(dir, { recursive: true }); // Ensure dir exists
-              await fs.writeFile(tempFilePath, jsonData, 'utf8');
+              await recreateTempFile(dir, tempFilePath, jsonData);
               console.log('[LOCAL JSON SERVICE] Temp file recreated after ENOENT failure');
               continue; // Retry rename
             } else {
               // Temp file exists but rename failed with ENOENT - directory might be missing
               console.log('[LOCAL JSON SERVICE] ENOENT error but temp file exists, ensuring directory');
               await fs.mkdir(dir, { recursive: true });
-              await new Promise(r => setTimeout(r, 200));
+              await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
               continue; // Retry rename
             }
           } catch (recreateErr) {
@@ -279,7 +283,7 @@ async function writeJsonFile(filename, data) {
         // For EPERM/EBUSY, retry once with delay
         if ((error.code === 'EPERM' || error.code === 'EBUSY') && renameAttempts < maxRenameAttempts) {
           console.log('[LOCAL JSON SERVICE] Permission/busy error, retrying after delay...');
-          await new Promise(r => setTimeout(r, 200));
+          await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
           continue;
         }
 
