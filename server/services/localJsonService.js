@@ -104,7 +104,23 @@ async function writeJsonFile(filename, data) {
   const tempFilePath = `${filePath}.tmp`;
 
   try {
+    // Ensure directory exists before any file operations
     await ensureDataDirectory();
+    
+    // Additional defensive check: ensure parent directory exists right before write
+    // This prevents ENOENT errors in ephemeral CI environments
+    const targetDir = path.dirname(filePath);
+    try {
+      await fs.mkdir(targetDir, { recursive: true });
+    } catch (mkdirError) {
+      // If mkdir fails, check if directory already exists
+      try {
+        await fs.access(targetDir);
+      } catch (accessError) {
+        // Directory doesn't exist and couldn't be created, rethrow original error
+        throw mkdirError;
+      }
+    }
 
     const jsonData = JSON.stringify(data, null, 2);
 
@@ -288,7 +304,9 @@ async function ensureSheetExists(spreadsheetId, sheetName) {
   try {
     await fs.access(filePath);
   } catch (error) {
-    // File doesn't exist, create it with empty array
+    // File doesn't exist, ensure directory exists before creating it
+    await ensureDataDirectory();
+    // Create file with empty array
     await writeJsonFile(sheetName, []);
   }
 }
