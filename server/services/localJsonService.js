@@ -119,6 +119,7 @@ async function writeJsonFile(filename, data) {
   const dataDir = getDataDir();
   const filePath = path.join(dataDir, `${filename}.json`);
   const tempFilePath = `${filePath}.tmp`;
+  const RENAME_RETRY_DELAY_MS = 200;
 
   console.log('[LOCAL JSON SERVICE] writeJsonFile called:', {
     filename,
@@ -129,11 +130,18 @@ async function writeJsonFile(filename, data) {
     timestamp: new Date().toISOString()
   });
 
-  try {
-    // Ensure directory exists before any file operations
-    await ensureDataDirectory();
+  // Helper function to recreate temp file with directory check
+  const recreateTempFile = async (dir, tempPath, content) => {
+    await fs.mkdir(dir, { recursive: true }); // Ensure dir exists
+    await fs.writeFile(tempPath, content, 'utf8');
+  };
 
+  try {
     const jsonData = JSON.stringify(data, null, 2);
+
+    // Ensure directory exists right before writing - use direct mkdir to avoid TOCTOU race
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
 
     // Write temp file with retry logic
     let writeAttempts = 0;
@@ -161,31 +169,45 @@ async function writeJsonFile(filename, data) {
           throw new Error(`Failed to write temp file after ${maxWriteAttempts} attempts: ${writeError.message}`);
         }
 
+        // Ensure directory still exists before retry
+        await fs.mkdir(dir, { recursive: true });
         // Wait before retry
         await new Promise(r => setTimeout(r, 100));
       }
     }
 
     // Attempt atomic rename with retries
-    let retries = 3;
+    let renameAttempts = 0;
+    const maxRenameAttempts = 2; // One initial attempt + one retry as per requirements
     let lastError;
-    while (retries > 0) {
+    
+    while (renameAttempts < maxRenameAttempts) {
       try {
         console.log('[LOCAL JSON SERVICE] Attempting atomic rename:', {
           tempFilePath,
           filePath,
-          attempt: 4 - retries,
+          attempt: renameAttempts + 1,
           platform: process.platform,
           timestamp: new Date().toISOString()
         });
 
         // Verify temp file still exists before rename
+        let tempFileExists = false;
         try {
-          await fs.access(tempFilePath);
+          await fs.stat(tempFilePath);
+          tempFileExists = true;
           console.log('[LOCAL JSON SERVICE] Temp file exists before rename');
-        } catch (accessError) {
-          console.error('[LOCAL JSON SERVICE] Temp file missing before rename, recreating...');
-          await fs.writeFile(tempFilePath, jsonData, 'utf8');
+        } catch (statError) {
+          console.error('[LOCAL JSON SERVICE] Temp file missing before rename:', {
+            error: statError.message,
+            code: statError.code
+          });
+        }
+
+        // If temp file missing, recreate it
+        if (!tempFileExists) {
+          console.log('[LOCAL JSON SERVICE] Recreating missing temp file before rename');
+          await recreateTempFile(dir, tempFilePath, jsonData);
           console.log('[LOCAL JSON SERVICE] Temp file recreated before rename');
         }
 
@@ -212,39 +234,61 @@ async function writeJsonFile(filename, data) {
         return; // success
 
       } catch (error) {
-        console.log('[LOCAL JSON SERVICE] Atomic rename failed:', {
+        console.error('[LOCAL JSON SERVICE] Atomic rename failed:', {
           error: error.message,
           code: error.code,
-          attempt: 4 - retries,
+          errno: error.errno,
+          syscall: error.syscall,
+          path: error.path,
+          attempt: renameAttempts + 1,
           timestamp: new Date().toISOString()
         });
         lastError = error;
+        renameAttempts++;
 
-        // If temp file disappeared (ENOENT), attempt to re-create it once
-        if (error.code === 'ENOENT') {
+        // If ENOENT and temp file is missing, recreate and retry once
+        if (error.code === 'ENOENT' && renameAttempts < maxRenameAttempts) {
           try {
-            console.log('[LOCAL JSON SERVICE] Temp file disappeared during rename, recreating...');
-            await fs.writeFile(tempFilePath, jsonData, 'utf8');
-            console.log('[LOCAL JSON SERVICE] Temp file recreated after rename failure');
-            // retry rename immediately
-            retries--;
-            continue;
+            // Check if temp file exists
+            let tempFileExists = false;
+            try {
+              await fs.stat(tempFilePath);
+              tempFileExists = true;
+            } catch (statError) {
+              // Temp file doesn't exist
+            }
+
+            if (!tempFileExists) {
+              console.log('[LOCAL JSON SERVICE] ENOENT error and temp file missing, recreating for retry');
+              await recreateTempFile(dir, tempFilePath, jsonData);
+              console.log('[LOCAL JSON SERVICE] Temp file recreated after ENOENT failure');
+              continue; // Retry rename
+            } else {
+              // Temp file exists but rename failed with ENOENT - directory might be missing
+              console.log('[LOCAL JSON SERVICE] ENOENT error but temp file exists, ensuring directory');
+              await fs.mkdir(dir, { recursive: true });
+              await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
+              continue; // Retry rename
+            }
           } catch (recreateErr) {
-            console.log('[LOCAL JSON SERVICE] Failed to recreate temp file after rename failure:', recreateErr.message);
+            console.error('[LOCAL JSON SERVICE] Failed to recreate temp file after ENOENT:', {
+              error: recreateErr.message,
+              code: recreateErr.code
+            });
             lastError = recreateErr;
             break;
           }
         }
 
-        if (error.code === 'EPERM' || error.code === 'EBUSY') {
-          console.log('[LOCAL JSON SERVICE] Permission/busy error, retrying...');
-          retries--;
-          if (retries > 0) {
-            await new Promise(r => setTimeout(r, 200));
-            continue;
-          }
+        // For EPERM/EBUSY, retry once with delay
+        if ((error.code === 'EPERM' || error.code === 'EBUSY') && renameAttempts < maxRenameAttempts) {
+          console.log('[LOCAL JSON SERVICE] Permission/busy error, retrying after delay...');
+          await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
+          continue;
         }
-        break; // don't retry for other errors
+
+        // Don't retry for other errors
+        break;
       }
     }
 
@@ -254,8 +298,14 @@ async function writeJsonFile(filename, data) {
       filename,
       filePath,
       tempFilePath,
-      error: error.message,
-      code: error.code,
+      error: {
+        message: error.message,
+        code: error.code,
+        errno: error.errno,
+        syscall: error.syscall,
+        path: error.path,
+        stack: error.stack
+      },
       timestamp: new Date().toISOString()
     });
 
