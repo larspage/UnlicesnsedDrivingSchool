@@ -178,9 +178,9 @@ async function writeJsonFile(filename, data) {
 
     // Attempt atomic rename with retries
     let renameAttempts = 0;
-    const maxRenameAttempts = 2; // One initial attempt + one retry as per requirements
+    const maxRenameAttempts = 3; // Increased to 3 attempts for better reliability
     let lastError;
-    
+
     while (renameAttempts < maxRenameAttempts) {
       try {
         console.log('[LOCAL JSON SERVICE] Attempting atomic rename:', {
@@ -191,24 +191,54 @@ async function writeJsonFile(filename, data) {
           timestamp: new Date().toISOString()
         });
 
-        // Verify temp file still exists before rename
-        let tempFileExists = false;
+        // Pre-rename checks: ensure directory exists and is writable
         try {
-          await fs.stat(tempFilePath);
+          await fs.access(dir);
+          console.log('[LOCAL JSON SERVICE] Directory exists before rename');
+        } catch (dirError) {
+          console.error('[LOCAL JSON SERVICE] Directory missing before rename, recreating:', {
+            dir,
+            error: dirError.message,
+            code: dirError.code
+          });
+          await fs.mkdir(dir, { recursive: true });
+          console.log('[LOCAL JSON SERVICE] Directory recreated before rename');
+        }
+
+        // Verify temp file still exists and has content before rename
+        let tempFileExists = false;
+        let tempFileStats = null;
+        try {
+          tempFileStats = await fs.stat(tempFilePath);
           tempFileExists = true;
-          console.log('[LOCAL JSON SERVICE] Temp file exists before rename');
+          console.log('[LOCAL JSON SERVICE] Temp file exists before rename:', {
+            size: tempFileStats.size,
+            mtime: tempFileStats.mtime.toISOString()
+          });
         } catch (statError) {
           console.error('[LOCAL JSON SERVICE] Temp file missing before rename:', {
             error: statError.message,
-            code: statError.code
+            code: statError.code,
+            tempFilePath
           });
         }
 
-        // If temp file missing, recreate it
-        if (!tempFileExists) {
-          console.log('[LOCAL JSON SERVICE] Recreating missing temp file before rename');
+        // If temp file missing or empty, recreate it
+        if (!tempFileExists || (tempFileStats && tempFileStats.size === 0)) {
+          console.log('[LOCAL JSON SERVICE] Recreating missing/empty temp file before rename');
           await recreateTempFile(dir, tempFilePath, jsonData);
           console.log('[LOCAL JSON SERVICE] Temp file recreated before rename');
+
+          // Re-verify after recreation
+          try {
+            tempFileStats = await fs.stat(tempFilePath);
+            console.log('[LOCAL JSON SERVICE] Temp file verified after recreation:', {
+              size: tempFileStats.size
+            });
+          } catch (recreateStatError) {
+            console.error('[LOCAL JSON SERVICE] Temp file still missing after recreation:', recreateStatError.message);
+            throw new Error(`Temp file recreation failed: ${recreateStatError.message}`);
+          }
         }
 
         // On Windows: try unlinking target first to avoid EPERM
@@ -225,12 +255,27 @@ async function writeJsonFile(filename, data) {
           }
         }
 
+        // Perform the atomic rename
+        console.log('[LOCAL JSON SERVICE] Executing fs.rename:', {
+          from: tempFilePath,
+          to: filePath,
+          tempSize: tempFileStats ? tempFileStats.size : 'unknown'
+        });
+
         await fs.rename(tempFilePath, filePath);
         console.log('[LOCAL JSON SERVICE] Atomic rename successful');
 
-        // Verify final file exists
-        await fs.access(filePath);
-        console.log('[LOCAL JSON SERVICE] Final file verified to exist');
+        // Verify final file exists and has content
+        const finalStats = await fs.stat(filePath);
+        console.log('[LOCAL JSON SERVICE] Final file verified to exist:', {
+          size: finalStats.size,
+          mtime: finalStats.mtime.toISOString()
+        });
+
+        if (finalStats.size === 0) {
+          throw new Error('Final file is empty after rename - data may be lost');
+        }
+
         return; // success
 
       } catch (error) {
@@ -241,41 +286,84 @@ async function writeJsonFile(filename, data) {
           syscall: error.syscall,
           path: error.path,
           attempt: renameAttempts + 1,
+          tempFilePath,
+          filePath,
+          dir,
+          dataDir,
           timestamp: new Date().toISOString()
         });
         lastError = error;
         renameAttempts++;
 
-        // If ENOENT and temp file is missing, recreate and retry once
+        // Enhanced ENOENT handling with more detailed diagnostics
         if (error.code === 'ENOENT' && renameAttempts < maxRenameAttempts) {
+          console.log('[LOCAL JSON SERVICE] ENOENT error detected, performing diagnostics...');
+
           try {
-            // Check if temp file exists
-            let tempFileExists = false;
+            // Check directory existence and permissions
+            let dirExists = false;
+            let dirWritable = false;
             try {
-              await fs.stat(tempFilePath);
-              tempFileExists = true;
-            } catch (statError) {
-              // Temp file doesn't exist
+              await fs.access(dir);
+              dirExists = true;
+              console.log('[LOCAL JSON SERVICE] Directory exists during ENOENT recovery');
+
+              // Test write permissions by creating a test file
+              const testFile = path.join(dir, 'test-write.tmp');
+              await fs.writeFile(testFile, 'test');
+              await fs.unlink(testFile);
+              dirWritable = true;
+              console.log('[LOCAL JSON SERVICE] Directory is writable during ENOENT recovery');
+            } catch (dirAccessError) {
+              console.error('[LOCAL JSON SERVICE] Directory access issue during ENOENT:', {
+                dir,
+                exists: dirExists,
+                writable: dirWritable,
+                error: dirAccessError.message,
+                code: dirAccessError.code
+              });
             }
 
-            if (!tempFileExists) {
-              console.log('[LOCAL JSON SERVICE] ENOENT error and temp file missing, recreating for retry');
-              await recreateTempFile(dir, tempFilePath, jsonData);
-              console.log('[LOCAL JSON SERVICE] Temp file recreated after ENOENT failure');
-              continue; // Retry rename
-            } else {
-              // Temp file exists but rename failed with ENOENT - directory might be missing
-              console.log('[LOCAL JSON SERVICE] ENOENT error but temp file exists, ensuring directory');
-              await fs.mkdir(dir, { recursive: true });
-              await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
-              continue; // Retry rename
+            // Check temp file status
+            let tempFileExists = false;
+            let tempFileSize = 0;
+            try {
+              const tempStats = await fs.stat(tempFilePath);
+              tempFileExists = true;
+              tempFileSize = tempStats.size;
+              console.log('[LOCAL JSON SERVICE] Temp file exists during ENOENT recovery:', { size: tempFileSize });
+            } catch (tempStatError) {
+              console.error('[LOCAL JSON SERVICE] Temp file missing during ENOENT recovery:', {
+                tempFilePath,
+                error: tempStatError.message,
+                code: tempStatError.code
+              });
             }
-          } catch (recreateErr) {
-            console.error('[LOCAL JSON SERVICE] Failed to recreate temp file after ENOENT:', {
-              error: recreateErr.message,
-              code: recreateErr.code
+
+            // Recreate directory if needed
+            if (!dirExists) {
+              console.log('[LOCAL JSON SERVICE] Recreating directory during ENOENT recovery');
+              await fs.mkdir(dir, { recursive: true });
+            }
+
+            // Recreate temp file if missing or empty
+            if (!tempFileExists || tempFileSize === 0) {
+              console.log('[LOCAL JSON SERVICE] Recreating temp file during ENOENT recovery');
+              await recreateTempFile(dir, tempFilePath, jsonData);
+              console.log('[LOCAL JSON SERVICE] Temp file recreated during ENOENT recovery');
+            }
+
+            // Wait before retry to allow system to stabilize
+            await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
+            continue; // Retry rename
+
+          } catch (recoveryError) {
+            console.error('[LOCAL JSON SERVICE] ENOENT recovery failed:', {
+              error: recoveryError.message,
+              code: recoveryError.code,
+              stack: recoveryError.stack
             });
-            lastError = recreateErr;
+            lastError = recoveryError;
             break;
           }
         }
