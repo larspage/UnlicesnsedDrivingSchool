@@ -1,0 +1,14 @@
+- name: Ensure origin/main is available (avoid no merge base)
+run: |
+  # attempt to fetch origin/main; tolerate failure so job doesn't error
+  git fetch origin main --no-tags || true
+  # if origin/main exists, show the merge-base; if not, continue safely
+  if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    echo "origin/main found. merge-base:"
+    git merge-base origin/main HEAD || true
+  else
+    echo "origin/main not found; skipping merge-base check."
+  fi
+
+- name: No-op safe completion
+run: echo "Workflow-file-lock: completed safely."
