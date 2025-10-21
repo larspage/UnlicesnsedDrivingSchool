@@ -8,7 +8,7 @@ run: |
     git merge-base origin/main HEAD || true
   else
     echo "origin/main not found; skipping merge-base check."
-  fi
+  fi 
 
 - name: No-op safe completion
 run: echo "Workflow-file-lock: completed safely."
