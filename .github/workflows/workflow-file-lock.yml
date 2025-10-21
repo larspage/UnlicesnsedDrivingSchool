@@ -10,6 +10,10 @@ concurrency:
   group: workflow-files
   cancel-in-progress: false
 
+# Minimal permissions for security
+permissions:
+  contents: read
+
 jobs:
   workflow-file-lock:
     runs-on: ubuntu-latest
