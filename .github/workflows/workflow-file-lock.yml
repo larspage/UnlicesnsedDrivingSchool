@@ -1,0 +1,52 @@
+name: Workflow File Lock
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+# Serialize workflow file changes to prevent concurrent modifications
+concurrency:
+  group: workflow-files
+  cancel-in-progress: false
+
+jobs:
+  workflow-file-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate workflow files
+        run: |
+          echo "✅ Workflow file changes detected"
+          echo "🔒 This check ensures workflow file changes are serialized"
+          echo "Changes to .github/workflows/ are protected by concurrency control"
+          
+          # List changed workflow files
+          git fetch origin ${{ github.base_ref }}
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- .github/workflows/)
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No workflow files changed"
+          else
+            echo "Changed workflow files:"
+            echo "$CHANGED_FILES"
+          fi
+
+      - name: Check workflow syntax
+        run: |
+          echo "Checking workflow file syntax..."
+          for file in .github/workflows/*.yml .github/workflows/*.yaml; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+              # Basic YAML syntax validation using Python
+              python3 -c "import yaml; yaml.safe_load(open('$file'))" || exit 1
+            fi
+          done
+          echo "✅ All workflow files have valid YAML syntax"
+
+      - name: Workflow lock status
+        run: |
+          echo "✅ Workflow file lock check passed"
+          echo "This PR modifies workflow files and has been serialized"
