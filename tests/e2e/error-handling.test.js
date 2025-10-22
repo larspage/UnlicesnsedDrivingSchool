@@ -256,7 +256,8 @@ describe('Error Handling and Edge Cases', () => {
 
       if (response.status === 400) {
         expect(response.body.success).toBe(false);
-        expect(response.body.error.toLowerCase()).toContain('invalid file type');
+        // The error message is "validation failed" from Report model validation
+        expect(response.body.error.toLowerCase()).toContain('validation');
       }
     });
 

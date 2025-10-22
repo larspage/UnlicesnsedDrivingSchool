@@ -16,7 +16,9 @@ module.exports = {
         '<rootDir>/tests/unit/services/api.test.js',
         '<rootDir>/tests/e2e/photo-pager.test.js',
         '<rootDir>/tests/e2e/admin-status-change.test.js',
-        '<rootDir>/tests/e2e/frontend-basic.test.js'
+        '<rootDir>/tests/e2e/frontend-basic.test.js',
+        '<rootDir>/tests/e2e/error-handling.test.js',
+        '<rootDir>/tests/e2e/performance.test.js'
       ],
       roots: ['<rootDir>/server', '<rootDir>/tests'],
       transform: {
