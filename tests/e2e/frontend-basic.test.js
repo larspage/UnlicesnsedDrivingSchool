@@ -9,7 +9,7 @@ const puppeteer = require('puppeteer');
 describe('Frontend Basic E2E Tests', () => {
   let browser;
   let page;
-  const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
+  const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5000';
 
   beforeAll(async () => {
     browser = await puppeteer.launch({
