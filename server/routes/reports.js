@@ -41,10 +41,20 @@ router.post('/', reportLimiter, async (req, res) => {
 
   // Skip JSON validation in test environment since supertest handles JSON parsing
   if (process.env.NODE_ENV !== 'test') {
-    //verify that req is json format
-    // if req is json, verify that req.body is a valid json object
-    if (!req.is('json') || !validateJsonString(req.body)) {
-      console.log('Invalid request body format. JSON expected.');
+    // Verify that request content-type is JSON
+    // Note: req.body is already parsed by express.json() middleware, so we just check content-type
+    if (!req.is('json')) {
+      console.log('Invalid request content-type. application/json expected.');
+
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request body format. JSON expected.'
+      });
+    }
+    
+    // Verify req.body is a valid object (not null, not array)
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      console.log('Invalid request body. Expected JSON object.');
 
       return res.status(400).json({
         success: false,
