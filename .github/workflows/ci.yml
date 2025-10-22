@@ -32,7 +32,7 @@ jobs:
       run: mkdir -p $GITHUB_WORKSPACE/data
 
     - name: Run tests
-      run: npm test -- --coverage --watchAll=false
+      run: npm test -- --coverage --watchAll=false --runInBand
 
     - name: Build application
       run: npm run build
