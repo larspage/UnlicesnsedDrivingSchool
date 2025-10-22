@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.UNLICENSEDDRIVINGSCHOOL_USER }}
           key: ${{ secrets.UNLICENSEDDRIVERSSH }}
           script: |
-            cd /var/www/unlicensedschools
+            cd /var/www/unlicenseddrivingschoolsedschools
             git pull origin main
             npm install
             pm2 restart all 
