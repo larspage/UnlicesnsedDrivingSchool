@@ -243,9 +243,10 @@ jobs:
 
           # Restart application with PM2
           echo "🔄 Restarting application"
+          cd "$APP_DIR"
           pm2 stop njdsc-compliance-portal 2>/dev/null || true
           pm2 delete njdsc-compliance-portal 2>/dev/null || true
-          pm2 start dist/server/app.js --name "njdsc-compliance-portal"
+          pm2 start "$APP_DIR/dist/server/app.js" --name "njdsc-compliance-portal"
           pm2 save
 
           # Reload Nginx if installed
