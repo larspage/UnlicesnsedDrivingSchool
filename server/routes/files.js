@@ -24,15 +24,17 @@ const upload = multer({
     files: 10 // Maximum 10 files per upload
   },
   fileFilter: (req, file, cb) => {
-    // Define allowed MIME types
+    // Allowed MIME types for uploads
     const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-      'video/mp4', 'video/avi', 'video/mov',
-      'application/pdf'
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'video/mp4'
     ];
 
     if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error(`Unsupported file type: ${file.mimetype}. Supported types: ${allowedTypes.join(', ')}`), false);
+      // Normalize to a validation error handled consistently downstream
+      return cb(new Error('validation failed'));
     }
 
     cb(null, true);
