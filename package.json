@@ -37,7 +37,6 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
-    "@paralleldrive/cuid2": "^3.0.0",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "compression": "^1.8.1",
