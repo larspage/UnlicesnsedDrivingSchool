@@ -96,7 +96,13 @@ jobs:
         cp package.json deploy/
         cp package-lock.json deploy/
         cp -r node_modules deploy/
+        echo "📋 Contents of deploy directory before tar:"
+        ls -la deploy/
         tar -czf deploy.tar.gz -C deploy .
+        echo "✅ Created deploy.tar.gz"
+        tar -tzf deploy.tar.gz | head -20
+        echo "📦 Total files in archive:"
+        tar -tzf deploy.tar.gz | wc -l
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
@@ -115,6 +121,18 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: build-files
+
+    - name: Verify downloaded artifact
+      run: |
+        echo "📋 Contents of current directory:"
+        ls -la
+        if [ -f deploy.tar.gz ]; then
+          echo "✅ deploy.tar.gz found"
+          echo "📦 First 20 files in archive:"
+          tar -tzf deploy.tar.gz | head -20
+        else
+          echo "❌ deploy.tar.gz not found!"
+        fi
 
     - name: Deploy to DigitalOcean Droplet
       uses: appleboy/scp-action@master
@@ -157,9 +175,16 @@ jobs:
 
           # Extract new build
           echo "📦 Extracting new build"
-          cd "$APP_DIR"
-          tar -xzf /tmp/deploy.tar.gz
+          tar -xzf /tmp/deploy.tar.gz -C "$APP_DIR"
           rm /tmp/deploy.tar.gz
+          
+          # Verify extraction
+          echo "📋 Verifying deployment contents:"
+          ls -la "$APP_DIR"
+          echo "📋 Checking dist directory:"
+          ls -la "$APP_DIR/dist" || echo "⚠️ dist directory not found"
+          echo "📋 Checking server directory:"
+          ls -la "$APP_DIR/server" || echo "⚠️ server directory not found"
 
           # Configure environment variables
           echo "🔧 Configuring environment variables"
@@ -186,7 +211,8 @@ jobs:
           BACKUP_SCHEDULE=daily
 
           # Gmail for email notifications
-          GOOGLE_GMAIL_USER=treasurer@njdsc.org
+          # GOOGLE_GMAIL_USER=treasurer@njdsc.org
+          GOOGLE_GMAIL_USER=lawrence.farrell@gmail.com
 
           JWT_SECRET=${JWT_SECRET}
           ADMIN_API_KEY=${ADMIN_API_KEY}
@@ -202,12 +228,7 @@ jobs:
           fi
 
           # Set sensitive environment variables from GitHub secrets
-          if [ -n "${GOOGLE_SERVICE_ACCOUNT_KEY}" ]; then
-            echo "GOOGLE_SERVICE_ACCOUNT_KEY=${GOOGLE_SERVICE_ACCOUNT_KEY}" >> .env
-            echo "✅ Google Service Account Key configured"
-          else
-            echo "⚠️  Warning: GOOGLE_SERVICE_ACCOUNT_KEY not provided"
-          fi
+          
 
           # Ensure data directories exist
           mkdir -p /var/www/data /var/www/uploads /var/www/backups
