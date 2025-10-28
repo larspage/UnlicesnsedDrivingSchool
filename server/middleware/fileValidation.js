@@ -165,55 +165,62 @@ function validateStatusUpdate(req, res, next) {
  * Error handling middleware for file operations
  */
 function handleFileErrors(error, req, res, next) {
-  console.error('File operation error:', error);
+  // Avoid noisy console output during tests
+  if (process.env.NODE_ENV !== 'test') {
+    console.error('File operation error:', error);
+  }
 
-  // Handle specific error types
-  if (error.code === 'LIMIT_FILE_SIZE') {
+  // Normalize code/status for robust comparisons
+  const code = (error && (error.code || error.status)) ? String(error.code || error.status) : '';
+
+  // Handle multer limits (string codes)
+  if (code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
       success: false,
       error: 'File too large. Maximum size is 10MB per file.'
     });
   }
 
-  if (error.code === 'LIMIT_FILE_COUNT') {
+  if (code === 'LIMIT_FILE_COUNT') {
     return res.status(400).json({
       success: false,
       error: 'Too many files. Maximum 10 files per upload.'
     });
   }
 
-  if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+  if (code === 'LIMIT_UNEXPECTED_FILE') {
     return res.status(400).json({
       success: false,
       error: 'Unexpected file field in upload request.'
     });
   }
 
-  // Handle multer errors
-  if (error.field) {
+  // Handle multer field error
+  if (error && error.field) {
     return res.status(400).json({
       success: false,
       error: `Invalid field "${error.field}" in upload request.`
     });
   }
 
-  // Handle custom validation errors
-  if (error.message && error.message.includes('validation failed')) {
+  // Custom validation error (message includes 'validation failed')
+  if (error && error.message && error.message.includes('validation failed')) {
     return res.status(400).json({
       success: false,
       error: error.message
     });
   }
 
-  // Handle Google Drive API errors
-  if (error.code === 403 || error.code === 'Forbidden') {
+  // Google Drive / service forbidden (numeric 403 or string)
+  if (code === '403' || code === 'Forbidden') {
     return res.status(503).json({
       success: false,
       error: 'File storage service temporarily unavailable. Please try again later.'
     });
   }
 
-  if (error.code === 429 || error.code === 'Too Many Requests') {
+  // Rate limit (numeric 429 or string)
+  if (code === '429' || code === 'Too Many Requests') {
     return res.status(429).json({
       success: false,
       error: 'File storage service rate limit exceeded. Please try again later.'
@@ -224,7 +231,7 @@ function handleFileErrors(error, req, res, next) {
   res.status(500).json({
     success: false,
     error: 'File operation failed',
-    message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    message: process.env.NODE_ENV === 'development' ? (error && error.message) : undefined
   });
 }
 
