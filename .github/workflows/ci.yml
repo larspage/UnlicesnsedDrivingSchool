@@ -7,38 +7,231 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:        # ✅ Already defined
-  security:    # ✅ Already defined
-  build:       # ✅ Already defined
+  test:
+    runs-on: ubuntu-latest
 
-  deploy:      # ✅ This is the section we're finalizing
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Ensure data directory and reports.json exist
+      run: |
+        mkdir -p ./data
+        echo "[]" > ./data/reports.json
+
+    - name: Ensure data directory exists (defensive)
+      run: mkdir -p $GITHUB_WORKSPACE/data
+
+    - name: Run tests
+      run: npm test -- --coverage --watchAll=false
+
+    - name: Build application
+      run: npm run build
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run security audit
+      run: npm audit --audit-level moderate
+
+    - name: Run dependency check
+      run: npx npm-check-updates --errorLevel 2
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Install production dependencies
+      run: npm ci --production
+
+    - name: Create deployment package
+      run: |
+        mkdir -p deploy
+        cp -r dist deploy/
+        cp -r server deploy/
+        cp package.json deploy/
+        cp package-lock.json deploy/
+        cp -r node_modules deploy/
+        tar -czf deploy.tar.gz -C deploy .
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-files
+        path: deploy.tar.gz
+        retention-days: 1
+
+  deploy:
     runs-on: ubuntu-latest
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: build-files
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: build-files
 
-      - name: Deploy to DigitalOcean Droplet
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.UNLICENSEDDRIVINGSCHOOLIP }}
-          username: root
-          key: ${{ secrets.UNLICENSEDDRIVERSSH }}
-          source: "deploy.tar.gz"
-          target: "/tmp"
+    - name: Deploy to DigitalOcean Droplet
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.UNLICENSEDDRIVINGSCHOOLIP }}
+        username: root
+        key: ${{ secrets.UNLICENSEDDRIVERSSH }}
+        source: "deploy.tar.gz"
+        target: "/tmp"
 
-      - name: Extract and restart application
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.UNLICENSEDDRIVINGSCHOOLIP }}
-          username: root
-          key: ${{ secrets.UNLICENSEDDRIVERSSH }}
-          script: |
-            mkdir -p ~/var/www/unlicenseddrivingschools
-            tar -xzf /tmp/deploy.tar.gz -C ~/var/www/unlicenseddrivingschools --strip-components=1
-            rm /tmp/deploy.tar.gz
-            sudo systemctl restart nginx
+    - name: Extract and restart application
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.UNLICENSEDDRIVINGSCHOOLIP }}
+        username: root
+        key: ${{ secrets.UNLICENSEDDRIVERSSH }}
+        envs: |
+          GOOGLE_SERVICE_ACCOUNT_KEY=${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          ADMIN_API_KEY=${{ secrets.ADMIN_API_KEY }}
+        script: |
+          # Set deployment directory
+          APP_DIR="/var/www/compliance-portal"
+          BACKUP_DIR="/var/www/backups"
+
+          echo "🚀 Starting deployment to $APP_DIR"
+
+          # Create backup of current deployment
+          if [ -d "$APP_DIR" ]; then
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            echo "📦 Creating backup: compliance-portal_$TIMESTAMP"
+            mkdir -p "$BACKUP_DIR"
+            tar -czf "$BACKUP_DIR/compliance-portal_$TIMESTAMP.tar.gz" -C /var/www compliance-portal 2>/dev/null || true
+            # Keep only last 5 backups
+            cd "$BACKUP_DIR" && ls -t compliance-portal_*.tar.gz | tail -n +6 | xargs -r rm
+          fi
+
+          # Create app directory if it doesn't exist
+          mkdir -p "$APP_DIR"
+
+          # Extract new build
+          echo "📦 Extracting new build"
+          cd "$APP_DIR"
+          tar -xzf /tmp/deploy.tar.gz
+          rm /tmp/deploy.tar.gz
+
+          # Configure environment variables
+          echo "🔧 Configuring environment variables"
+
+          # Copy base production environment file if it exists
+          if [ -f ".env.production" ]; then
+            cp .env.production .env
+            echo "✅ Base environment configured"
+          else
+            # Create basic .env file if .env.production doesn't exist
+            cat > .env << EOF
+          PORT=5000
+          NODE_ENV=production
+          FRONTEND_URL=https://unlicenseddrivingschoolnj.com
+
+          # Local storage configuration
+          DATA_DIR=/var/www/data
+          UPLOADS_DIR=/var/www/uploads
+          UPLOADS_URL_BASE=https://unlicenseddrivingschoolnj.com/uploads
+
+          # Backup configuration
+          BACKUP_DIR=/var/www/backups
+          BACKUP_RETENTION_DAYS=30
+          BACKUP_SCHEDULE=daily
+
+          # Gmail for email notifications
+          GOOGLE_GMAIL_USER=treasurer@njdsc.org
+
+          JWT_SECRET=${JWT_SECRET}
+          ADMIN_API_KEY=${ADMIN_API_KEY}
+
+          RATE_LIMIT_WINDOW_MS=3600000
+          RATE_LIMIT_MAX_REQUESTS=5
+
+          MAX_FILE_SIZE=10485760
+          ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,video/mp4
+
+          LOG_LEVEL=info
+          EOF
+          fi
+
+          # Set sensitive environment variables from GitHub secrets
+          if [ -n "${GOOGLE_SERVICE_ACCOUNT_KEY}" ]; then
+            echo "GOOGLE_SERVICE_ACCOUNT_KEY=${GOOGLE_SERVICE_ACCOUNT_KEY}" >> .env
+            echo "✅ Google Service Account Key configured"
+          else
+            echo "⚠️  Warning: GOOGLE_SERVICE_ACCOUNT_KEY not provided"
+          fi
+
+          # Ensure data directories exist
+          mkdir -p /var/www/data /var/www/uploads /var/www/backups
+
+          # Initialize data files if they don't exist
+          if [ ! -f "/var/www/data/reports.json" ]; then
+            echo "[]" > /var/www/data/reports.json
+          fi
+          if [ ! -f "/var/www/data/config.json" ]; then
+            echo "{}" > /var/www/data/config.json
+          fi
+
+          # Restart application with PM2
+          echo "🔄 Restarting application"
+          pm2 stop njdsc-compliance-portal 2>/dev/null || true
+          pm2 delete njdsc-compliance-portal 2>/dev/null || true
+          pm2 start dist/server/app.js --name "njdsc-compliance-portal"
+          pm2 save
+
+          # Reload Nginx if installed
+          if command -v nginx &> /dev/null; then
+            echo "🔄 Reloading Nginx"
+            nginx -t && systemctl reload nginx
+          fi
+
+          echo "✅ Deployment completed successfully at $(date)"
+          echo "🌐 Application available at: http://167.172.224.98"
