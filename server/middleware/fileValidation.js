@@ -165,8 +165,9 @@ function validateStatusUpdate(req, res, next) {
  * Error handling middleware for file operations
  */
 function handleFileErrors(error, req, res, next) {
-  // Avoid noisy console output during tests
-  if (process.env.NODE_ENV !== 'test') {
+  // Avoid noisy console output during tests (NODE_ENV=test) or when running under Jest (JEST_WORKER_ID set)
+  const isJest = !!process.env.JEST_WORKER_ID;
+  if (process.env.NODE_ENV !== 'test' && !isJest) {
     console.error('File operation error:', error);
   }
 
