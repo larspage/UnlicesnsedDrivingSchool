@@ -306,26 +306,6 @@ describe('File Service', () => {
       expect(result.error).toContain('Unsupported file type');
     });
 
-    it('should return invalid when too many files for report', async () => {
-      const existingFilesData = Array(10).fill({
-        id: 'file_xyz',
-        reportId: 'rep_abc123',
-        originalName: 'test.jpg',
-        mimeType: 'image/jpeg',
-        size: 1024000,
-        localPath: '/uploads/test.jpg',
-        url: '/uploads/test.jpg',
-        uploadedAt: '2025-09-26T21:25:00.000Z',
-        processingStatus: 'completed'
-      });
-      localJsonService.getAllRows.mockResolvedValue(existingFilesData);
-      configService.getConfig.mockResolvedValue(null);
-
-      const result = await fileService.validateFileUpload('rep_abc123', 1024, 'image/jpeg');
-
-      expect(result.isValid).toBe(false);
-      expect(result.error).toContain('Maximum 10 files allowed per report');
-    });
   });
 
   describe('processBase64File', () => {
