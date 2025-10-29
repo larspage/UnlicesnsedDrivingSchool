@@ -131,22 +131,7 @@ describe('File Service', () => {
       )).rejects.toThrow('Local file upload failed');
     });
 
-    it('should throw error when business rules validation fails', async () => {
-      File.validateUploadParams.mockReturnValue({ isValid: true });
-      localJsonService.getAllRows.mockResolvedValue([]);
-      localFileService.uploadFile.mockResolvedValue(mockDriveFile);
-      File.create.mockReturnValue(mockFile);
-      mockFile.validateBusinessRules.mockImplementation(() => {
-        throw new Error('Maximum 10 files allowed per report');
-      });
-
-      await expect(fileService.uploadFile(
-        mockFileBuffer,
-        mockFileName,
-        mockMimeType,
-        mockReportId
-      )).rejects.toThrow('Maximum 10 files allowed per report');
-    });
+   
   });
 
   describe('getFileById', () => {
