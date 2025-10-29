@@ -173,6 +173,51 @@ describe('Local JSON Service', () => {
       await expect(localJsonService.writeJsonFile('test', [{ id: '1' }]))
         .rejects.toThrow('Failed to write JSON file test');
     });
+
+    it('should preserve original error code when temp write fails', async () => {
+      const writeError = new Error('EACCES: permission denied');
+      writeError.code = 'EACCES';
+      writeError.errno = -13;
+      fs.promises.writeFile.mockRejectedValue(writeError);
+
+      try {
+        await localJsonService.writeJsonFile('test', [{ id: '1' }]);
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).toBe('EACCES');
+        expect(error.errno).toBe(-13);
+        expect(error.message).toContain('Failed to write temp file after 3 attempts');
+      }
+    });
+
+    it('should preserve original error code when rename fails', async () => {
+      const renameError = new Error('EPERM: operation not permitted');
+      renameError.code = 'EPERM';
+      renameError.errno = -1;
+      fs.promises.rename.mockRejectedValue(renameError);
+
+      try {
+        await localJsonService.writeJsonFile('test', [{ id: '1' }]);
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.code).toBe('EPERM');
+        expect(error.errno).toBe(-1);
+        expect(error.message).toContain('Failed to write JSON file test');
+      }
+    });
+
+    it('should throw Error object when lastError is used', async () => {
+      // This test verifies that lastError is initialized to an Error object
+      fs.promises.rename.mockRejectedValue(new Error('Generic rename failure'));
+
+      try {
+        await localJsonService.writeJsonFile('test', [{ id: '1' }]);
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect(error.message).toBeDefined();
+      }
+    });
   });
 
   describe('CRUD Operations', () => {
