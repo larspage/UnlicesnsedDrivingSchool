@@ -34,6 +34,7 @@ describe('File Validation Middleware', () => {
       req.body.reportId = 'rep_abc123';
       req.files = [
         {
+          buffer: Buffer.from('test file content'),
           originalname: 'test.jpg',
           size: 1024,
           mimetype: 'image/jpeg'
@@ -92,6 +93,7 @@ describe('File Validation Middleware', () => {
       req.body.reportId = 'rep_abc123';
       req.files = [
         {
+          buffer: Buffer.from('test file content'),
           originalname: 'test.jpg',
           size: 1024,
           mimetype: 'image/jpeg'
@@ -119,6 +121,7 @@ describe('File Validation Middleware', () => {
       req.body.reportId = 'rep_abc123';
       req.files = [
         {
+          buffer: Buffer.from('test file content'),
           originalname: 'test.jpg',
           size: 1024,
           mimetype: 'image/jpeg'
@@ -131,7 +134,7 @@ describe('File Validation Middleware', () => {
 
       await validateFileUpload(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
         error: 'File upload validation failed',
