@@ -5,8 +5,6 @@
  * metadata storage in Google Sheets, and file processing.
  */
 
-const fs = require('fs');
-const path = require('path');
 const File = require('../models/File');
 const localFileService = require('./localFileService');
 const localJsonService = require('./localJsonService');
@@ -23,7 +21,9 @@ const FILES_DATA_FILE = 'files';
 function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    stream.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream.on('data', (chunk) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
     stream.on('end', () => resolve(Buffer.concat(chunks)));
     stream.on('error', (err) => reject(err));
   });

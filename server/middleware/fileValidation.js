@@ -56,7 +56,15 @@ async function validateFileUpload(req, res, next) {
     next();
   } catch (error) {
     console.error('File upload validation error:', error.message || error);
-    return res.status(error.status || 400).json({ success: false, error: 'File upload validation failed' });
+    // Return 400 for validation-related errors, 500 for unexpected server errors
+    const isValidationError = error.name === 'ValidationError' || 
+                             (error.message && error.message.toLowerCase().includes('validation'));
+    const statusCode = isValidationError ? 400 : 500;
+    return res.status(statusCode).json({ 
+      success: false, 
+      error: 'File upload validation failed',
+      ...(process.env.NODE_ENV === 'development' && statusCode === 500 ? { message: error.message } : {})
+    });
   }
 }
 
