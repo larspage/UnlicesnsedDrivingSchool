@@ -28,10 +28,6 @@ jest.mock('path', () => ({
   })
 }));
 
-// Mock cuid2 import
-jest.mock('@paralleldrive/cuid2', () => ({
-  createId: jest.fn(() => '12345678-1234-1234-1234-123456789abc')
-}));
 
 const fs = require('fs');
 const path = require('path');
@@ -95,22 +91,31 @@ describe('Local File Service', () => {
   });
 
   describe('generateUniqueFilename', () => {
-    it('should generate unique filename with timestamp and UUID', async () => {
+    it('should generate unique filename with timestamp and random ID', async () => {
       const result = await localFileService.generateUniqueFilename('test.jpg');
 
-      expect(result).toMatch(/^test_\d+_12345678\.jpg$/);
+      // Extract the random ID part and verify it's a valid hexadecimal string
+      const randomIdMatch = result.match(/^test_\d+_([a-f0-9]{8})\.jpg$/);
+      expect(randomIdMatch).toBeTruthy();
+      expect(randomIdMatch[1]).toMatch(/^[a-f0-9]{8}$/);
     });
 
     it('should handle files without extension', async () => {
       const result = await localFileService.generateUniqueFilename('testfile');
 
-      expect(result).toMatch(/^testfile_\d+_12345678$/);
+      // Extract the random ID part and verify it's a valid hexadecimal string
+      const randomIdMatch = result.match(/^testfile_\d+_([a-f0-9]{8})$/);
+      expect(randomIdMatch).toBeTruthy();
+      expect(randomIdMatch[1]).toMatch(/^[a-f0-9]{8}$/);
     });
 
     it('should handle files with multiple dots in name', async () => {
       const result = await localFileService.generateUniqueFilename('test.file.name.jpg');
 
-      expect(result).toMatch(/^test\.file\.name_\d+_12345678\.jpg$/);
+      // Extract the random ID part and verify it's a valid hexadecimal string
+      const randomIdMatch = result.match(/^test\.file\.name_\d+_([a-f0-9]{8})\.jpg$/);
+      expect(randomIdMatch).toBeTruthy();
+      expect(randomIdMatch[1]).toMatch(/^[a-f0-9]{8}$/);
     });
   });
 
@@ -135,7 +140,6 @@ describe('Local File Service', () => {
       );
 
       expect(result).toMatchObject({
-        id: '12345678-1234-1234-1234-123456789abc',
         reportId: mockReportId,
         originalName: mockFileName,
         mimeType: mockMimeType,
@@ -144,10 +148,13 @@ describe('Local File Service', () => {
         thumbnailUrl: expect.stringContaining('/uploads/') // Same as url for images
       });
 
-      expect(result.filename).toMatch(/^test_\d+_12345678\.jpg$/);
+      // Extract the random ID part and verify it's a valid hexadecimal string
+      const randomIdMatch = result.filename.match(/^test_\d+_([a-f0-9]{8})\.jpg$/);
+      expect(randomIdMatch).toBeTruthy();
+      expect(randomIdMatch[1]).toMatch(/^[a-f0-9]{8}$/);
 
       // Extract timestamp from filename and verify it's a valid recent timestamp
-      const timestampMatch = result.filename.match(/^test_(\d+)_12345678\.jpg$/);
+      const timestampMatch = result.filename.match(/^test_(\d+)_([a-f0-9]{8})\.jpg$/);
       expect(timestampMatch).toBeTruthy();
       const timestamp = parseInt(timestampMatch[1]);
       const fileDate = new Date(timestamp);
@@ -156,8 +163,7 @@ describe('Local File Service', () => {
       expect(timeDiff).toBeLessThan(10 * 60 * 1000); // Less than 10 minutes
 
       expect(result.localPath).toContain('test_');
-      expect(result.localPath).toContain('_12345678.jpg');
-      expect(result.localPath).toMatch(/\.\/uploads\/rep_123\/test_\d+_12345678\.jpg$/);
+      expect(result.localPath).toMatch(/\.\/uploads\/rep_123\/test_\d+_[a-f0-9]{8}\.jpg$/);
       expect(result.uploadedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 
       expect(fs.promises.writeFile).toHaveBeenCalled();

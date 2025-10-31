@@ -7,7 +7,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const { createId } = require('@paralleldrive/cuid2');
+const crypto = require('crypto');
 
 // Configuration
 const UPLOADS_DIR = process.env.UPLOADS_DIR || './uploads';
@@ -53,7 +53,7 @@ async function generateUniqueFilename(originalName) {
   const extension = path.extname(originalName);
   const basename = path.basename(originalName, extension);
   const timestamp = Date.now();
-  const randomId = createId().substring(0, 8);
+  const randomId = crypto.randomUUID().substring(0, 8);
 
   return `${basename}_${timestamp}_${randomId}${extension}`;
 }
@@ -99,7 +99,7 @@ async function uploadFile(fileBuffer, originalName, mimeType, reportId) {
       thumbnailUrl = publicUrl; // For now, use same URL (could implement thumbnail generation later)
     }
 
-    const fileId = createId();
+    const fileId = crypto.randomUUID();
     console.log(`Generated file ID: ${fileId} for file: ${originalName}`);
 
     const fileData = {

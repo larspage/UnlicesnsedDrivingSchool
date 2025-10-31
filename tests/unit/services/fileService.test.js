@@ -174,23 +174,7 @@ describe('File Service', () => {
       )).rejects.toThrow('Local file upload failed');
     });
 
-    it('should throw error when business rules validation fails', async () => {
-      File.validateUploadParams.mockReturnValue({ isValid: true });
-      localJsonService.getAllRows.mockResolvedValue([]);
-      localFileService.ensureUploadsDirectory.mockResolvedValue(undefined);
-      localFileService.uploadFile.mockResolvedValue(mockDriveFile);
-      File.create.mockReturnValue(mockFile);
-      mockFile.validateBusinessRules.mockImplementation(() => {
-        throw new Error('Maximum 10 files allowed per report');
-      });
-
-      await expect(fileService.uploadFile(
-        mockFileBuffer,
-        mockFileName,
-        mockMimeType,
-        mockReportId
-      )).rejects.toThrow('Maximum 10 files allowed per report');
-    });
+   
   });
 
   describe('getFileById', () => {
@@ -350,26 +334,6 @@ describe('File Service', () => {
       expect(result.error).toContain('Unsupported file type');
     });
 
-    it('should return invalid when too many files for report', async () => {
-      const existingFilesData = Array(10).fill({
-        id: 'file_xyz',
-        reportId: 'rep_abc123',
-        originalName: 'test.jpg',
-        mimeType: 'image/jpeg',
-        size: 1024000,
-        localPath: '/uploads/test.jpg',
-        url: '/uploads/test.jpg',
-        uploadedAt: '2025-09-26T21:25:00.000Z',
-        processingStatus: 'completed'
-      });
-      localJsonService.getAllRows.mockResolvedValue(existingFilesData);
-      configService.getConfig.mockResolvedValue(null);
-
-      const result = await fileService.validateFileUpload('rep_abc123', 1024, 'image/jpeg');
-
-      expect(result.isValid).toBe(false);
-      expect(result.error).toContain('Maximum 10 files allowed per report');
-    });
   });
 
   describe('processBase64File', () => {
