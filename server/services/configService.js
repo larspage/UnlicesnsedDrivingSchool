@@ -164,19 +164,6 @@ function clearConfigCache() {
   configCache.clear();
 }
 
-/**
- * Ensures config file exists
- * @returns {Promise<void>}
- */
-async function ensureConfigFile() {
-  try {
-    await localJsonService.ensureDataDirectory();
-    await localJsonService.ensureSheetExists(null, CONFIG_DATA_FILE);
-  } catch (error) {
-    console.error('Failed to ensure config file:', error.message);
-    throw new Error('Storage error');
-  }
-}
 
 /**
  * Retrieves all configuration from local JSON storage
