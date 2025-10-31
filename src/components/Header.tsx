@@ -51,39 +51,40 @@ const Header = () => {
     <header className="bg-gray-100 shadow-sm border-b w-full">
       <div className="max-w-7xl mx-auto px-4 py-3 w-full">
         <div className="flex justify-between items-center">
-          <Link to="/" className="flex items-center space-x-3">
-            <img
-              src="/NJDXCLogo.jpg"
-              alt="NJDXC Logo"
-              className="h-10 w-auto"
-            />
+          <Link to="/" className="flex items-center space-x-3 no-underline">
             <div className="text-lg md:text-xl font-bold njdsc-brand">
               NJDSC Compliance Portal
             </div>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="hidden md:flex items-center space-x-1">
             <Link
               to="/"
-              className={`hover:text-blue-600 ${
-                location.pathname === '/' ? 'text-blue-600 font-medium' : 'text-gray-600'
+              className={`px-3 py-2 rounded-md text-sm font-bold no-underline ${
+                location.pathname === '/'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
               }`}
             >
               Home
             </Link>
             <Link
               to="/report"
-              className={`hover:text-blue-600 ${
-                location.pathname === '/report' ? 'text-blue-600 font-medium' : 'text-gray-600'
+              className={`px-3 py-2 rounded-md text-sm font-bold no-underline ${
+                location.pathname === '/report'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
               }`}
             >
               Report Issue
             </Link>
             <Link
               to="/reports"
-              className={`hover:text-blue-600 ${
-                location.pathname === '/reports' ? 'text-blue-600 font-medium' : 'text-gray-600'
+              className={`px-3 py-2 rounded-md text-sm font-bold no-underline ${
+                location.pathname === '/reports'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
               }`}
             >
               View Reports
@@ -93,8 +94,10 @@ const Header = () => {
             {isAuthenticated ? (
               <Link
                 to="/admin"
-                className={`hover:text-blue-600 ${
-                  location.pathname.startsWith('/admin') ? 'text-blue-600 font-medium' : 'text-gray-600'
+                className={`px-3 py-2 rounded-md text-sm font-bold no-underline ${
+                  location.pathname.startsWith('/admin')
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
                 }`}
               >
                 Admin
@@ -131,7 +134,7 @@ const Header = () => {
               ) : (
                 <Link
                   to="/login"
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium no-underline"
                 >
                   Admin Login
                 </Link>
@@ -161,8 +164,8 @@ const Header = () => {
             <nav className="flex flex-col space-y-2 pt-4">
               <Link
                 to="/"
-                className={`px-3 py-2 rounded-md text-base font-medium ${
-                  location.pathname === '/' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                className={`px-3 py-2 rounded-md text-base font-bold no-underline ${
+                  location.pathname === '/' ? 'bg-blue-600 text-white' : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
                 }`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -170,8 +173,8 @@ const Header = () => {
               </Link>
               <Link
                 to="/report"
-                className={`px-3 py-2 rounded-md text-base font-medium ${
-                  location.pathname === '/report' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                className={`px-3 py-2 rounded-md text-base font-bold no-underline ${
+                  location.pathname === '/report' ? 'bg-blue-600 text-white' : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
                 }`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -179,8 +182,8 @@ const Header = () => {
               </Link>
               <Link
                 to="/reports"
-                className={`px-3 py-2 rounded-md text-base font-medium ${
-                  location.pathname === '/reports' ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                className={`px-3 py-2 rounded-md text-base font-bold no-underline ${
+                  location.pathname === '/reports' ? 'bg-blue-600 text-white' : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
                 }`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -191,8 +194,8 @@ const Header = () => {
               {isAuthenticated && (
                 <Link
                   to="/admin"
-                  className={`px-3 py-2 rounded-md text-base font-medium ${
-                    location.pathname.startsWith('/admin') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  className={`px-3 py-2 rounded-md text-base font-bold no-underline ${
+                    location.pathname.startsWith('/admin') ? 'bg-blue-600 text-white' : 'text-gray-800 hover:bg-gray-300 hover:text-blue-700'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -220,7 +223,7 @@ const Header = () => {
                 ) : (
                   <Link
                     to="/login"
-                    className="block px-3 py-2 text-base font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md"
+                    className="block px-3 py-2 text-base font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md no-underline"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Admin Login
