@@ -20,7 +20,8 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" \"server/**/*.{js,json,md}\"",
     "type-check": "tsc --noEmit",
     "debug": "nodemon --inspect server/app.js",
-    "debug:server": "node --inspect server/app.js"
+    "debug:server": "node --inspect server/app.js",
+    "precommit-check": "node scripts/prevent-cuid2-uuid.js"
   },
   "keywords": [
     "njdsc",

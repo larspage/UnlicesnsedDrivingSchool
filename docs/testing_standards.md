@@ -23,9 +23,9 @@ This document establishes testing standards and conventions for the NJDSC School
 - **Coverage Tool:** Istanbul (built into Jest)
 
 ### 2.3 Security Standards
-- **ID Generation:** Use `@paralleldrive/cuid2` instead of `uuid` for all ID generation
-- **UUID Prohibition:** The `uuid` package (any version) is strictly prohibited due to security vulnerabilities
-- **Alternative:** Use `createId()` from `@paralleldrive/cuid2` for secure, collision-resistant IDs
+- **ID Generation:** Use Node.js `crypto.randomUUID()` instead of `uuid` or `@paralleldrive/cuid2` for all ID generation
+- **Package Prohibition:** The `uuid` and `@paralleldrive/cuid2` packages (any version) are strictly prohibited due to security vulnerabilities
+- **Alternative:** Use `crypto.randomUUID()` for secure, collision-resistant IDs
 
 ### 2.3 Configuration
 ```javascript
@@ -288,8 +288,8 @@ it('should handle timeouts', async () => {
 ```
 
 ### 7.5 Security Testing Requirements
-- **ID Generation Testing:** All ID generation must use `@paralleldrive/cuid2`
-- **UUID Detection:** Automated checks must prevent `uuid` package usage
+- **ID Generation Testing:** All ID generation must use Node.js `crypto.randomUUID()`
+- **Package Detection:** Automated checks must prevent `uuid` and `@paralleldrive/cuid2` package usage
 - **Security Validation:** All generated IDs must be validated for collision resistance
 - **Mock Testing:** Test mocks must use secure ID generation patterns
 
@@ -347,10 +347,10 @@ it('should handle timeouts', async () => {
 - **UUID Security Migration:** Complete replacement of UUID with @paralleldrive/cuid2 for enhanced security
 
 ### Security Implementation ✅ COMPLETED
-- **UUID Package Removal:** Complete removal of `uuid` package due to security vulnerabilities
-- **CUID2 Implementation:** All ID generation now uses `@paralleldrive/cuid2` for secure, collision-resistant IDs
+- **Package Removal:** Complete removal of `uuid` and `@paralleldrive/cuid2` packages due to security vulnerabilities
+- **Secure ID Generation:** All ID generation now uses Node.js `crypto.randomUUID()` for secure, collision-resistant IDs
 - **Test Updates:** All test mocks updated to use secure ID generation
-- **Documentation:** Security standards updated to prohibit UUID usage
+- **Documentation:** Security standards updated to prohibit forbidden package usage
 
 ### Current Coverage Achievements
 - **Overall Target:** 85% minimum coverage ✅ ACHIEVED
@@ -358,7 +358,7 @@ it('should handle timeouts', async () => {
 - **Frontend Components:** React Testing Library integration ready
 - **E2E Testing:** Puppeteer setup for critical user journeys
 - **Error Logging:** Structured logging throughout request flows
-- **Security Enhancements:** UUID replaced with @paralleldrive/cuid2 for improved security
+- **Security Enhancements:** Removed insecure ID generation packages for improved security
 
 ---
 
