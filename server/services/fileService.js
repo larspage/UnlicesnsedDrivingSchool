@@ -9,13 +9,32 @@ const File = require('../models/File');
 const localFileService = require('./localFileService');
 const localJsonService = require('./localJsonService');
 const configService = require('./configService');
+const { Readable } = require('stream');
 
 // Configuration constants
 const FILES_DATA_FILE = 'files';
 
 /**
- * Uploads a file to Google Drive and saves metadata to Google Sheets
- * @param {Buffer} fileBuffer - File buffer
+ * Converts a readable stream to a Buffer
+ * @param {Readable} stream - Readable stream
+ * @returns {Promise<Buffer>} Buffer containing stream data
+ */
+async function streamToBuffer(stream) {
+  try {
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  } catch (error) {
+    console.error('Error converting stream to buffer:', error.message);
+    throw new Error(`Failed to convert stream to buffer: ${error.message}`);
+  }
+}
+
+/**
+ * Uploads a file to local storage and saves metadata
+ * @param {Buffer|Object} file - File buffer or multer-like file object with buffer/stream
  * @param {string} fileName - Original filename
  * @param {string} mimeType - MIME type
  * @param {string} reportId - Associated report ID
@@ -23,16 +42,41 @@ const FILES_DATA_FILE = 'files';
  * @returns {Promise<File>} Created file record
  * @throws {Error} If upload or validation fails
  */
-async function uploadFile(fileBuffer, fileName, mimeType, reportId, uploadedByIp = null) {
+async function uploadFile(file, fileName, mimeType, reportId, uploadedByIp = null) {
   try {
+    // Handle multer-like file object or plain buffer
+    let fileBuffer;
+    if (Buffer.isBuffer(file)) {
+      // Plain buffer passed
+      fileBuffer = file;
+    } else if (file && file.buffer && Buffer.isBuffer(file.buffer)) {
+      // Multer-like file object with buffer property
+      fileBuffer = file.buffer;
+      fileName = fileName || file.originalname;
+      mimeType = mimeType || file.mimetype;
+    } else if (file && file.stream && (file.stream instanceof Readable || typeof file.stream.pipe === 'function')) {
+      // Multer-like file object with stream property
+      console.log('[FILE UPLOAD] Converting stream to buffer');
+      fileBuffer = await streamToBuffer(file.stream);
+      fileName = fileName || file.originalname;
+      mimeType = mimeType || file.mimetype;
+    } else {
+      console.error('[FILE UPLOAD] Invalid file format:', { file, fileName, mimeType });
+      throw new Error('Invalid file format: expected Buffer, file.buffer, or file.stream');
+    }
+
     // Validate upload parameters
     const validation = File.validateUploadParams(fileBuffer, fileName, mimeType, reportId);
     if (!validation.isValid) {
+      console.error('[FILE UPLOAD] Validation failed:', validation.error);
       throw new Error(validation.error);
     }
 
     // Get existing files for the report to check limits
     const existingFiles = await getFilesByReportId(reportId);
+
+    // Ensure uploads directory exists
+    await localFileService.ensureUploadsDirectory();
 
     // Upload file to local storage
     const fileData = await localFileService.uploadFile(fileBuffer, fileName, mimeType, reportId);
@@ -73,10 +117,8 @@ async function uploadFile(fileBuffer, fileName, mimeType, reportId, uploadedByIp
       });
       throw error;
     }
-
-    return file;
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('[FILE UPLOAD] Error uploading file:', error.message);
     throw error;
   }
 }

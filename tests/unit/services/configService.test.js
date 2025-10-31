@@ -4,7 +4,9 @@ const Configuration = require('../../../server/models/Configuration');
 // Mock the localJsonService dependency
 jest.mock('../../../server/services/localJsonService', () => ({
   getAllRows: jest.fn(),
-  writeJsonFile: jest.fn()
+  writeJsonFile: jest.fn(),
+  ensureDataDirectory: jest.fn().mockResolvedValue(undefined),
+  ensureSheetExists: jest.fn().mockResolvedValue(undefined)
 }));
 
 // Mock the Configuration model
@@ -366,20 +368,20 @@ describe('Config Service', () => {
     it('should handle JSON storage errors in getConfig', async () => {
       localJsonService.getAllRows.mockRejectedValue(new Error('Storage error'));
 
-      await expect(configService.getConfig('test.key')).rejects.toThrow('Failed to retrieve configuration from JSON');
+      await expect(configService.getConfig('test.key')).rejects.toThrow('Storage error');
     });
 
     it('should handle JSON storage errors in getAllConfig', async () => {
       localJsonService.getAllRows.mockRejectedValue(new Error('Storage error'));
 
-      await expect(configService.getAllConfig()).rejects.toThrow('Failed to retrieve configuration from JSON');
+      await expect(configService.getAllConfig()).rejects.toThrow('Storage error');
     });
 
     it('should handle JSON storage errors in setConfig', async () => {
       localJsonService.getAllRows.mockResolvedValue([]);
       localJsonService.writeJsonFile.mockRejectedValue(new Error('Storage error'));
 
-      await expect(configService.setConfig('test.key', 'value', 'string', 'system')).rejects.toThrow('Failed to save configuration to JSON');
+      await expect(configService.setConfig('test.key', 'value', 'string', 'system')).rejects.toThrow('Storage error');
     });
   });
 

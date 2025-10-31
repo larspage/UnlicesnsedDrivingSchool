@@ -47,6 +47,14 @@ describe('File Service', () => {
       mimeType: 'image/jpeg'
     };
 
+    // Multer-like file object with buffer
+    const mockMulterFile = {
+      buffer: mockFileBuffer,
+      originalname: mockFileName,
+      mimetype: mockMimeType,
+      size: mockFileBuffer.length
+    };
+
     const mockFile = {
       id: 'file_xyz789',
       reportId: mockReportId,
@@ -69,10 +77,11 @@ describe('File Service', () => {
       ])
     };
 
-    it('should upload file successfully', async () => {
+    it('should upload file successfully with Buffer', async () => {
       // Mock dependencies
       File.validateUploadParams.mockReturnValue({ isValid: true });
       localJsonService.getAllRows.mockResolvedValue([]); // Mock empty files list
+      localFileService.ensureUploadsDirectory.mockResolvedValue(undefined);
       localFileService.uploadFile.mockResolvedValue(mockDriveFile);
       File.create.mockReturnValue(mockFile);
       localJsonService.appendRow.mockResolvedValue(undefined);
@@ -92,6 +101,7 @@ describe('File Service', () => {
         mockReportId
       );
       expect(localJsonService.getAllRows).toHaveBeenCalledWith(null, 'files');
+      expect(localFileService.ensureUploadsDirectory).toHaveBeenCalled();
       expect(localFileService.uploadFile).toHaveBeenCalledWith(
         mockFileBuffer,
         mockFileName,
@@ -101,6 +111,38 @@ describe('File Service', () => {
       expect(File.create).toHaveBeenCalled();
       expect(mockFile.validateBusinessRules).toHaveBeenCalled();
       expect(localJsonService.appendRow).toHaveBeenCalled();
+      expect(result).toBe(mockFile);
+    });
+
+    it('should upload file successfully with multer-like file object', async () => {
+      // Mock dependencies
+      File.validateUploadParams.mockReturnValue({ isValid: true });
+      localJsonService.getAllRows.mockResolvedValue([]);
+      localFileService.ensureUploadsDirectory.mockResolvedValue(undefined);
+      localFileService.uploadFile.mockResolvedValue(mockDriveFile);
+      File.create.mockReturnValue(mockFile);
+      localJsonService.appendRow.mockResolvedValue(undefined);
+
+      const result = await fileService.uploadFile(
+        mockMulterFile,
+        null,
+        null,
+        mockReportId,
+        mockUploadedByIp
+      );
+
+      expect(File.validateUploadParams).toHaveBeenCalledWith(
+        mockFileBuffer,
+        mockFileName,
+        mockMimeType,
+        mockReportId
+      );
+      expect(localFileService.uploadFile).toHaveBeenCalledWith(
+        mockFileBuffer,
+        mockFileName,
+        mockMimeType,
+        mockReportId
+      );
       expect(result).toBe(mockFile);
     });
 
@@ -121,6 +163,7 @@ describe('File Service', () => {
     it('should throw error when local file upload fails', async () => {
       File.validateUploadParams.mockReturnValue({ isValid: true });
       localJsonService.getAllRows.mockResolvedValue([]);
+      localFileService.ensureUploadsDirectory.mockResolvedValue(undefined);
       localFileService.uploadFile.mockRejectedValue(new Error('Local file upload failed'));
 
       await expect(fileService.uploadFile(
@@ -134,6 +177,7 @@ describe('File Service', () => {
     it('should throw error when business rules validation fails', async () => {
       File.validateUploadParams.mockReturnValue({ isValid: true });
       localJsonService.getAllRows.mockResolvedValue([]);
+      localFileService.ensureUploadsDirectory.mockResolvedValue(undefined);
       localFileService.uploadFile.mockResolvedValue(mockDriveFile);
       File.create.mockReturnValue(mockFile);
       mockFile.validateBusinessRules.mockImplementation(() => {
