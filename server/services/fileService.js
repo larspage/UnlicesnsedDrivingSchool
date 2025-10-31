@@ -54,7 +54,7 @@ async function uploadFile(file, fileName, mimeType, reportId, uploadedByIp = nul
       fileBuffer = file.buffer;
       fileName = fileName || file.originalname;
       mimeType = mimeType || file.mimetype;
-    } else if (file && file.stream && typeof file.stream.pipe === 'function') {
+    } else if (file && file.stream && (file.stream instanceof Readable || typeof file.stream.pipe === 'function')) {
       // Multer-like file object with stream property
       console.log('[FILE UPLOAD] Converting stream to buffer');
       fileBuffer = await streamToBuffer(file.stream);
@@ -117,8 +117,6 @@ async function uploadFile(file, fileName, mimeType, reportId, uploadedByIp = nul
       });
       throw error;
     }
-
-    return file;
   } catch (error) {
     console.error('[FILE UPLOAD] Error uploading file:', error.message);
     throw error;
