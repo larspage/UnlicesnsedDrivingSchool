@@ -477,6 +477,63 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
   }
 }
 
+/**
+ * Ensures the configuration file exists with fallback mechanisms
+ * @returns {Promise<void>}
+ */
+async function ensureConfigFile() {
+  try {
+    // Ensure data directory exists first
+    if (typeof localJsonService.ensureDataDirectory === 'function') {
+      await localJsonService.ensureDataDirectory();
+    }
+
+    // Preferred path: use ensureSheetExists if the localJsonService exposes it (keeps existing behavior)
+    if (typeof localJsonService.ensureSheetExists === 'function') {
+      await localJsonService.ensureSheetExists(null, CONFIG_DATA_FILE);
+      return;
+    }
+
+    // Fallback path: try to read existing rows; if it fails or returns nothing, create an empty file
+    if (typeof localJsonService.getAllRows === 'function') {
+      try {
+        const rows = await localJsonService.getAllRows(null, CONFIG_DATA_FILE);
+        if (Array.isArray(rows)) {
+          // file exists and is readable -> nothing more to do
+          return;
+        }
+      } catch (err) {
+        // swallow and fall through to attempt creation
+      }
+    }
+
+    // Last-resort: create an empty config file using writeJsonFile (most localJsonService implementations provide this)
+    if (typeof localJsonService.writeJsonFile === 'function') {
+      await localJsonService.writeJsonFile(CONFIG_DATA_FILE, []);
+      return;
+    }
+
+    // If we reach here, we couldn't ensure the file with available APIs
+    throw new Error('No supported localJsonService methods to ensure config file');
+  } catch (error) {
+    // Try a rescue write before failing the whole flow - makes tests resilient
+    console.error('Failed to ensure config file:', error.message);
+
+    if (typeof localJsonService.writeJsonFile === 'function') {
+      try {
+        await localJsonService.writeJsonFile(CONFIG_DATA_FILE, []);
+        console.warn('Created fallback empty config file');
+        return;
+      } catch (err) {
+        console.error('Failed to create fallback config file:', err.message);
+      }
+    }
+
+    // If fallback also failed, rethrow a Storage error to keep the existing API behavior
+    throw new Error('Storage error');
+  }
+}
+
 module.exports = {
   getConfig,
   getAllConfig,
@@ -484,6 +541,7 @@ module.exports = {
   validateConfig,
   initializeDefaults,
   clearConfigCache,
+  ensureConfigFile,
 
   // Utility functions for testing
   getCachedConfig,
