@@ -166,7 +166,8 @@ async function writeJsonFile(filename, data) {
         console.error('[LOCAL JSON SERVICE] Temp file write failed (attempt %d):', writeAttempts, writeError.message);
 
         if (writeAttempts >= maxWriteAttempts) {
-          throw new Error(`Failed to write temp file after ${maxWriteAttempts} attempts: ${writeError.message}`);
+          writeError.message = `Failed to write temp file after ${maxWriteAttempts} attempts: ${writeError.message}`;
+          throw writeError;
         }
 
         // Ensure directory still exists before retry
@@ -179,7 +180,7 @@ async function writeJsonFile(filename, data) {
     // Attempt atomic rename with retries
     let renameAttempts = 0;
     const maxRenameAttempts = 3; // Increased to 3 attempts for better reliability
-    let lastError;
+    let lastError = new Error('Unknown rename failure');
 
     while (renameAttempts < maxRenameAttempts) {
       try {
@@ -404,7 +405,8 @@ async function writeJsonFile(filename, data) {
     } catch (cleanupError) {
       console.log('[LOCAL JSON SERVICE] Temp file cleanup failed (may not exist):', cleanupError.message);
     }
-    throw new Error(`Failed to write JSON file ${filename}: ${error.message}`);
+    error.message = `Failed to write JSON file ${filename}: ${error.message}`;
+    throw error;
   }
 }
 

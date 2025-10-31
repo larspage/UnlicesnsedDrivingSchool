@@ -15,6 +15,7 @@ async function validateFileUpload(req, res, next) {
 
     // Check if reportId is provided
     if (!reportId) {
+      console.log('[FILE VALIDATION] Missing reportId');
       return res.status(400).json({
         success: false,
         error: 'reportId is required for file upload'
@@ -23,6 +24,7 @@ async function validateFileUpload(req, res, next) {
 
     // Validate reportId format
     if (typeof reportId !== 'string' || !/^rep_[a-zA-Z0-9]{6}$/.test(reportId)) {
+      console.log('[FILE VALIDATION] Invalid reportId format:', reportId);
       return res.status(400).json({
         success: false,
         error: 'Invalid reportId format. Must match pattern: rep_XXXXXX'
@@ -31,6 +33,7 @@ async function validateFileUpload(req, res, next) {
 
     // Validate that files are present
     if (!req.files || req.files.length === 0) {
+      console.log('[FILE VALIDATION] No files provided');
       return res.status(400).json({
         success: false,
         error: 'No files provided for upload'
@@ -39,6 +42,15 @@ async function validateFileUpload(req, res, next) {
 
     // Validate each file
     for (const file of req.files) {
+      // Check if file has buffer (multer-like file object)
+      if (!file.buffer && !Buffer.isBuffer(file)) {
+        console.log('[FILE VALIDATION] File missing buffer:', file.originalname);
+        return res.status(400).json({
+          success: false,
+          error: `File "${file.originalname}": Missing file buffer`
+        });
+      }
+
       const validation = await fileService.validateFileUpload(
         reportId,
         file.size,
@@ -46,6 +58,7 @@ async function validateFileUpload(req, res, next) {
       );
 
       if (!validation.isValid) {
+        console.log('[FILE VALIDATION] File validation failed:', file.originalname, validation.error);
         return res.status(400).json({
           success: false,
           error: `File "${file.originalname}": ${validation.error}`
@@ -55,8 +68,8 @@ async function validateFileUpload(req, res, next) {
 
     next();
   } catch (error) {
-    console.error('File upload validation error:', error);
-    res.status(500).json({
+    console.error('[FILE VALIDATION] Validation error:', error.message);
+    res.status(400).json({
       success: false,
       error: 'File upload validation failed',
       message: process.env.NODE_ENV === 'development' ? error.message : undefined

@@ -165,12 +165,28 @@ function clearConfigCache() {
 }
 
 /**
+ * Ensures config file exists
+ * @returns {Promise<void>}
+ */
+async function ensureConfigFile() {
+  try {
+    await localJsonService.ensureDataDirectory();
+    await localJsonService.ensureSheetExists(null, CONFIG_DATA_FILE);
+  } catch (error) {
+    console.error('Failed to ensure config file:', error.message);
+    throw new Error('Storage error');
+  }
+}
+
+/**
  * Retrieves all configuration from local JSON storage
  * @returns {Array<Configuration>} Array of Configuration instances
  */
 async function getAllConfigFromJson() {
   try {
     logOperation('getAllConfigFromJson', { dataFile: CONFIG_DATA_FILE });
+
+    await ensureConfigFile();
 
     const configsData = await localJsonService.getAllRows(null, CONFIG_DATA_FILE);
     const configs = [];
@@ -192,7 +208,8 @@ async function getAllConfigFromJson() {
 
   } catch (error) {
     logOperation('getAllConfigFromJson', { error: error.message });
-    throw new Error(`Failed to retrieve configuration from JSON: ${error.message}`);
+    console.error('Failed to retrieve configuration from JSON:', error.message);
+    throw new Error('Storage error');
   }
 }
 
@@ -204,6 +221,8 @@ async function getAllConfigFromJson() {
 async function saveConfigToJson(config) {
   try {
     logOperation('saveConfigToJson', { key: config.key, type: config.type, category: config.category });
+
+    await ensureConfigFile();
 
     // Get all existing configs to find if this key exists
     const allConfigs = await getAllConfigFromJson();
@@ -229,7 +248,8 @@ async function saveConfigToJson(config) {
 
   } catch (error) {
     logOperation('saveConfigToJson', { error: error.message });
-    throw new Error(`Failed to save configuration to JSON: ${error.message}`);
+    console.error('Failed to save configuration to JSON:', error.message);
+    throw new Error('Storage error');
   }
 }
 
