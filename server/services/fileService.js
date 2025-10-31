@@ -5,6 +5,8 @@
  * metadata storage in Google Sheets, and file processing.
  */
 
+const fs = require('fs');
+const path = require('path');
 const File = require('../models/File');
 const localFileService = require('./localFileService');
 const localJsonService = require('./localJsonService');
@@ -14,8 +16,22 @@ const configService = require('./configService');
 const FILES_DATA_FILE = 'files';
 
 /**
- * Uploads a file to Google Drive and saves metadata to Google Sheets
- * @param {Buffer} fileBuffer - File buffer
+ * Converts a stream to buffer
+ * @param {Stream} stream - Readable stream
+ * @returns {Promise<Buffer>} Buffer from stream
+ */
+function streamToBuffer(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on('data', (c) => chunks.push(Buffer.from(c)));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', (err) => reject(err));
+  });
+}
+
+/**
+ * Uploads a file to local storage and saves metadata to local JSON
+ * @param {Buffer|Object} fileBuffer - File buffer OR file object with buffer/stream
  * @param {string} fileName - Original filename
  * @param {string} mimeType - MIME type
  * @param {string} reportId - Associated report ID
