@@ -164,10 +164,10 @@ const ReportForm: React.FC = () => {
         Report an Unlicensed Driving School
       </h1>
 
-      <form onSubmit={handleSubmit} className="space-y-8" data-testid="report-form">
+      <form onSubmit={handleSubmit} className="space-y-6" data-testid="report-form">
         {/* School Details Section */}
         <div className="school-details-card card" data-testid="school-details-card">
-          <h2 className="text-2xl font-semibold text-dim-gray mb-6 pb-3 border-b-2 border-pearl">School Details</h2>
+          <h2 className="text-2xl font-semibold text-dim-gray mb-4 pb-2 border-b-2 border-pearl">School Details</h2>
           <div className="table-container overflow-x-auto" data-testid="school-details-table-container">
             <table className="w-full border-collapse" data-testid="school-details-table">
               <colgroup data-testid="school-details-colgroup">
@@ -312,42 +312,44 @@ const ReportForm: React.FC = () => {
 
               {/* Row 5: Violation Description (full width) */}
               <tr className="border-b border-pearl/50">
-                <td className="py-3 pr-2 align-top">
+                <td className="py-2 pr-2 align-top">
                   <label htmlFor="violationDescription" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Violation Description
                   </label>
                 </td>
-                <td className="py-3 px-2" colSpan={3}>
-                  <textarea
-                    id="violationDescription"
-                    name="violationDescription"
-                    value={formData.violationDescription}
-                    onChange={handleInputChange}
-                    rows={2}
-                    className={`w-[80%] px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
-                      errors.violationDescription ? 'border-red-500' : 'border-pearl'
-                    }`}
-                    placeholder="Describe the violation or issue in detail..."
-                    maxLength={1000}
-                  />
-                  <div className="flex justify-between mt-1">
-                    {errors.violationDescription && <p className="text-xs text-red-500">{errors.violationDescription}</p>}
-                    <p className="text-xs text-dim-gray/50 ml-auto">{formData.violationDescription.length}/1000</p>
+                <td className="py-2 px-2" colSpan={3}>
+                  <div className="flex items-start gap-2">
+                    <textarea
+                      id="violationDescription"
+                      name="violationDescription"
+                      value={formData.violationDescription}
+                      onChange={handleInputChange}
+                      rows={2}
+                      className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-desert-sand text-sm ${
+                        errors.violationDescription ? 'border-red-500' : 'border-pearl'
+                      }`}
+                      placeholder="Describe the violation or issue in detail..."
+                      maxLength={1000}
+                    />
+                    <div className="flex flex-col items-end">
+                      <p className="text-xs text-dim-gray/50 whitespace-nowrap">{formData.violationDescription.length}/1000</p>
+                      {errors.violationDescription && <p className="text-xs text-red-500 mt-1">{errors.violationDescription}</p>}
+                    </div>
                   </div>
                 </td>
               </tr>
 
               {/* Row 6: Supporting Files (full width) */}
               <tr>
-                <td className="py-3 pr-2 align-top">
+                <td className="py-2 pr-2 align-top">
                   <label className="block text-sm font-medium text-dim-gray text-left pt-2">
                     Supporting Files
                   </label>
                 </td>
-                <td className="py-3 px-2" colSpan={3}>
+                <td className="py-2 px-2" colSpan={3}>
                   <div className="max-w-full">
                     <FileUpload onFilesChange={handleFilesChange} maxFiles={10} />
-                    {errors.files && <p className="mt-2 text-xs text-red-500">{errors.files}</p>}
+                    {errors.files && <p className="mt-1 text-xs text-red-500">{errors.files}</p>}
                   </div>
                 </td>
               </tr>
@@ -358,10 +360,10 @@ const ReportForm: React.FC = () => {
 
         {/* Reporter Information Section */}
         <div className="reporter-info-card card" data-testid="reporter-info-card">
-          <h2 className="text-2xl font-semibold text-dim-gray mb-3 pb-3 border-b-2 border-pearl">
+          <h2 className="text-2xl font-semibold text-dim-gray mb-2 pb-2 border-b-2 border-pearl">
             Your Information <span className="text-sm font-normal text-dim-gray/70">(Optional)</span>
           </h2>
-          <p className="text-sm text-dim-gray/80 mb-6">
+          <p className="text-sm text-dim-gray/80 mb-4">
             Your contact details are kept confidential and are only used for follow-up purposes.
           </p>
           <div className="table-container overflow-x-auto" data-testid="reporter-info-table-container">
@@ -519,11 +521,11 @@ const ReportForm: React.FC = () => {
         )}
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row justify-end gap-4 pb-8 mt-8" data-testid="action-buttons">
+        <div className="flex flex-col sm:flex-row justify-end gap-3 pb-6 mt-6" data-testid="action-buttons">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="px-8 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all duration-300 font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all duration-300 font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isSubmitting}
           >
             Cancel
@@ -531,7 +533,7 @@ const ReportForm: React.FC = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-8 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-all duration-300 font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="px-6 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-all duration-300 font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? 'Submitting...' : 'Submit Report'}
           </button>
@@ -539,7 +541,7 @@ const ReportForm: React.FC = () => {
       </form>
 
       {/* Privacy Notice */}
-      <div className="mt-8 p-6 card bg-honeydew/30" data-testid="privacy-notice-card">
+      <div className="mt-6 p-4 card bg-honeydew/30" data-testid="privacy-notice-card">
         <h3 className="text-lg font-semibold text-dim-gray mb-2">Privacy Notice</h3>
         <p className="text-sm text-dim-gray/80">
           Your report is taken seriously. All submissions are reviewed by NJDSC compliance staff. Your contact information, if provided, will be kept confidential and will only be used by our team to follow up on this specific report.

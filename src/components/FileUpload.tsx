@@ -330,11 +330,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
       )}
 
       {/* Help Text */}
-      <div className="text-xs text-gray-500 space-y-1">
-        <p>• Maximum {maxFiles} files allowed</p>
-        <p>• Each file can be up to 10MB</p>
-        <p>• Supported formats: JPEG, PNG, GIF, WebP, MP4, AVI, MOV, PDF</p>
-      </div>
+      <ul className="text-xs text-gray-500 space-y-0 list-disc list-inside">
+        <li className="mb-1">Maximum {maxFiles} files allowed</li>
+        <li className="mb-1">Each file can be up to 10MB</li>
+        <li className="mb-1">Supported formats: JPEG, PNG, GIF, WebP, MP4, AVI, MOV, PDF</li>
+      </ul>
     </div>
   );
 };
