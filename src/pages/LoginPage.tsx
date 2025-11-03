@@ -40,8 +40,8 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-6 px-2 sm:px-4 lg:px-6">
+      <div className="max-w-sm sm:max-w-md w-full space-y-6 sm:space-y-8">
         {/* Header */}
         <div>
           <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
@@ -49,7 +49,7 @@ const LoginPage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
             NJDSC Admin Portal
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
@@ -58,7 +58,7 @@ const LoginPage = () => {
         </div>
 
         {/* Login Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-6 sm:mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="username" className="sr-only">
@@ -70,7 +70,7 @@ const LoginPage = () => {
                 type="text"
                 autoComplete="username"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 text-sm"
                 placeholder="Username"
                 value={credentials.username}
                 onChange={handleInputChange}
@@ -87,7 +87,7 @@ const LoginPage = () => {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 text-sm"
                 placeholder="Password"
                 value={credentials.password}
                 onChange={handleInputChange}
@@ -135,23 +135,25 @@ const LoginPage = () => {
             </button>
           </div>
 
-          {/* Development Info */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+          {/* Development Info - Only show in development */}
+          {typeof __DEV_CREDENTIALS__ !== 'undefined' && __DEV_CREDENTIALS__ && (
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-gray-50 text-gray-500">Development Access</span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-50 text-gray-500">Development Access</span>
+              <div className="mt-4 text-center text-sm text-gray-600">
+                <p>Default credentials:</p>
+                <p className="font-mono bg-gray-100 px-2 py-1 rounded mt-1">
+                  Username: admin | Password: admin123
+                </p>
               </div>
             </div>
-            <div className="mt-4 text-center text-sm text-gray-600">
-              <p>Default credentials:</p>
-              <p className="font-mono bg-gray-100 px-2 py-1 rounded mt-1">
-                Username: admin | Password: admin123
-              </p>
-            </div>
-          </div>
+          )}
         </form>
       </div>
     </div>
