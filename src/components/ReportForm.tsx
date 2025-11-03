@@ -159,8 +159,8 @@ const ReportForm: React.FC = () => {
   }
 
   return (
-    <div className="form-wrapper max-w-3xl mx-auto px-4" data-testid="form-wrapper">
-      <h1 className="text-3xl md:text-4xl font-bold text-dim-gray mb-8 text-center tracking-tight" data-testid="form-title">
+    <div className="form-wrapper max-w-3xl mx-auto px-2 sm:px-4" data-testid="form-wrapper">
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-dim-gray mb-6 sm:mb-8 text-center tracking-tight" data-testid="form-title">
         Report an Unlicensed Driving School
       </h1>
 
@@ -179,12 +179,12 @@ const ReportForm: React.FC = () => {
             <tbody>
               {/* Row 1: School Name (and Location on large screens) */}
               <tr className="border-b border-pearl/50">
-                <td className="py-3 pr-3 align-top">
+                <td className="py-2 sm:py-3 pr-2 sm:pr-3 align-top">
                   <label htmlFor="schoolName" className="block text-sm font-medium text-dim-gray text-left pt-2">
                     School Name <span className="text-red-500">*</span>
                   </label>
                 </td>
-                <td className="py-3 px-3">
+                <td className="py-2 sm:py-3 px-2 sm:px-3">
                   <input
                     type="text"
                     id="schoolName"

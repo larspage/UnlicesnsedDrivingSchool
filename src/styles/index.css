@@ -41,9 +41,17 @@ body {
   background: var(--gradient-background, #374151);
   min-height: 100vh;
   transition: background 0.3s ease;
-  /* Match the blue margin on left with equivalent padding on right */
-  padding-left: 1rem;
-  padding-right: 1rem;
+  /* Mobile-first padding approach */
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* Increase padding on larger screens */
+@media (min-width: 640px) {
+  body {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 
 /* Compact and higher density styles */
@@ -199,4 +207,44 @@ a {
 /* Ensure links in buttons don't have underlines */
 a.button, a.btn, .btn a {
   text-decoration: none;
+}
+
+/* Mobile-specific responsive improvements */
+@media (max-width: 640px) {
+  /* Container adjustments for mobile */
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  /* Form input sizing for mobile */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  textarea {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+  
+  /* Button sizing improvements for mobile */
+  button,
+  .btn {
+    min-height: 44px; /* iOS recommended minimum touch target */
+  }
+  
+  /* Card padding reduction for mobile */
+  .card {
+    padding: 1rem;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .bg-white {
+    border: 2px solid #000;
+  }
+  
+  input {
+    border-width: 2px !important;
+  }
 }
