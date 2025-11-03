@@ -1,20 +1,20 @@
 [
   {
     "key": "email.toAddress",
-    "value": "MrBrooksProd@gmail.com",
+    "value": "mvc.blsdrivingschools@mvc.nj.gov",
     "type": "string",
     "category": "email",
-    "description": "Email address for driving school complaints",
-    "updatedAt": "2025-11-03T16:20:00.000Z",
+    "description": "Email address for MVC driving school complaints",
+    "updatedAt": "2025-11-03T16:14:25.468Z",
     "updatedBy": null
   },
   {
     "key": "email.fromAddress",
-    "value": "lawrence.farrell@gmail.com",
+    "value": "treasurer@njdsc.org",
     "type": "string",
     "category": "email",
-    "description": "Sender email address for communications",
-    "updatedAt": "2025-11-03T16:21:00.000Z",
+    "description": "Sender email address for MVC communications",
+    "updatedAt": "2025-11-03T16:14:25.490Z",
     "updatedBy": null
   },
   {
@@ -23,7 +23,7 @@
     "type": "string",
     "category": "email",
     "description": "Email subject template for MVC reports",
-    "updatedAt": "2025-10-03T15:54:54.058Z",
+    "updatedAt": "2025-11-03T16:14:25.515Z",
     "updatedBy": null
   },
   {
@@ -32,34 +32,34 @@
     "type": "string",
     "category": "email",
     "description": "Email body template for MVC reports",
-    "updatedAt": "2025-10-03T15:54:54.067Z",
+    "updatedAt": "2025-11-03T16:14:25.545Z",
     "updatedBy": null
   },
   {
     "key": "google.sheets.spreadsheetId",
-    "value": "1hhp0ekSjMHO-IDOrw17tH6LmWsQXOiyCEGgCLisTmcs",
+    "value": "",
     "type": "string",
     "category": "google",
     "description": "Google Sheets spreadsheet ID for storing reports",
-    "updatedAt": "2025-10-03T15:54:54.075Z",
+    "updatedAt": "2025-11-03T16:14:25.583Z",
     "updatedBy": null
   },
   {
     "key": "google.drive.folderId",
-    "value": "0AJWm05sZHR3pUk9PVA",
+    "value": "",
     "type": "string",
     "category": "google",
     "description": "Google Drive folder ID for storing uploaded files",
-    "updatedAt": "2025-10-03T15:54:54.084Z",
+    "updatedAt": "2025-11-03T16:14:25.613Z",
     "updatedBy": null
   },
   {
     "key": "system.rateLimitPerHour",
-    "value": 100,
+    "value": 5,
     "type": "number",
     "category": "system",
     "description": "Maximum reports allowed per hour per IP address",
-    "updatedAt": "2025-10-03T15:54:54.092Z",
+    "updatedAt": "2025-11-03T16:14:25.641Z",
     "updatedBy": null
   },
   {
@@ -68,7 +68,7 @@
     "type": "number",
     "category": "system",
     "description": "Maximum file size for uploads in bytes (default: 10MB)",
-    "updatedAt": "2025-10-03T15:54:54.100Z",
+    "updatedAt": "2025-11-03T16:14:25.682Z",
     "updatedBy": null
   },
   {
@@ -77,7 +77,7 @@
     "type": "number",
     "category": "system",
     "description": "Maximum number of files allowed per report",
-    "updatedAt": "2025-10-03T15:54:54.112Z",
+    "updatedAt": "2025-11-03T16:14:25.741Z",
     "updatedBy": null
   },
   {
@@ -86,7 +86,7 @@
     "type": "number",
     "category": "system",
     "description": "Session timeout in milliseconds",
-    "updatedAt": "2025-10-03T15:54:54.120Z",
+    "updatedAt": "2025-11-03T16:14:25.847Z",
     "updatedBy": null
   }
 ]
