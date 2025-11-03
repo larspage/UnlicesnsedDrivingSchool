@@ -13,9 +13,9 @@ const HomePage = () => {
       <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
         <a
           href="/report"
-          className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-center text-sm font-medium"
+          className="w-full sm:w-auto bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors text-center text-sm font-medium"
         >
-          Report an Issue
+          Report Unlicensed School
         </a>
         <a
           href="/reports"
