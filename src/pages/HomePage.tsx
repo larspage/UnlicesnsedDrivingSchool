@@ -23,6 +23,13 @@ const HomePage = () => {
         >
           View Reports
         </a>
+        {/* TEMPORARY: Test button for ReportDetailsCard component */}
+        <a
+          href="/test-report-details-card"
+          className="w-full sm:w-auto bg-blue-200 text-blue-800 px-4 py-2 rounded-md hover:bg-blue-300 transition-colors text-center text-sm font-medium border-2 border-blue-400"
+        >
+          Test ReportDetailsCard
+        </a>
       </div>
     </div>
   );
