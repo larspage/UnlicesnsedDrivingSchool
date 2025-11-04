@@ -53,7 +53,7 @@ const Header = () => {
         <div className="flex justify-between items-center">
           <Link to="/" className="flex items-center space-x-3 no-underline">
             <div className="text-lg md:text-xl font-bold njdsc-brand">
-              NJDSC Compliance Portal
+              NJDSC - Unlicensed Driving Schools
             </div>
           </Link>
 
@@ -106,7 +106,7 @@ const Header = () => {
 
             {/* Color Scheme Manager & Authentication section */}
             <div className="flex items-center space-x-4 ml-6 pl-6 border-l border-gray-300">
-              {/* Color Scheme Manager Button */}
+              {/* Color Scheme Manager Button - HIDDEN until functionality is working
               <button
                 onClick={() => setIsColorSchemeManagerOpen(true)}
                 className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 font-medium flex items-center space-x-1"
@@ -117,6 +117,7 @@ const Header = () => {
                 </svg>
                 <span className="hidden sm:inline">Colors</span>
               </button>
+              */}
 
               {/* Authentication section */}
               {isAuthenticated ? (

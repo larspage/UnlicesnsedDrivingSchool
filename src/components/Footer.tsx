@@ -12,6 +12,13 @@ const Footer = () => {
           <p className="text-xs leading-tight mt-1 mb-0">
             © 2025 NJDSC. All rights reserved.
           </p>
+          <div className="border-t border-gray-400 my-2 mx-auto w-16"></div>
+          <p className="text-xs leading-tight mt-1 mb-0">
+            Developed by Mr Brooks Products & Services, LLC.{' '}
+            <a href="mailto:lawrence.farrell@gmail.com" className="text-blue-300 hover:text-blue-200 underline">
+              lawrence.farrell@gmail.com
+            </a>
+          </p>
         </div>
       </div>
     </footer>
