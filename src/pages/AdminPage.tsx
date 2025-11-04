@@ -961,26 +961,34 @@ const OverviewTab = ({ stats, reports }: { stats: any, reports: Report[] }) => {
     loadActivity();
   }, [reports]);
 
-  const cards = [
-    {
-      title: 'Total Reports',
-      value: stats.totalReports,
-      icon: '📋',
-      color: 'bg-blue-500'
-    },
-    {
-      title: 'Pending Reports',
-      value: stats.pendingReports,
-      icon: '⏳',
-      color: 'bg-yellow-500'
-    },
-    {
-      title: 'Completed Reports',
-      value: stats.completedReports,
-      icon: '✅',
-      color: 'bg-green-500'
-    }
-  ];
+  // Calculate status breakdown dynamically
+  const statusBreakdown = reports.reduce((acc, report) => {
+    acc[report.status] = (acc[report.status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Define colors for different statuses
+  const getStatusColor = (status: string) => {
+    const colorMap: Record<string, string> = {
+      'Added': 'bg-gray-500',
+      'Confirmed by NJDSC': 'bg-blue-500',
+      'Reported to MVC': 'bg-yellow-500',
+      'Under Investigation': 'bg-orange-500',
+      'Closed': 'bg-green-500'
+    };
+    return colorMap[status] || 'bg-gray-400';
+  };
+
+  const getStatusIcon = (status: string) => {
+    const iconMap: Record<string, string> = {
+      'Added': '📋',
+      'Confirmed by NJDSC': '✅',
+      'Reported to MVC': '📤',
+      'Under Investigation': '🔍',
+      'Closed': '🏁'
+    };
+    return iconMap[status] || '📊';
+  };
 
   const formatTimeAgo = (timestamp: string) => {
     const now = new Date();
@@ -1001,21 +1009,35 @@ const OverviewTab = ({ stats, reports }: { stats: any, reports: Report[] }) => {
 
   return (
     <div>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {cards.map((card, index) => (
-          <div key={index} className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className={`p-3 rounded-full ${card.color} text-white mr-4`}>
-                <span className="text-2xl">{card.icon}</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">{card.title}</p>
-                <p className="text-2xl font-bold text-gray-900">{card.value.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Status Breakdown Table */}
+      <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <h3 className="text-lg font-semibold mb-6 text-gray-900">Reported Schools by Status:</h3>
+        <div className="w-full max-w-md mx-auto">
+          <table className="w-full">
+            <tbody>
+              {Object.entries(statusBreakdown)
+                .sort(([a], [b]) => a.localeCompare(b)) // Sort alphabetically
+                .map(([status, count]) => (
+                <tr key={status} className="border-b border-gray-100">
+                  <td className="py-2 pr-3 text-base font-medium text-gray-700">{status}</td>
+                  <td className="py-2 pl-3 text-base font-semibold text-gray-900 text-right">{count}</td>
+                </tr>
+              ))}
+              {/* Total Reports Row */}
+              <tr className="border-t-2 border-gray-200">
+                <td className="py-3 pr-3 text-base font-semibold text-gray-900">Total Reports</td>
+                <td className="py-3 pl-3 text-lg font-bold text-gray-900 text-right">{stats.totalReports}</td>
+              </tr>
+              {Object.keys(statusBreakdown).length === 0 && (
+                <tr>
+                  <td colSpan={2} className="py-8 text-center text-gray-500">
+                    No reports found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Recent Activity */}
