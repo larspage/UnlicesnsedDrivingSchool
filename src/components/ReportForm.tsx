@@ -167,7 +167,6 @@ const ReportForm: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-6" data-testid="report-form">
         {/* School Details Section */}
         <div className="school-details-card card" data-testid="school-details-card">
-          <h2 className="text-2xl font-semibold text-dim-gray mb-4 pb-2 border-b-2 border-pearl">School Details</h2>
           <div className="table-container overflow-x-auto" data-testid="school-details-table-container">
             <table className="w-full border-collapse" data-testid="school-details-table">
               <colgroup data-testid="school-details-colgroup">
@@ -314,7 +313,7 @@ const ReportForm: React.FC = () => {
               <tr className="border-b border-pearl/50">
                 <td className="py-2 pr-2 align-top">
                   <label htmlFor="violationDescription" className="block text-sm font-medium text-dim-gray text-left pt-2">
-                    Violation Description
+                    Reason for Suspicion
                   </label>
                 </td>
                 <td className="py-2 px-2" colSpan={3}>
