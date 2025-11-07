@@ -1,6 +1,6 @@
-@reference "tailwindcss";
-
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+@reference "tailwindcss";
 
 @tailwind base;
 @tailwind components;
@@ -247,4 +247,19 @@ a.button, a.btn, .btn a {
   input {
     border-width: 2px !important;
   }
+}
+
+/* Line clamp utility for text truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
