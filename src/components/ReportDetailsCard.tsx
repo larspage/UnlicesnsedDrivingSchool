@@ -59,20 +59,21 @@ const ReportDetailsCard: React.FC<ReportDetailsCardProps> = ({ report }) => {
   // Only include Reason in fields if it doesn't get its own row (short descriptions)
   const fieldsForGrid = hasLongDescription ? fields : [...fields, { label: 'Reason', value: reason }];
 
+  // For popup usage, always use compact 2-column table layout
   return (
-    <div className="w-full max-w-6xl mx-auto" data-testid="report-details-card">
-      <div className="card bg-white" data-testid="report-details-container">
-        {/* Small screens: 2-column table */}
-        <div className="md:hidden table-container overflow-x-auto" data-testid="report-details-table-container">
+    <div className="w-full" data-testid="report-details-card">
+      <div className="bg-white" data-testid="report-details-container">
+        {/* Always use compact table layout for popup */}
+        <div className="table-container" data-testid="report-details-table-container">
           <table className="w-full border-collapse table-fixed" data-testid="report-details-table">
             <colgroup data-testid="report-details-colgroup">
-              <col className="w-[30%]" data-testid="label-col" />
-              <col className="w-[70%]" data-testid="value-col" />
+              <col className="w-[35%]" data-testid="label-col" />
+              <col className="w-[65%]" data-testid="value-col" />
             </colgroup>
             <tbody>
               {/* School Name - Bold and Centered */}
               <tr>
-                <td colSpan={2} className="py-2 px-0 text-center">
+                <td colSpan={2} className="py-2 px-2 text-center">
                   <span className="text-sm font-bold text-gray-900 break-words">
                     {report.schoolName || 'N/A'}
                   </span>
@@ -82,11 +83,11 @@ const ReportDetailsCard: React.FC<ReportDetailsCardProps> = ({ report }) => {
               {/* Reason: separate row ONLY for long descriptions */}
               {hasLongDescription && (
                 <tr data-testid="reason-row">
-                  <td className="py-1 pr-2 align-top">
-                    <span className="block text-xs font-medium text-dim-gray">Reason</span>
+                  <td className="py-1 px-2 align-top">
+                    <span className="block text-xs font-medium text-gray-600">Reason</span>
                   </td>
-                  <td className="py-1 pl-2">
-                    <span className="text-xs text-gray-900 break-words">
+                  <td className="py-1 px-2">
+                    <span className="text-xs text-gray-900 break-words leading-tight">
                       {reason}
                     </span>
                   </td>
@@ -96,11 +97,11 @@ const ReportDetailsCard: React.FC<ReportDetailsCardProps> = ({ report }) => {
               {/* Other fields (including Reason for short descriptions) */}
               {fieldsForGrid.filter(field => field.label !== 'School Name').map((field, index) => (
                 <tr key={`field-${index}`}>
-                  <td className="py-1 pr-2 align-top">
-                    <span className="block text-xs font-medium text-dim-gray">{field.label}</span>
+                  <td className="py-1 px-2 align-top">
+                    <span className="block text-xs font-medium text-gray-600 leading-tight">{field.label}</span>
                   </td>
-                  <td className="py-1 pl-2">
-                    <span className="text-xs text-gray-900 break-words">
+                  <td className="py-1 px-2">
+                    <span className="text-xs text-gray-900 break-words leading-tight">
                       {typeof field.value === 'string' ? field.value : field.value}
                     </span>
                   </td>
@@ -108,44 +109,6 @@ const ReportDetailsCard: React.FC<ReportDetailsCardProps> = ({ report }) => {
               ))}
             </tbody>
           </table>
-        </div>
-
-        {/* Medium+ screens: 3-column grid */}
-        <div className="hidden md:block" data-testid="report-details-grid-container">
-          <div className="space-y-1" data-testid="report-details-grid">
-            {/* School Name - Bold and Centered */}
-            <div className="py-2 text-center col-span-3">
-              <span className="text-sm font-bold text-gray-900 break-words">
-                {report.schoolName || 'N/A'}
-              </span>
-            </div>
-            
-            {/* Reason: separate row ONLY for long descriptions */}
-            {hasLongDescription && (
-              <div className="col-span-3 py-1" data-testid="reason-row">
-                <div className="flex">
-                  <span className="text-xs font-medium text-dim-gray mr-1 flex-shrink-0">Reason:</span>
-                  <span className="text-xs text-gray-900 break-words flex-1">
-                    {reason}
-                  </span>
-                </div>
-              </div>
-            )}
-            
-            {/* Other fields in 3-column grid (including Reason for short descriptions) */}
-            <div className="grid grid-cols-3 gap-x-6 gap-y-1">
-              {fieldsForGrid.filter(field => field.label !== 'School Name').map((field, index) => (
-                <div key={index} className="py-0.5" data-testid={`field-${index}`}>
-                  <div className="flex">
-                    <span className="text-xs font-medium text-dim-gray mr-1 flex-shrink-0">{field.label}:</span>
-                    <span className="text-xs text-gray-900 break-words flex-1">
-                      {typeof field.value === 'string' ? field.value : field.value}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
