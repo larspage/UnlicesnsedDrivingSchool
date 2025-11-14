@@ -4,6 +4,7 @@
   "description": "NJDSC School Compliance Portal - Web platform for reporting unlicensed driving schools",
   "main": "server/app.js",
   "scripts": {
+    "start-clean": "pwsh -NoProfile -File ./scripts/start-clean.ps1",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "nodemon server/app.js",
     "dev:client": "vite",

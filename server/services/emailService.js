@@ -7,6 +7,8 @@
 
 const nodemailer = require('nodemailer');
 const configService = require('./configService');
+const { success, failure, attempt, attemptAsync, isSuccess } = require('../utils/result');
+const { validationError, notFoundError, databaseError, validateRequired, ERROR_CODES } = require('../utils/errorUtils');
 
 // Environment variables
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -139,12 +141,31 @@ function substituteVariables(template, variables) {
  * @param {string} [options.cc] - CC recipients
  * @param {string} [options.bcc] - BCC recipients
  * @param {string} [options.from] - Sender email address
- * @returns {boolean} Success status
- * @throws {Error} If sending fails
+ * @returns {Promise<Result<Object>>} Email result or error
  */
 async function sendEmail(to, subject, body, options = {}) {
-  try {
-    validateEmailParams(to, subject, body);
+  return attemptAsync(async () => {
+    // Structured input validation
+    const toError = validateRequired(to, 'Recipient email', 'valid email address');
+    if (toError) throw toError;
+
+    if (typeof to !== 'string' || !isValidEmail(to)) {
+      throw validationError('to', 'Recipient email must be a valid email address', to, 'email');
+    }
+
+    const subjectError = validateRequired(subject, 'Email subject', 'non-empty string');
+    if (subjectError) throw subjectError;
+
+    if (typeof subject !== 'string' || subject.trim().length === 0) {
+      throw validationError('subject', 'Email subject must be a non-empty string', subject, 'string');
+    }
+
+    const bodyError = validateRequired(body, 'Email body', 'non-empty string');
+    if (bodyError) throw bodyError;
+
+    if (typeof body !== 'string' || body.trim().length === 0) {
+      throw validationError('body', 'Email body must be a non-empty string', body, 'string');
+    }
 
     const mailOptions = {
       from: options.from || EMAIL_FROM,
@@ -171,11 +192,21 @@ async function sendEmail(to, subject, body, options = {}) {
       response: info.response
     });
 
-    return true;
+    return {
+      success: true,
+      messageId: info.messageId,
+      response: info.response,
+      to,
+      subject,
+      from: mailOptions.from
+    };
 
-  } catch (error) {
-    handleEmailError(error, 'sendEmail');
-  }
+  }, { operation: 'sendEmail', details: {
+    to: to?.trim(),
+    subject: subject?.trim(),
+    hasBody: !!body?.trim(),
+    hasOptions: !!options.cc || !!options.bcc || !!options.from
+  } });
 }
 
 /**
@@ -184,25 +215,50 @@ async function sendEmail(to, subject, body, options = {}) {
  * @param {Object} variables - Variables for substitution
  * @param {string} recipient - Primary recipient email
  * @param {Object} [options] - Additional options
- * @returns {boolean} Success status
- * @throws {Error} If template not found or sending fails
+ * @returns {Promise<Result<Object>>} Email result or error
  */
 async function sendTemplatedEmail(templateKey, variables, recipient, options = {}) {
-  try {
-    if (!templateKey || typeof templateKey !== 'string') {
-      throw new Error('Invalid template key: must be a non-empty string');
+  return attemptAsync(async () => {
+    // Structured input validation
+    const templateKeyError = validateRequired(templateKey, 'Template key', 'non-empty string');
+    if (templateKeyError) throw templateKeyError;
+
+    if (typeof templateKey !== 'string' || templateKey.trim().length === 0) {
+      throw validationError('templateKey', 'Template key must be a non-empty string', templateKey, 'string');
     }
 
-    if (!variables || typeof variables !== 'object') {
-      throw new Error('Invalid variables: must be an object');
+    const variablesError = validateRequired(variables, 'Template variables', 'object');
+    if (variablesError) throw variablesError;
+
+    if (typeof variables !== 'object' || variables === null) {
+      throw validationError('variables', 'Template variables must be an object', variables, 'object');
+    }
+
+    const recipientError = validateRequired(recipient, 'Recipient email', 'valid email address');
+    if (recipientError) throw recipientError;
+
+    if (typeof recipient !== 'string' || !isValidEmail(recipient)) {
+      throw validationError('recipient', 'Recipient must be a valid email address', recipient, 'email');
     }
 
     // Get template from configuration
-    const subjectTemplate = await configService.getConfig(`email.templates.${templateKey}.subject`);
-    const bodyTemplate = await configService.getConfig(`email.templates.${templateKey}.body`);
+    const subjectTemplateResult = await configService.getConfig(`email.templates.${templateKey}.subject`);
+    if (!isSuccess(subjectTemplateResult)) {
+      throw databaseError(`Failed to retrieve subject template for ${templateKey}`, subjectTemplateResult.error);
+    }
+    const subjectTemplate = subjectTemplateResult.data;
+
+    const bodyTemplateResult = await configService.getConfig(`email.templates.${templateKey}.body`);
+    if (!isSuccess(bodyTemplateResult)) {
+      throw databaseError(`Failed to retrieve body template for ${templateKey}`, bodyTemplateResult.error);
+    }
+    const bodyTemplate = bodyTemplateResult.data;
 
     if (!subjectTemplate || !bodyTemplate) {
-      throw new Error(`Email template '${templateKey}' not found in configuration`);
+      throw notFoundError('Email template', templateKey, {
+        subjectExists: !!subjectTemplate,
+        bodyExists: !!bodyTemplate
+      });
     }
 
     // Substitute variables
@@ -216,25 +272,39 @@ async function sendTemplatedEmail(templateKey, variables, recipient, options = {
     });
 
     // Send the email
-    return await sendEmail(recipient, subject, body, options);
-
-  } catch (error) {
-    if (error.message.includes('template') || error.message.includes('variables')) {
-      throw error; // Re-throw validation errors
+    const emailResult = await sendEmail(recipient, subject, body, options);
+    if (!isSuccess(emailResult)) {
+      throw emailResult.error;
     }
-    handleEmailError(error, 'sendTemplatedEmail');
-  }
+
+    return {
+      ...emailResult.data,
+      templateKey,
+      variables
+    };
+
+  }, { operation: 'sendTemplatedEmail', details: {
+    templateKey,
+    recipient,
+    variableCount: variables ? Object.keys(variables).length : 0,
+    hasOptions: Object.keys(options || {}).length > 0
+  } });
 }
 
 /**
  * Retrieves available email templates from configuration
- * @returns {Object} Object with template keys and their subject/body
+ * @returns {Promise<Result<Object>>} Object with template keys and their subject/body or error
  */
 async function getEmailTemplates() {
-  try {
+  return attemptAsync(async () => {
     logOperation('getEmailTemplates');
 
-    const allConfig = await configService.getAllConfig();
+    const allConfigResult = await configService.getAllConfig();
+    if (!isSuccess(allConfigResult)) {
+      throw databaseError('Failed to retrieve configuration for email templates', allConfigResult.error);
+    }
+    const allConfig = allConfigResult.data;
+
     const templates = {};
 
     // Group template configurations by key
@@ -260,10 +330,7 @@ async function getEmailTemplates() {
 
     return templates;
 
-  } catch (error) {
-    logOperation('getEmailTemplates', { error: error.message });
-    throw new Error(`Failed to retrieve email templates: ${error.message}`);
-  }
+  }, { operation: 'getEmailTemplates' });
 }
 
 /**

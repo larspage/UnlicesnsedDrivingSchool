@@ -7,6 +7,8 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const { attemptAsync, isSuccess } = require('../utils/result');
+const { createError, ERROR_CODES } = require('../utils/errorUtils');
 
 // Configuration - read dynamically to allow testing
 const getDataDir = () => {
@@ -414,10 +416,12 @@ async function writeJsonFile(filename, data) {
  * Gets all rows from a "sheet" (JSON file)
  * @param {string} spreadsheetId - Ignored (for compatibility)
  * @param {string} sheetName - Name of the JSON file (without .json extension)
- * @returns {Promise<Array>} Array of data objects
+ * @returns {Promise<Result<Array>>} Array of data objects or error
  */
 async function getAllRows(spreadsheetId, sheetName) {
-  return await readJsonFile(sheetName);
+  return attemptAsync(async () => {
+    return await readJsonFile(sheetName);
+  }, { operation: 'getAllRows', details: { sheetName } });
 }
 
 /**
@@ -425,13 +429,15 @@ async function getAllRows(spreadsheetId, sheetName) {
  * @param {string} spreadsheetId - Ignored (for compatibility)
  * @param {string} sheetName - Name of the JSON file (without .json extension)
  * @param {Object} data - Data object to append
- * @returns {Promise<Object>} The appended data object
+ * @returns {Promise<Result<Object>>} The appended data object or error
  */
 async function appendRow(spreadsheetId, sheetName, data) {
-  const rows = await readJsonFile(sheetName);
-  rows.push(data);
-  await writeJsonFile(sheetName, rows);
-  return data;
+  return attemptAsync(async () => {
+    const rows = await readJsonFile(sheetName);
+    rows.push(data);
+    await writeJsonFile(sheetName, rows);
+    return data;
+  }, { operation: 'appendRow', details: { sheetName, hasData: !!data } });
 }
 
 /**
@@ -440,20 +446,29 @@ async function appendRow(spreadsheetId, sheetName, data) {
  * @param {string} sheetName - Name of the JSON file (without .json extension)
  * @param {string} rowId - ID of the row to update
  * @param {Object} data - Updated data object
- * @returns {Promise<Object>} The updated data object
- * @throws {Error} If row not found
+ * @returns {Promise<Result<Object>>} The updated data object or error
  */
 async function updateRow(spreadsheetId, sheetName, rowId, data) {
-  const rows = await readJsonFile(sheetName);
-  const index = rows.findIndex(row => row.id === rowId);
+  return attemptAsync(async () => {
+    if (!rowId) {
+      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId', actualValue: rowId });
+    }
+    
+    const rows = await readJsonFile(sheetName);
+    const index = rows.findIndex(row => row.id === rowId);
 
-  if (index === -1) {
-    throw new Error(`Row with ID ${rowId} not found in ${sheetName}`);
-  }
+    if (index === -1) {
+      throw createError('NOT_FOUND', `Row with ID ${rowId} not found in ${sheetName}`, {
+        resourceType: 'Row',
+        resourceId: rowId,
+        sheetName
+      });
+    }
 
-  rows[index] = { ...rows[index], ...data };
-  await writeJsonFile(sheetName, rows);
-  return rows[index];
+    rows[index] = { ...rows[index], ...data };
+    await writeJsonFile(sheetName, rows);
+    return rows[index];
+  }, { operation: 'updateRow', details: { sheetName, rowId } });
 }
 
 /**
@@ -461,19 +476,29 @@ async function updateRow(spreadsheetId, sheetName, rowId, data) {
  * @param {string} spreadsheetId - Ignored (for compatibility)
  * @param {string} sheetName - Name of the JSON file (without .json extension)
  * @param {string} rowId - ID of the row to delete
- * @returns {Promise<boolean>} True if row was deleted
+ * @returns {Promise<Result<boolean>>} True if row was deleted or error
  */
 async function deleteRow(spreadsheetId, sheetName, rowId) {
-  const rows = await readJsonFile(sheetName);
-  const initialLength = rows.length;
-  const filteredRows = rows.filter(row => row.id !== rowId);
+  return attemptAsync(async () => {
+    if (!rowId) {
+      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId', actualValue: rowId });
+    }
+    
+    const rows = await readJsonFile(sheetName);
+    const initialLength = rows.length;
+    const filteredRows = rows.filter(row => row.id !== rowId);
 
-  if (filteredRows.length === initialLength) {
-    return false; // Row not found
-  }
+    if (filteredRows.length === initialLength) {
+      throw createError('NOT_FOUND', `Row with ID ${rowId} not found in ${sheetName}`, {
+        resourceType: 'Row',
+        resourceId: rowId,
+        sheetName
+      });
+    }
 
-  await writeJsonFile(sheetName, filteredRows);
-  return true;
+    await writeJsonFile(sheetName, filteredRows);
+    return true;
+  }, { operation: 'deleteRow', details: { sheetName, rowId } });
 }
 
 /**
@@ -481,11 +506,17 @@ async function deleteRow(spreadsheetId, sheetName, rowId) {
  * @param {string} spreadsheetId - Ignored (for compatibility)
  * @param {string} sheetName - Name of the JSON file (without .json extension)
  * @param {string} rowId - ID of the row to find
- * @returns {Promise<Object|null>} The found row or null
+ * @returns {Promise<Result<Object|null>>} The found row or null, or error
  */
 async function findRowById(spreadsheetId, sheetName, rowId) {
-  const rows = await readJsonFile(sheetName);
-  return rows.find(row => row.id === rowId) || null;
+  return attemptAsync(async () => {
+    if (!rowId) {
+      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId', actualValue: rowId });
+    }
+    
+    const rows = await readJsonFile(sheetName);
+    return rows.find(row => row.id === rowId) || null;
+  }, { operation: 'findRowById', details: { sheetName, rowId } });
 }
 
 /**
@@ -493,28 +524,36 @@ async function findRowById(spreadsheetId, sheetName, rowId) {
  * @param {string} spreadsheetId - Ignored (for compatibility)
  * @param {string} sheetName - Name of the JSON file (without .json extension)
  * @param {Function} filterFn - Filter function
- * @returns {Promise<Array>} Array of matching rows
+ * @returns {Promise<Result<Array>>} Array of matching rows or error
  */
 async function getRowsByFilter(spreadsheetId, sheetName, filterFn) {
-  const rows = await readJsonFile(sheetName);
-  return rows.filter(filterFn);
+  return attemptAsync(async () => {
+    if (!filterFn || typeof filterFn !== 'function') {
+      throw createError('VALIDATION_ERROR', 'Filter function is required', { field: 'filterFn', actualValue: filterFn });
+    }
+    
+    const rows = await readJsonFile(sheetName);
+    return rows.filter(filterFn);
+  }, { operation: 'getRowsByFilter', details: { sheetName } });
 }
 
 /**
  * Ensures a "sheet" (JSON file) exists
  * @param {string} spreadsheetId - Ignored (for compatibility)
  * @param {string} sheetName - Name of the JSON file (without .json extension)
- * @returns {Promise<void>}
+ * @returns {Promise<Result<void>>} Success or error
  */
 async function ensureSheetExists(spreadsheetId, sheetName) {
-  const filePath = path.join(getDataDir(), `${sheetName}.json`);
+  return attemptAsync(async () => {
+    const filePath = path.join(getDataDir(), `${sheetName}.json`);
 
-  try {
-    await fs.access(filePath);
-  } catch (error) {
-    // File doesn't exist, create it with empty array
-    await writeJsonFile(sheetName, []);
-  }
+    try {
+      await fs.access(filePath);
+    } catch (error) {
+      // File doesn't exist, create it with empty array
+      await writeJsonFile(sheetName, []);
+    }
+  }, { operation: 'ensureSheetExists', details: { sheetName } });
 }
 
 module.exports = {
