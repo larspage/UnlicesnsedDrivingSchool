@@ -1,0 +1,276 @@
+// Result Object Pattern Utilities
+// This module provides utility functions for creating and working with Result objects
+
+import { Result, ResultSuccess, ResultFailure, ResultError } from '../types/result';
+
+/**
+ * Creates a successful Result object
+ */
+export function success<T>(data: T): ResultSuccess<T> {
+  return {
+    success: true,
+    data,
+    error: null
+  };
+}
+
+/**
+ * Creates a failed Result object
+ */
+export function failure(
+  code: string,
+  message: string,
+  innerError: Error,
+  details?: any
+): ResultFailure {
+  return {
+    success: false,
+    data: null,
+    error: {
+      code,
+      message,
+      details,
+      innerError
+    }
+  };
+}
+
+/**
+ * Creates a Result object from a try-catch block
+ */
+export function attempt<T>(
+  operation: () => T,
+  context: { operation: string; details?: any } = { operation: 'unknown' }
+): Result<T> {
+  try {
+    const data = operation();
+    return success(data);
+  } catch (error) {
+    const typedError = error instanceof Error ? error : new Error(String(error));
+    const errorCode = getErrorCode(typedError, context.operation);
+    return failure(
+      errorCode,
+      typedError.message,
+      typedError,
+      { ...context.details, operation: context.operation }
+    );
+  }
+}
+
+/**
+ * Creates a Result object from an async try-catch block
+ */
+export async function attemptAsync<T>(
+  operation: () => Promise<T>,
+  context: { operation: string; details?: any } = { operation: 'unknown' }
+): Promise<Result<T>> {
+  try {
+    const data = await operation();
+    return success(data);
+  } catch (error) {
+    const typedError = error instanceof Error ? error : new Error(String(error));
+    const errorCode = getErrorCode(typedError, context.operation);
+    return failure(
+      errorCode,
+      typedError.message,
+      typedError,
+      { ...context.details, operation: context.operation }
+    );
+  }
+}
+
+/**
+ * Determines the appropriate error code based on the error and context
+ */
+function getErrorCode(error: Error, operation: string): string {
+  const errorMessage = error.message.toLowerCase();
+  
+  // Operation-specific error code mapping
+  switch (operation.toLowerCase()) {
+    case 'validation':
+    case 'validate':
+      return 'VALIDATION_ERROR';
+    
+    case 'find':
+    case 'get':
+      if (errorMessage.includes('not found') || errorMessage.includes('no such file')) {
+        return 'NOT_FOUND';
+      }
+      return 'DATABASE_ERROR';
+    
+    case 'create':
+    case 'insert':
+      if (errorMessage.includes('already exists') || errorMessage.includes('duplicate')) {
+        return 'ALREADY_EXISTS';
+      }
+      return 'DATABASE_ERROR';
+    
+    case 'update':
+    case 'save':
+      return 'DATABASE_ERROR';
+    
+    case 'delete':
+      return 'DATABASE_ERROR';
+    
+    case 'auth':
+    case 'login':
+    case 'authenticate':
+      if (errorMessage.includes('invalid') || errorMessage.includes('wrong')) {
+        return 'AUTHENTICATION_ERROR';
+      }
+      if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+        return 'AUTHORIZATION_ERROR';
+      }
+      return 'AUTHENTICATION_ERROR';
+    
+    case 'file':
+    case 'upload':
+    case 'download':
+      if (errorMessage.includes('not found')) {
+        return 'NOT_FOUND';
+      }
+      if (errorMessage.includes('permission') || errorMessage.includes('access denied')) {
+        return 'FILE_SYSTEM_ERROR';
+      }
+      return 'FILE_SYSTEM_ERROR';
+    
+    case 'email':
+    case 'send':
+      return 'EMAIL_ERROR';
+    
+    case 'config':
+    case 'configuration':
+      return 'CONFIGURATION_ERROR';
+    
+    default:
+      // Generic error code based on error message patterns
+      if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+        return 'NETWORK_ERROR';
+      }
+      if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+        return 'AUTHORIZATION_ERROR';
+      }
+      if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+        return 'VALIDATION_ERROR';
+      }
+      return 'SYSTEM_ERROR';
+  }
+}
+
+/**
+ * Utility function to check if a Result is successful
+ */
+export function isSuccess<T>(result: Result<T>): result is ResultSuccess<T> {
+  return result.success;
+}
+
+/**
+ * Utility function to check if a Result is a failure
+ */
+export function isFailure<T>(result: Result<T>): result is ResultFailure {
+  return !result.success;
+}
+
+/**
+ * Utility function to unwrap a Result, throwing if it's a failure
+ */
+export function unwrap<T>(result: Result<T>): T {
+  if (!result.success) {
+    throw new Error(`Unwrapping failed Result: ${result.error.message}`, {
+      cause: result.error.innerError
+    });
+  }
+  return result.data;
+}
+
+/**
+ * Utility function to unwrap a Result with a fallback value
+ */
+export function unwrapOr<T>(result: Result<T>, fallback: T): T {
+  return result.success ? result.data : fallback;
+}
+
+/**
+ * Maps a successful Result to a new value
+ */
+export function map<T, U>(
+  result: Result<T>,
+  fn: (data: T) => U
+): Result<U> {
+  if (!result.success) {
+    return result as ResultFailure;
+  }
+  return success(fn(result.data));
+}
+
+/**
+ * Chains Result operations - if the first is successful, applies the second function
+ */
+export function chain<T, U>(
+  result: Result<T>,
+  fn: (data: T) => Result<U>
+): Result<U> {
+  if (!result.success) {
+    return result as ResultFailure;
+  }
+  return fn(result.data);
+}
+
+/**
+ * Creates a Result that contains either the success value or the failure error
+ */
+export function fromTry<T>(operation: () => T): Result<T> {
+  return attempt(operation, { operation: 'fromTry' });
+}
+
+/**
+ * Creates a Result that contains either the async success value or the failure error
+ */
+export async function fromTryAsync<T>(operation: () => Promise<T>): Promise<Result<T>> {
+  return attemptAsync(operation, { operation: 'fromTryAsync' });
+}
+
+/**
+ * Validates input and returns a Result with validation error if invalid
+ */
+export function validateInput<T>(
+  value: T,
+  validator: (value: T) => boolean,
+  errorMessage: string = 'Invalid input',
+  details?: any
+): Result<T> {
+  if (validator(value)) {
+    return success(value);
+  }
+  return failure(
+    'VALIDATION_ERROR',
+    errorMessage,
+    new Error(errorMessage),
+    details
+  );
+}
+
+/**
+ * HTTP status code mapping for Result error codes
+ */
+export const HTTP_STATUS_MAP: Record<string, number> = {
+  VALIDATION_ERROR: 400,
+  MISSING_REQUIRED_FIELD: 400,
+  INVALID_FORMAT: 400,
+  NOT_FOUND: 404,
+  ALREADY_EXISTS: 409,
+  CONFLICT: 409,
+  AUTHENTICATION_ERROR: 401,
+  AUTHORIZATION_ERROR: 403,
+  INSUFFICIENT_PERMISSIONS: 403,
+  DATABASE_ERROR: 500,
+  FILE_SYSTEM_ERROR: 500,
+  NETWORK_ERROR: 500,
+  CONFIGURATION_ERROR: 500,
+  RATE_LIMIT_ERROR: 429,
+  EMAIL_ERROR: 500,
+  SYSTEM_ERROR: 500,
+  INVALID_OPERATION: 400,
+  STATE_MISMATCH: 409,
+  DEPENDENCY_ERROR: 500
+};

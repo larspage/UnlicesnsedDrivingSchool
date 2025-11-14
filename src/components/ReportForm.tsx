@@ -76,8 +76,10 @@ const ReportForm: React.FC = () => {
     if (formData.websiteUrl && !/^https?:\/\/.+/.test(formData.websiteUrl)) {
       newErrors.websiteUrl = 'Please enter a valid URL';
     }
-    if (formData.reporterPhone && !/^[\+]?[1-9][\d]{0,15}$/.test(formData.reporterPhone.replace(/[\s\-\(\)]/g, ''))) {
-      newErrors.reporterPhone = 'Please enter a valid reporter phone number';
+    if (!formData.reporterPhone.trim()) {
+      newErrors.reporterPhone = 'Phone number is required';
+    } else if (!/^[\+]?[1-9][\d]{0,15}$/.test(formData.reporterPhone.replace(/[\s\-\(\)]/g, ''))) {
+      newErrors.reporterPhone = 'Please enter a valid phone number';
     }
     if (formData.reporterEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.reporterEmail)) {
       newErrors.reporterEmail = 'Please enter a valid email address';
@@ -398,7 +400,7 @@ const ReportForm: React.FC = () => {
                   </td>
                   <td className="py-3 px-3 align-top hidden lg:table-cell">
                     <label htmlFor="reporterPhone" className="block text-sm font-medium text-dim-gray text-left pt-2">
-                      Your Phone
+                      Your Phone <span className="text-red-500">*</span>
                     </label>
                   </td>
                   <td className="py-3 pl-2 hidden lg:table-cell">
@@ -413,6 +415,7 @@ const ReportForm: React.FC = () => {
                       }`}
                       placeholder="+1-555-987-6543"
                     />
+                    <p className="mt-1 text-xs text-dim-gray/70">You will be required to confirm via text that this is your phone number</p>
                     {errors.reporterPhone && <p className="mt-1 text-xs text-red-500">{errors.reporterPhone}</p>}
                   </td>
                 </tr>
@@ -421,7 +424,7 @@ const ReportForm: React.FC = () => {
                 <tr className="border-b border-pearl/50 lg:hidden">
                   <td className="py-3 pr-3 align-top">
                     <label htmlFor="reporterPhone-sm" className="block text-sm font-medium text-dim-gray text-left pt-2">
-                      Your Phone
+                      Your Phone <span className="text-red-500">*</span>
                     </label>
                   </td>
                   <td className="py-3 px-3" colSpan={3}>
@@ -436,6 +439,7 @@ const ReportForm: React.FC = () => {
                       }`}
                       placeholder="+1-555-987-6543"
                     />
+                    <p className="mt-1 text-xs text-dim-gray/70">You will be required to confirm via text that this is your phone number</p>
                     {errors.reporterPhone && <p className="mt-1 text-xs text-red-500">{errors.reporterPhone}</p>}
                   </td>
                 </tr>

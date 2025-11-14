@@ -1,11 +1,13 @@
 /**
  * Audit Service for NJDSC School Compliance Portal
  *
- * Manages audit logs stored in Google Sheets with caching
+ * Manages audit logs stored in local JSON with caching
  * and provides CRUD operations for audit log management.
  */
 
 const localJsonService = require('./localJsonService');
+const { success, failure, attempt, attemptAsync, isSuccess } = require('../utils/result');
+const { validationError, notFoundError, databaseError, validateRequired, ERROR_CODES } = require('../utils/errorUtils');
 
 // Configuration constants
 const AUDIT_DATA_FILE = 'audit';
@@ -274,63 +276,74 @@ async function saveAuditLogToJson(entry) {
  * @param {string} [filters.dateTo] - Filter by end date
  * @param {string} [filters.searchTerm] - Search term for details/admin user/target ID
  * @param {number} [filters.limit] - Maximum number of logs to return
- * @returns {Array<AuditLogEntry>} Filtered audit log entries
+ * @returns {Promise<Result<Array<AuditLogEntry>>>} Filtered audit log entries or error
  */
 async function getAuditLogs(filters = {}) {
-  logOperation('getAuditLogs', { filters });
+  return attemptAsync(async () => {
+    logOperation('getAuditLogs', { filters });
 
-  // Check cache first (only for unfiltered requests)
-  if (!filters || Object.keys(filters).length === 0) {
-    const cachedLogs = getCachedAuditLogs();
-    if (cachedLogs) {
-      logOperation('getAuditLogs', { source: 'cache', count: cachedLogs.length });
-      return cachedLogs;
+    // Check cache first (only for unfiltered requests)
+    if (!filters || Object.keys(filters).length === 0) {
+      const cachedLogs = getCachedAuditLogs();
+      if (cachedLogs) {
+        logOperation('getAuditLogs', { source: 'cache', count: cachedLogs.length });
+        return cachedLogs;
+      }
     }
-  }
 
-  // Get from JSON
-  const allLogs = await getAllAuditLogsFromJson({ limit: filters.limit });
-  let filteredLogs = [...allLogs];
+    // Get from JSON
+    const allLogsResult = await getAllAuditLogsFromJson({ limit: filters?.limit });
+    if (!isSuccess(allLogsResult)) {
+      throw databaseError('Failed to retrieve audit logs from storage', allLogsResult.error);
+    }
+    const allLogs = allLogsResult.data;
+    let filteredLogs = [...allLogs];
 
-  // Apply filters
-  if (filters.action) {
-    filteredLogs = filteredLogs.filter(log => log.action === filters.action);
-  }
+    // Apply filters
+    if (filters?.action) {
+      filteredLogs = filteredLogs.filter(log => log.action === filters.action);
+    }
 
-  if (filters.adminUser) {
-    filteredLogs = filteredLogs.filter(log =>
-      log.adminUser.toLowerCase().includes(filters.adminUser.toLowerCase())
-    );
-  }
+    if (filters?.adminUser) {
+      filteredLogs = filteredLogs.filter(log =>
+        log.adminUser.toLowerCase().includes(filters.adminUser.toLowerCase())
+      );
+    }
 
-  if (filters.targetType) {
-    filteredLogs = filteredLogs.filter(log => log.targetType === filters.targetType);
-  }
+    if (filters?.targetType) {
+      filteredLogs = filteredLogs.filter(log => log.targetType === filters.targetType);
+    }
 
-  if (filters.dateFrom) {
-    filteredLogs = filteredLogs.filter(log => log.timestamp >= filters.dateFrom);
-  }
+    if (filters?.dateFrom) {
+      filteredLogs = filteredLogs.filter(log => log.timestamp >= filters.dateFrom);
+    }
 
-  if (filters.dateTo) {
-    filteredLogs = filteredLogs.filter(log => log.timestamp <= filters.dateTo);
-  }
+    if (filters?.dateTo) {
+      filteredLogs = filteredLogs.filter(log => log.timestamp <= filters.dateTo);
+    }
 
-  if (filters.searchTerm) {
-    const searchLower = filters.searchTerm.toLowerCase();
-    filteredLogs = filteredLogs.filter(log =>
-      log.details.toLowerCase().includes(searchLower) ||
-      log.adminUser.toLowerCase().includes(searchLower) ||
-      (log.targetId && log.targetId.toLowerCase().includes(searchLower))
-    );
-  }
+    if (filters?.searchTerm) {
+      const searchLower = filters.searchTerm.toLowerCase();
+      filteredLogs = filteredLogs.filter(log =>
+        log.details.toLowerCase().includes(searchLower) ||
+        log.adminUser.toLowerCase().includes(searchLower) ||
+        (log.targetId && log.targetId.toLowerCase().includes(searchLower))
+      );
+    }
 
-  // Cache unfiltered results
-  if (!filters || Object.keys(filters).length === 0) {
-    setCachedAuditLogs(filteredLogs);
-  }
+    // Cache unfiltered results
+    if (!filters || Object.keys(filters).length === 0) {
+      setCachedAuditLogs(filteredLogs);
+    }
 
-  logOperation('getAuditLogs', { totalLogs: allLogs.length, filteredLogs: filteredLogs.length, source: 'sheets' });
-  return filteredLogs;
+    logOperation('getAuditLogs', { totalLogs: allLogs.length, filteredLogs: filteredLogs.length, source: 'sheets' });
+    return filteredLogs;
+
+  }, { operation: 'getAuditLogs', details: {
+    hasFilters: filters ? Object.keys(filters).length > 0 : false,
+    filterCount: filters ? Object.keys(filters).length : 0,
+    limit: filters?.limit
+  } });
 }
 
 /**
@@ -344,34 +357,57 @@ async function getAuditLogs(filters = {}) {
  * @param {string} [entryData.ipAddress] - IP address of the admin
  * @param {Object|null} [entryData.changes] - Object describing what changed
  * @param {Object|null} [entryData.metadata] - Additional metadata
- * @returns {AuditLogEntry} The created audit log entry
+ * @returns {Promise<Result<AuditLogEntry>>} The created audit log entry or error
  */
 async function createAuditLog(entryData) {
-  const entry = {
-    id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    timestamp: new Date().toISOString(),
-    adminUser: entryData.adminUser || 'system',
-    ipAddress: entryData.ipAddress || '127.0.0.1',
-    changes: entryData.changes || null,
-    metadata: entryData.metadata || null,
-    ...entryData
-  };
+  return attemptAsync(async () => {
+    const entry = {
+      id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date().toISOString(),
+      adminUser: entryData?.adminUser || 'system',
+      ipAddress: entryData?.ipAddress || '127.0.0.1',
+      changes: entryData?.changes || null,
+      metadata: entryData?.metadata || null,
+      ...entryData
+    };
 
-  // Validate required fields
-  if (!entry.action || !entry.targetType || !entry.details) {
-    throw new Error('Missing required audit log fields: action, targetType, details');
-  }
+    // Structured validation of required fields
+    const requiredFields = ['action', 'targetType', 'details'];
+    const missingFields = [];
 
-  const savedEntry = await saveAuditLogToJson(entry);
+    requiredFields.forEach(field => {
+      if (!entry[field] || (typeof entry[field] === 'string' && entry[field].trim().length === 0)) {
+        missingFields.push(field);
+      }
+    });
 
-  logOperation('createAuditLog', {
-    id: entry.id,
-    action: entry.action,
-    adminUser: entry.adminUser,
-    success: true
-  });
+    if (missingFields.length > 0) {
+      throw validationError('audit_entry', `Missing required audit log fields: ${missingFields.join(', ')}`,
+        { entryData, missingFields }, 'validation_error');
+    }
 
-  return savedEntry;
+    const saveResult = await saveAuditLogToJson(entry);
+    if (!isSuccess(saveResult)) {
+      throw databaseError('Failed to save audit log entry', saveResult.error);
+    }
+    const savedEntry = saveResult.data;
+
+    logOperation('createAuditLog', {
+      id: entry.id,
+      action: entry.action,
+      adminUser: entry.adminUser,
+      success: true
+    });
+
+    return savedEntry;
+
+  }, { operation: 'createAuditLog', details: {
+    action: entryData?.action,
+    adminUser: entryData?.adminUser,
+    targetType: entryData?.targetType,
+    hasMetadata: !!entryData?.metadata,
+    hasChanges: !!entryData?.changes
+  } });
 }
 
 /**
