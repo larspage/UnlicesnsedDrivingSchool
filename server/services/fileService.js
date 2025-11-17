@@ -95,7 +95,17 @@ async function uploadFile(file, fileName, mimeType, reportId, uploadedByIp = nul
     await localFileService.ensureUploadsDirectory();
 
     // Upload file to local storage
-    const fileData = await localFileService.uploadFile(fileBuffer, fileName, mimeType, reportId);
+    let fileData;
+    try {
+      fileData = await localFileService.uploadFile(fileBuffer, fileName, mimeType, reportId);
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('access denied') || err.code === 'EACCES') {
+        throw fileError('upload', 'Permission denied', { reportId, fileName, mimeType }, err);
+      }
+      // For any other upload failure, use FILE_UPLOAD_FAILED
+      throw fileError('upload', msg, { reportId, fileName, mimeType }, err);
+    }
 
     // Create file record with local storage data
     const fileRecordData = {
@@ -394,7 +404,7 @@ async function validateFileUpload(reportId, fileSize, mimeType) {
     // Check file count limit per report
     const existingFilesResult = await getFilesByReportId(reportId);
     if (!isSuccess(existingFilesResult)) {
-      throw existingFilesResult.error.innerError;
+      throw existingFilesResult.error;
     }
     const existingFiles = existingFilesResult.data;
 

@@ -77,8 +77,8 @@ describe('File Routes', () => {
     ];
 
     it('should upload files successfully', async () => {
-      fileService.uploadFile.mockResolvedValueOnce(mockUploadedFiles[0]);
-      fileService.uploadFile.mockResolvedValueOnce(mockUploadedFiles[1]);
+      fileService.uploadFile.mockResolvedValueOnce({ success: true, data: mockUploadedFiles[0], error: null });
+      fileService.uploadFile.mockResolvedValueOnce({ success: true, data: mockUploadedFiles[1], error: null });
 
       const response = await request(app)
         .post('/files/upload')
@@ -87,7 +87,6 @@ describe('File Routes', () => {
         .attach('files', mockFiles[1].buffer, 'test2.png');
 
       expect(response.status).toBe(201);
-      expect(response.body.success).toBe(true);
       expect(response.body.data.files).toHaveLength(2);
       expect(response.body.data.totalUploaded).toBe(2);
       expect(response.body.data.totalRequested).toBe(2);
@@ -125,7 +124,15 @@ describe('File Routes', () => {
     });
 
     it('should handle upload errors gracefully', async () => {
-      fileService.uploadFile.mockRejectedValue(new Error('Upload failed'));
+      fileService.uploadFile.mockResolvedValue({
+        success: false,
+        data: null,
+        error: {
+          code: 'FILE_SYSTEM_ERROR',
+          message: 'Upload failed',
+          innerError: new Error('Upload failed')
+        }
+      });
 
       const response = await request(app)
         .post('/files/upload')
@@ -133,8 +140,7 @@ describe('File Routes', () => {
         .attach('files', mockFiles[0].buffer, 'test1.jpg');
 
       expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Failed to upload any files');
+      expect(response.body.error.code).toBe('FILE_UPLOAD_FAILED');
     });
   });
 
@@ -153,27 +159,33 @@ describe('File Routes', () => {
     };
 
     it('should get file by ID successfully', async () => {
-      fileService.getFileById.mockResolvedValue(mockFile);
+      fileService.getFileById.mockResolvedValue({ success: true, data: mockFile, error: null });
 
       const response = await request(app)
         .get('/files/file_abc123');
 
       expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
       expect(response.body.data.id).toBe('file_abc123');
-      expect(response.body.data.name).toBe('test.jpg');
+      expect(response.body.data.originalName).toBe('test.jpg');
       expect(fileService.getFileById).toHaveBeenCalledWith('file_abc123');
     });
 
     it('should return 404 if file not found', async () => {
-      fileService.getFileById.mockResolvedValue(null);
+      fileService.getFileById.mockResolvedValue({
+        success: false,
+        data: null,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'File not found',
+          innerError: new Error('File not found')
+        }
+      });
 
       const response = await request(app)
         .get('/files/file_abc123');
 
       expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('File not found');
+      expect(response.body.error.code).toBe('NOT_FOUND');
     });
 
     it('should return 400 if file ID format is invalid', async () => {
@@ -215,13 +227,12 @@ describe('File Routes', () => {
     ];
 
     it('should get files by report ID successfully', async () => {
-      fileService.getFilesByReportId.mockResolvedValue(mockFiles);
+      fileService.getFilesByReportId.mockResolvedValue({ success: true, data: mockFiles, error: null });
 
       const response = await request(app)
         .get('/files/report/rep_xyz789');
 
       expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
       expect(response.body.data.files).toHaveLength(2);
       expect(response.body.data.total).toBe(2);
       expect(fileService.getFilesByReportId).toHaveBeenCalledWith('rep_xyz789');
@@ -254,13 +265,12 @@ describe('File Routes', () => {
     ];
 
     it('should get all files successfully', async () => {
-      fileService.getAllFiles.mockResolvedValue(mockFiles);
+      fileService.getAllFiles.mockResolvedValue({ success: true, data: mockFiles, error: null });
 
       const response = await request(app)
         .get('/files');
 
       expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
       expect(response.body.data.files).toHaveLength(1);
       expect(response.body.data.total).toBe(1);
       expect(fileService.getAllFiles).toHaveBeenCalled();
@@ -282,14 +292,13 @@ describe('File Routes', () => {
     };
 
     it('should update file status successfully', async () => {
-      fileService.updateFileProcessingStatus.mockResolvedValue(mockUpdatedFile);
+      fileService.updateFileProcessingStatus.mockResolvedValue({ success: true, data: mockUpdatedFile, error: null });
 
       const response = await request(app)
         .put('/files/file_abc123/status')
         .send({ status: 'completed' });
 
       expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
       expect(response.body.data.processingStatus).toBe('completed');
       expect(fileService.updateFileProcessingStatus).toHaveBeenCalledWith('file_abc123', 'completed');
     });
@@ -315,15 +324,22 @@ describe('File Routes', () => {
     });
 
     it('should return 404 if file not found', async () => {
-      fileService.updateFileProcessingStatus.mockRejectedValue(new Error('File with ID file_abc123 not found'));
+      fileService.updateFileProcessingStatus.mockResolvedValue({
+        success: false,
+        data: null,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'File not found',
+          innerError: new Error('File with ID file_abc123 not found')
+        }
+      });
 
       const response = await request(app)
         .put('/files/file_abc123/status')
         .send({ status: 'completed' });
 
       expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('File not found');
+      expect(response.body.error.code).toBe('NOT_FOUND');
     });
   });
 });

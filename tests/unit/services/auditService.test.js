@@ -32,7 +32,8 @@ describe('Audit Service', () => {
 
       const result = await auditService.createAuditLog(entryData);
 
-      expect(result).toMatchObject({
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject({
         action: 'STATUS_UPDATE',
         adminUser: 'admin@example.com',
         targetType: 'report',
@@ -42,13 +43,17 @@ describe('Audit Service', () => {
         changes: { status: { old: 'Added', new: 'Confirmed' } },
         metadata: { eventType: 'report_management' }
       });
-      expect(result.id).toMatch(/^audit_\d+_[a-z0-9]+$/);
-      expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(result.data.id).toMatch(/^audit_\d+_[a-z0-9]+$/);
+      expect(result.data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
       expect(localJsonService.appendRow).toHaveBeenCalledWith(null, 'audit', expect.any(Object));
     });
 
-    it('should throw error for missing required fields', async () => {
-      await expect(auditService.createAuditLog({})).rejects.toThrow('Missing required audit log fields');
+    it('should return validation error for missing required fields', async () => {
+      const result = await auditService.createAuditLog({});
+
+      expect(result.success).toBe(false);
+      expect(result.error.code).toBe('VALIDATION_ERROR');
+      expect(result.error.message).toContain('Missing required audit log fields');
     });
 
     it('should use default values for optional fields', async () => {
@@ -62,10 +67,11 @@ describe('Audit Service', () => {
 
       const result = await auditService.createAuditLog(entryData);
 
-      expect(result.adminUser).toBe('system');
-      expect(result.ipAddress).toBe('127.0.0.1');
-      expect(result.changes).toBeNull();
-      expect(result.metadata).toBeNull();
+      expect(result.success).toBe(true);
+      expect(result.data.adminUser).toBe('system');
+      expect(result.data.ipAddress).toBe('127.0.0.1');
+      expect(result.data.changes).toBeNull();
+      expect(result.data.metadata).toBeNull();
     });
   });
 
@@ -76,7 +82,8 @@ describe('Audit Service', () => {
 
       const result = await auditService.getAuditLogs();
 
-      expect(result).toEqual(mockLogs);
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockLogs);
       expect(localJsonService.getAllRows).not.toHaveBeenCalled();
     });
 
@@ -85,11 +92,12 @@ describe('Audit Service', () => {
         { id: '1', action: 'LOGIN', timestamp: '2025-01-01T00:00:00Z' },
         { id: '2', action: 'LOGOUT', timestamp: '2025-01-02T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs();
 
-      expect(result).toEqual(mockLogs);
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockLogs);
       expect(localJsonService.getAllRows).toHaveBeenCalledWith(null, 'audit');
     });
 
@@ -99,12 +107,13 @@ describe('Audit Service', () => {
         { id: '2', action: 'STATUS_UPDATE', timestamp: '2025-01-02T00:00:00Z' },
         { id: '3', action: 'LOGIN', timestamp: '2025-01-03T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs({ action: 'LOGIN' });
 
-      expect(result).toHaveLength(2);
-      expect(result.every(log => log.action === 'LOGIN')).toBe(true);
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data.every(log => log.action === 'LOGIN')).toBe(true);
     });
 
     it('should filter by admin user (case insensitive)', async () => {
@@ -112,12 +121,13 @@ describe('Audit Service', () => {
         { id: '1', adminUser: 'admin@example.com', timestamp: '2025-01-01T00:00:00Z' },
         { id: '2', adminUser: 'user@example.com', timestamp: '2025-01-02T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs({ adminUser: 'ADMIN' });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].adminUser).toBe('admin@example.com');
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].adminUser).toBe('admin@example.com');
     });
 
     it('should filter by target type', async () => {
@@ -125,12 +135,13 @@ describe('Audit Service', () => {
         { id: '1', targetType: 'report', timestamp: '2025-01-01T00:00:00Z' },
         { id: '2', targetType: 'config', timestamp: '2025-01-02T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs({ targetType: 'report' });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].targetType).toBe('report');
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].targetType).toBe('report');
     });
 
     it('should filter by date range', async () => {
@@ -139,15 +150,16 @@ describe('Audit Service', () => {
         { id: '2', timestamp: '2025-01-15T00:00:00Z' },
         { id: '3', timestamp: '2025-01-31T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs({
         dateFrom: '2025-01-10T00:00:00Z',
         dateTo: '2025-01-20T00:00:00Z'
       });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('2');
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe('2');
     });
 
     it('should search by term in details, admin user, and target ID', async () => {
@@ -156,12 +168,13 @@ describe('Audit Service', () => {
         { id: '2', details: 'Login successful', adminUser: 'admin2', targetId: 'rep_456' },
         { id: '3', details: 'Password changed', adminUser: 'user1', targetId: 'rep_789' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs({ searchTerm: 'admin' });
 
-      expect(result).toHaveLength(2);
-      expect(result.map(log => log.id)).toEqual(['1', '2']);
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data.map(log => log.id)).toEqual(['1', '2']);
     });
 
     it('should apply limit', async () => {
@@ -169,11 +182,12 @@ describe('Audit Service', () => {
         id: `${i + 1}`,
         timestamp: `2025-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`
       }));
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs({ limit: 3 });
 
-      expect(result).toHaveLength(3);
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(3);
     });
 
     it('should sort by timestamp descending', async () => {
@@ -182,13 +196,14 @@ describe('Audit Service', () => {
         { id: '3', timestamp: '2025-01-03T00:00:00Z' },
         { id: '2', timestamp: '2025-01-02T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogs();
 
-      expect(result[0].id).toBe('3'); // Most recent first
-      expect(result[1].id).toBe('2');
-      expect(result[2].id).toBe('1');
+      expect(result.success).toBe(true);
+      expect(result.data[0].id).toBe('3'); // Most recent first
+      expect(result.data[1].id).toBe('2');
+      expect(result.data[2].id).toBe('1');
     });
   });
 
@@ -199,16 +214,21 @@ describe('Audit Service', () => {
         { id: '2', targetId: 'rep_456' },
         { id: '3', targetId: 'rep_123' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogsByTarget('rep_123');
 
-      expect(result).toHaveLength(2);
-      expect(result.every(log => log.targetId === 'rep_123')).toBe(true);
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data.every(log => log.targetId === 'rep_123')).toBe(true);
     });
 
-    it('should throw error for missing target ID', async () => {
-      await expect(auditService.getAuditLogsByTarget()).rejects.toThrow('Target ID is required');
+    it('should return validation error for missing target ID', async () => {
+      const result = await auditService.getAuditLogsByTarget();
+
+      expect(result.success).toBe(false);
+      expect(result.error.code).toBe('VALIDATION_ERROR');
+      expect(result.error.message).toContain('Target ID is required');
     });
   });
 
@@ -218,16 +238,21 @@ describe('Audit Service', () => {
         { id: '1', adminUser: 'admin@example.com' },
         { id: '2', adminUser: 'user@example.com' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogsByAdminUser('admin@example.com');
 
-      expect(result).toHaveLength(1);
-      expect(result[0].adminUser).toBe('admin@example.com');
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].adminUser).toBe('admin@example.com');
     });
 
-    it('should throw error for missing admin user', async () => {
-      await expect(auditService.getAuditLogsByAdminUser()).rejects.toThrow('Admin user is required');
+    it('should return validation error for missing admin user', async () => {
+      const result = await auditService.getAuditLogsByAdminUser();
+
+      expect(result.success).toBe(false);
+      expect(result.error.code).toBe('VALIDATION_ERROR');
+      expect(result.error.message).toContain('Admin user is required');
     });
   });
 
@@ -238,36 +263,43 @@ describe('Audit Service', () => {
         { id: '2', action: 'STATUS_UPDATE' },
         { id: '3', action: 'LOGIN' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getAuditLogsByAction('LOGIN');
 
-      expect(result).toHaveLength(2);
-      expect(result.every(log => log.action === 'LOGIN')).toBe(true);
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data.every(log => log.action === 'LOGIN')).toBe(true);
     });
 
-    it('should throw error for missing action', async () => {
-      await expect(auditService.getAuditLogsByAction()).rejects.toThrow('Action is required');
+    it('should return validation error for missing action', async () => {
+      const result = await auditService.getAuditLogsByAction();
+
+      expect(result.success).toBe(false);
+      expect(result.error.code).toBe('VALIDATION_ERROR');
+      expect(result.error.message).toContain('Action is required');
     });
   });
 
   describe('getRecentAuditLogs', () => {
     it('should return recent logs with default limit', async () => {
       const mockLogs = Array.from({ length: 60 }, (_, i) => ({ id: `${i + 1}` }));
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getRecentAuditLogs();
 
-      expect(result).toHaveLength(50); // Default limit
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(50); // Default limit
     });
 
     it('should return recent logs with custom limit', async () => {
       const mockLogs = Array.from({ length: 20 }, (_, i) => ({ id: `${i + 1}` }));
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
       const result = await auditService.getRecentAuditLogs(10);
 
-      expect(result).toHaveLength(10);
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(10);
     });
   });
 
@@ -279,10 +311,12 @@ describe('Audit Service', () => {
         { action: 'LOGIN', adminUser: 'admin2', targetType: 'system', timestamp: '2025-01-03T00:00:00Z' },
         { action: 'LOGOUT', adminUser: 'admin1', targetType: 'system', timestamp: '2025-01-04T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockLogs);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
 
-      const stats = await auditService.getAuditStatistics();
+      const result = await auditService.getAuditStatistics();
 
+      expect(result.success).toBe(true);
+      const stats = result.data;
       expect(stats.total).toBe(4);
       expect(stats.byAction.LOGIN).toBe(2);
       expect(stats.byAction.STATUS_UPDATE).toBe(1);
@@ -296,10 +330,12 @@ describe('Audit Service', () => {
     });
 
     it('should handle empty logs', async () => {
-      localJsonService.getAllRows.mockResolvedValue([]);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: [], error: null });
 
-      const stats = await auditService.getAuditStatistics();
+      const result = await auditService.getAuditStatistics();
 
+      expect(result.success).toBe(true);
+      const stats = result.data;
       expect(stats.total).toBe(0);
       expect(stats.byAction).toEqual({});
       expect(stats.byAdminUser).toEqual({});
@@ -318,12 +354,13 @@ describe('Audit Service', () => {
       it('should log successful login', async () => {
         const result = await auditService.logLogin('admin@example.com', '192.168.1.1');
 
-        expect(result.action).toBe('LOGIN');
-        expect(result.adminUser).toBe('admin@example.com');
-        expect(result.targetType).toBe('system');
-        expect(result.details).toBe('User admin@example.com logged in');
-        expect(result.ipAddress).toBe('192.168.1.1');
-        expect(result.metadata.eventType).toBe('authentication');
+        expect(result.success).toBe(true);
+        expect(result.data.action).toBe('LOGIN');
+        expect(result.data.adminUser).toBe('admin@example.com');
+        expect(result.data.targetType).toBe('system');
+        expect(result.data.details).toBe('User admin@example.com logged in');
+        expect(result.data.ipAddress).toBe('192.168.1.1');
+        expect(result.data.metadata.eventType).toBe('authentication');
       });
     });
 
@@ -331,10 +368,11 @@ describe('Audit Service', () => {
       it('should log failed login attempt', async () => {
         const result = await auditService.logFailedLogin('admin@example.com', '192.168.1.1', 'Invalid password');
 
-        expect(result.action).toBe('LOGIN_FAILED');
-        expect(result.adminUser).toBe('admin@example.com');
-        expect(result.details).toBe('Failed login attempt for user admin@example.com: Invalid password');
-        expect(result.metadata.failureReason).toBe('Invalid password');
+        expect(result.success).toBe(true);
+        expect(result.data.action).toBe('LOGIN_FAILED');
+        expect(result.data.adminUser).toBe('admin@example.com');
+        expect(result.data.details).toBe('Failed login attempt for user admin@example.com: Invalid password');
+        expect(result.data.metadata.failureReason).toBe('Invalid password');
       });
     });
 
@@ -342,9 +380,10 @@ describe('Audit Service', () => {
       it('should log logout event', async () => {
         const result = await auditService.logLogout('admin@example.com', '192.168.1.1');
 
-        expect(result.action).toBe('LOGOUT');
-        expect(result.adminUser).toBe('admin@example.com');
-        expect(result.details).toBe('User admin@example.com logged out');
+        expect(result.success).toBe(true);
+        expect(result.data.action).toBe('LOGOUT');
+        expect(result.data.adminUser).toBe('admin@example.com');
+        expect(result.data.details).toBe('User admin@example.com logged out');
       });
     });
 
@@ -352,12 +391,13 @@ describe('Audit Service', () => {
       it('should log password change', async () => {
         const result = await auditService.logPasswordChange('admin@example.com', '192.168.1.1');
 
-        expect(result.action).toBe('PASSWORD_CHANGE');
-        expect(result.adminUser).toBe('admin@example.com');
-        expect(result.targetType).toBe('user');
-        expect(result.targetId).toBe('admin@example.com');
-        expect(result.details).toBe('User admin@example.com changed their password');
-        expect(result.metadata.eventType).toBe('security');
+        expect(result.success).toBe(true);
+        expect(result.data.action).toBe('PASSWORD_CHANGE');
+        expect(result.data.adminUser).toBe('admin@example.com');
+        expect(result.data.targetType).toBe('user');
+        expect(result.data.targetId).toBe('admin@example.com');
+        expect(result.data.details).toBe('User admin@example.com changed their password');
+        expect(result.data.metadata.eventType).toBe('security');
       });
     });
 
@@ -365,14 +405,15 @@ describe('Audit Service', () => {
       it('should log status update with changes', async () => {
         const result = await auditService.logStatusUpdate('rep_123', 'Added', 'Confirmed', 'Admin review completed');
 
-        expect(result.action).toBe('STATUS_UPDATE');
-        expect(result.targetType).toBe('report');
-        expect(result.targetId).toBe('rep_123');
-        expect(result.details).toBe('Report status changed from "Added" to "Confirmed"');
-        expect(result.changes.status.old).toBe('Added');
-        expect(result.changes.status.new).toBe('Confirmed');
-        expect(result.metadata.adminNotes).toBe('Admin review completed');
-        expect(result.metadata.eventType).toBe('report_management');
+        expect(result.success).toBe(true);
+        expect(result.data.action).toBe('STATUS_UPDATE');
+        expect(result.data.targetType).toBe('report');
+        expect(result.data.targetId).toBe('rep_123');
+        expect(result.data.details).toBe('Report status changed from "Added" to "Confirmed"');
+        expect(result.data.changes.status.old).toBe('Added');
+        expect(result.data.changes.status.new).toBe('Confirmed');
+        expect(result.data.metadata.adminNotes).toBe('Admin review completed');
+        expect(result.data.metadata.eventType).toBe('report_management');
       });
     });
   });
@@ -402,19 +443,43 @@ describe('Audit Service', () => {
 
   describe('Error handling', () => {
     it('should handle JSON storage errors in getAuditLogs', async () => {
-      localJsonService.getAllRows.mockRejectedValue(new Error('Storage error'));
+      localJsonService.getAllRows.mockResolvedValue({
+        success: false,
+        data: null,
+        error: {
+          code: 'DATABASE_ERROR',
+          message: 'Storage error',
+          innerError: new Error('Storage error')
+        }
+      });
 
-      await expect(auditService.getAuditLogs()).rejects.toThrow('Failed to retrieve audit logs from JSON');
+      const result = await auditService.getAuditLogs();
+
+      expect(result.success).toBe(false);
+      expect(result.error.code).toBe('DATABASE_ERROR');
+      expect(result.error.message).toContain('Failed to retrieve audit logs from storage');
     });
 
     it('should handle JSON storage errors in createAuditLog', async () => {
-      localJsonService.appendRow.mockRejectedValue(new Error('Storage error'));
+      localJsonService.appendRow.mockResolvedValue({
+        success: false,
+        data: null,
+        error: {
+          code: 'DATABASE_ERROR',
+          message: 'Storage error',
+          innerError: new Error('Storage error')
+        }
+      });
 
-      await expect(auditService.createAuditLog({
+      const result = await auditService.createAuditLog({
         action: 'TEST',
         targetType: 'system',
         details: 'Test action'
-      })).rejects.toThrow('Failed to save audit log to JSON');
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error.code).toBe('DATABASE_ERROR');
+      expect(result.error.message).toContain('Failed to save audit log entry');
     });
   });
 

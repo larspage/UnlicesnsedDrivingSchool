@@ -25,6 +25,8 @@ const mockTransporter = {
 nodemailer.createTransporter = jest.fn(() => mockTransporter);
 
 const emailService = require('../../../server/services/emailService');
+const { isSuccess, isFailure } = require('../../../server/utils/result');
+const { ERROR_CODES } = require('../../../server/utils/errorCodes');
 
 // Mock console.log to avoid test output clutter
 global.console.log = jest.fn();
@@ -65,14 +67,24 @@ describe('Email Service', () => {
         emailData.body
       );
 
-      // Assert
+      // Assert - ✅ NEW PATTERN: Check Result object structure
+      expect(isSuccess(result)).toBe(true);
+      expect(result.data).toEqual({
+        success: true,
+        messageId: 'message-id-123',
+        response: '250 OK',
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        from: 'noreply@example.com'
+      });
+      expect(result.error).toBeNull();
+
       expect(mockSendMail).toHaveBeenCalledWith({
         from: 'noreply@example.com',
         to: 'recipient@example.com',
         subject: 'Test Subject',
         text: 'Test Body'
       });
-      expect(result).toBe(true);
     });
 
     test('should send email with options', async () => {
@@ -124,24 +136,39 @@ describe('Email Service', () => {
       smtpError.code = 'ECONNREFUSED';
       mockSendMail.mockRejectedValue(smtpError);
 
-      // Act & Assert
-      await expect(emailService.sendEmail(
+      // Act
+      const result = await emailService.sendEmail(
         emailData.to,
         emailData.subject,
         emailData.body
-      )).rejects.toThrow('Cannot connect to email server');
+      );
+
+      // Assert - ✅ NEW PATTERN: Check Result error structure
+      expect(isSuccess(result)).toBe(false);
+      expect(result.data).toBeNull();
+      expect(result.error.code).toBe(ERROR_CODES.EMAIL_ERROR);
+      expect(result.error.message).toContain('SMTP connection failed');
+      expect(result.error.innerError).toBe(smtpError);
     });
 
     test('should validate email parameters', async () => {
-      // Act & Assert
-      await expect(emailService.sendEmail('', 'subject', 'body'))
-        .rejects.toThrow('Invalid recipient email address');
+      // Test empty recipient
+      const result1 = await emailService.sendEmail('', 'subject', 'body');
+      expect(isSuccess(result1)).toBe(false);
+      expect(result1.error.code).toBe(ERROR_CODES.VALIDATION_ERROR);
+      expect(result1.error.details.field).toBe('recipient');
 
-      await expect(emailService.sendEmail('invalid-email', 'subject', 'body'))
-        .rejects.toThrow('Invalid recipient email address');
+      // Test invalid email format
+      const result2 = await emailService.sendEmail('invalid-email', 'subject', 'body');
+      expect(isSuccess(result2)).toBe(false);
+      expect(result2.error.code).toBe(ERROR_CODES.VALIDATION_ERROR);
+      expect(result2.error.details.field).toBe('recipient');
 
-      await expect(emailService.sendEmail('valid@example.com', '', 'body'))
-        .rejects.toThrow('Invalid email subject');
+      // Test empty subject
+      const result3 = await emailService.sendEmail('valid@example.com', '', 'body');
+      expect(isSuccess(result3)).toBe(false);
+      expect(result3.error.code).toBe(ERROR_CODES.VALIDATION_ERROR);
+      expect(result3.error.details.field).toBe('subject');
     });
   });
 
@@ -176,17 +203,29 @@ describe('Email Service', () => {
         recipient
       );
 
-      // Assert
+      // Assert - ✅ NEW PATTERN: Check Result object structure
+      expect(isSuccess(result)).toBe(true);
+      expect(result.data).toEqual({
+        success: true,
+        messageId: 'message-id-123',
+        response: '250 OK',
+        to: 'recipient@example.com',
+        subject: 'Report: Test School',
+        from: 'noreply@example.com',
+        templateKey,
+        variables
+      });
+      expect(result.error).toBeNull();
+
       expect(mockSendMail).toHaveBeenCalledWith({
         from: 'noreply@example.com',
         to: 'recipient@example.com',
         subject: 'Report: Test School',
         text: 'School: Test School\nLocation: Test City\nViolation: Test violation'
       });
-      expect(result).toBe(true);
     });
 
-    test('should throw error for missing template', async () => {
+    test('should return error for missing template', async () => {
       // Arrange
       const templateKey = 'nonexistent.template';
       const variables = {};
@@ -194,12 +233,20 @@ describe('Email Service', () => {
 
       configService.getConfig.mockReturnValue(null);
 
-      // Act & Assert
-      await expect(emailService.sendTemplatedEmail(
+      // Act
+      const result = await emailService.sendTemplatedEmail(
         templateKey,
         variables,
         recipient
-      )).rejects.toThrow('Email template \'nonexistent.template\' not found in configuration');
+      );
+
+      // Assert - ✅ NEW PATTERN: Check Result error structure
+      expect(isSuccess(result)).toBe(false);
+      expect(result.data).toBeNull();
+      expect(result.error.code).toBe(ERROR_CODES.NOT_FOUND);
+      expect(result.error.message).toContain('Email template \'nonexistent.template\' not found');
+      expect(result.error.details.resourceType).toBe('Email template');
+      expect(result.error.details.resourceId).toBe('nonexistent.template');
     });
   });
 
@@ -216,9 +263,13 @@ describe('Email Service', () => {
       configService.getAllConfig = jest.fn().mockReturnValue(mockTemplates);
 
       // Act
-      const templates = await emailService.getEmailTemplates();
+      const result = await emailService.getEmailTemplates();
 
-      // Assert
+      // Assert - ✅ NEW PATTERN: Check Result object structure
+      expect(isSuccess(result)).toBe(true);
+      expect(result.error).toBeNull();
+
+      const templates = result.data;
       expect(templates.hasOwnProperty('mvc.notification')).toBe(true);
       expect(templates.hasOwnProperty('status.update')).toBe(true);
       expect(templates['mvc.notification']).toHaveProperty('subject');
@@ -241,14 +292,24 @@ describe('Email Service', () => {
       // Act
       const result = await emailService.sendTestEmail(testRecipient);
 
-      // Assert
+      // Assert - ✅ NEW PATTERN: Check Result object structure
+      expect(isSuccess(result)).toBe(true);
+      expect(result.data).toEqual({
+        success: true,
+        messageId: 'test-message-id',
+        response: '250 OK',
+        to: 'test@example.com',
+        subject: 'NJDSC Portal - Email Configuration Test',
+        from: 'noreply@example.com'
+      });
+      expect(result.error).toBeNull();
+
       expect(mockSendMail).toHaveBeenCalledWith({
         from: 'noreply@example.com',
         to: 'test@example.com',
         subject: 'NJDSC Portal - Email Configuration Test',
         text: expect.stringContaining('This is a test email from the NJDSC School Compliance Portal')
       });
-      expect(result).toBe(true);
     });
 
     test('should handle test email errors', async () => {
@@ -259,9 +320,15 @@ describe('Email Service', () => {
       smtpError.code = 'EAUTH';
       mockSendMail.mockRejectedValue(smtpError);
 
-      // Act & Assert
-      await expect(emailService.sendTestEmail(testRecipient))
-        .rejects.toThrow('Email authentication failed');
+      // Act
+      const result = await emailService.sendTestEmail(testRecipient);
+
+      // Assert - ✅ NEW PATTERN: Check Result error structure
+      expect(isSuccess(result)).toBe(false);
+      expect(result.data).toBeNull();
+      expect(result.error.code).toBe(ERROR_CODES.EMAIL_ERROR);
+      expect(result.error.message).toContain('SMTP authentication failed');
+      expect(result.error.innerError).toBe(smtpError);
     });
   });
 
@@ -288,9 +355,14 @@ describe('Email Service', () => {
         throw new Error('Invalid SMTP credentials');
       });
 
-      // Act & Assert
-      await expect(emailService.sendEmail('to@example.com', 'subject', 'body'))
-        .rejects.toThrow('Email authentication failed. Check SMTP credentials.');
+      // Act
+      const result = await emailService.sendEmail('to@example.com', 'subject', 'body');
+
+      // Assert - ✅ NEW PATTERN: Check Result error structure
+      expect(isSuccess(result)).toBe(false);
+      expect(result.data).toBeNull();
+      expect(result.error.code).toBe(ERROR_CODES.EMAIL_ERROR);
+      expect(result.error.message).toContain('Invalid SMTP credentials');
     });
 
     test('should handle connection errors', async () => {
@@ -299,9 +371,15 @@ describe('Email Service', () => {
       smtpError.code = 'ETIMEDOUT';
       mockSendMail.mockRejectedValue(smtpError);
 
-      // Act & Assert
-      await expect(emailService.sendEmail('to@example.com', 'subject', 'body'))
-        .rejects.toThrow('Email server connection timed out');
+      // Act
+      const result = await emailService.sendEmail('to@example.com', 'subject', 'body');
+
+      // Assert - ✅ NEW PATTERN: Check Result error structure
+      expect(isSuccess(result)).toBe(false);
+      expect(result.data).toBeNull();
+      expect(result.error.code).toBe(ERROR_CODES.EMAIL_ERROR);
+      expect(result.error.message).toContain('Connection timeout');
+      expect(result.error.innerError).toBe(smtpError);
     });
   });
 });

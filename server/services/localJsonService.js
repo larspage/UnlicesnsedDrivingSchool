@@ -420,6 +420,10 @@ async function writeJsonFile(filename, data) {
  */
 async function getAllRows(spreadsheetId, sheetName) {
   return attemptAsync(async () => {
+    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
+      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    }
+
     return await readJsonFile(sheetName);
   }, { operation: 'getAllRows', details: { sheetName } });
 }
@@ -433,6 +437,14 @@ async function getAllRows(spreadsheetId, sheetName) {
  */
 async function appendRow(spreadsheetId, sheetName, data) {
   return attemptAsync(async () => {
+    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
+      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    }
+
+    if (!data || typeof data !== 'object') {
+      throw createError('VALIDATION_ERROR', 'Data object is required', { field: 'data', actualValue: data });
+    }
+
     const rows = await readJsonFile(sheetName);
     rows.push(data);
     await writeJsonFile(sheetName, rows);
@@ -528,10 +540,14 @@ async function findRowById(spreadsheetId, sheetName, rowId) {
  */
 async function getRowsByFilter(spreadsheetId, sheetName, filterFn) {
   return attemptAsync(async () => {
+    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
+      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    }
+
     if (!filterFn || typeof filterFn !== 'function') {
       throw createError('VALIDATION_ERROR', 'Filter function is required', { field: 'filterFn', actualValue: filterFn });
     }
-    
+
     const rows = await readJsonFile(sheetName);
     return rows.filter(filterFn);
   }, { operation: 'getRowsByFilter', details: { sheetName } });
@@ -545,6 +561,10 @@ async function getRowsByFilter(spreadsheetId, sheetName, filterFn) {
  */
 async function ensureSheetExists(spreadsheetId, sheetName) {
   return attemptAsync(async () => {
+    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
+      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    }
+
     const filePath = path.join(getDataDir(), `${sheetName}.json`);
 
     try {

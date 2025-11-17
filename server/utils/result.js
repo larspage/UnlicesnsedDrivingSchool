@@ -133,8 +133,11 @@ function getErrorCode(error, operation) {
     case 'file':
     case 'upload':
     case 'download':
-      if (errorMessage.includes('not found')) {
+      if (errorMessage.includes('not found') || errorMessage.includes('no such file')) {
         return ERROR_CODES.FILE_NOT_FOUND;
+      }
+      if (operation.toLowerCase() === 'upload' && (errorMessage.includes('permission') || errorMessage.includes('access denied') || errorMessage.includes('eacces'))) {
+        return ERROR_CODES.FILE_UPLOAD_FAILED;
       }
       if (errorMessage.includes('permission') || errorMessage.includes('access denied')) {
         return ERROR_CODES.FILE_SYSTEM_ERROR;

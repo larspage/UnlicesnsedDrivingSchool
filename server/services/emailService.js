@@ -40,7 +40,7 @@ function getTransporter() {
       throw new Error('Email service not configured. Missing SMTP credentials.');
     }
 
-    transporter = nodemailer.createTransporter({
+    transporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
       secure: SMTP_SECURE,
@@ -339,7 +339,7 @@ async function getEmailTemplates() {
  * @returns {boolean} Success status
  */
 async function sendTestEmail(testRecipient) {
-  try {
+  return attemptAsync(async () => {
     const subject = 'NJDSC Portal - Email Configuration Test';
     const body = `This is a test email from the NJDSC School Compliance Portal.
 
@@ -349,14 +349,13 @@ Sent at: ${new Date().toISOString()}
 
 If you received this email, the email service is properly configured.`;
 
-    await sendEmail(testRecipient, subject, body);
+    const result = await sendEmail(testRecipient, subject, body);
+    if (!isSuccess(result)) {
+      throw result.error;
+    }
     logOperation('sendTestEmail', { success: true, recipient: testRecipient });
     return true;
-
-  } catch (error) {
-    logOperation('sendTestEmail', { error: error.message, recipient: testRecipient });
-    throw error;
-  }
+  }, { operation: 'email', details: { testRecipient } });
 }
 
 module.exports = {

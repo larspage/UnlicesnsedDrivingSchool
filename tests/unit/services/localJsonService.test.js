@@ -243,7 +243,8 @@ describe('Local JSON Service', () => {
 
         const result = await localJsonService.getAllRows('spreadsheet1', 'sheet1');
 
-        expect(result).toEqual(mockData);
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual(mockData);
       });
 
       it('should ignore spreadsheetId parameter', async () => {
@@ -265,7 +266,8 @@ describe('Local JSON Service', () => {
 
         const result = await localJsonService.appendRow('spreadsheet1', 'sheet1', newRow);
 
-        expect(result).toEqual(newRow);
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual(newRow);
         expect(fs.promises.writeFile).toHaveBeenCalledWith(
           './data/sheet1.json.tmp',
           JSON.stringify([...existingData, newRow], null, 2),
@@ -279,7 +281,8 @@ describe('Local JSON Service', () => {
 
         const result = await localJsonService.appendRow('spreadsheet1', 'sheet1', newRow);
 
-        expect(result).toEqual(newRow);
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual(newRow);
         expect(fs.promises.writeFile).toHaveBeenCalledWith(
           './data/sheet1.json.tmp',
           JSON.stringify([newRow], null, 2),
@@ -300,18 +303,22 @@ describe('Local JSON Service', () => {
 
         const result = await localJsonService.updateRow('spreadsheet1', 'sheet1', '1', updateData);
 
-        expect(result).toEqual({
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({
           id: '1',
           name: 'updated',
           status: 'inactive'
         });
       });
 
-      it('should throw error for non-existent row', async () => {
+      it('should return not found error for non-existent row', async () => {
         fs.promises.readFile.mockResolvedValue(JSON.stringify([{ id: '1' }]));
 
-        await expect(localJsonService.updateRow('spreadsheet1', 'sheet1', '999', {}))
-          .rejects.toThrow('Row with ID 999 not found in sheet1');
+        const result = await localJsonService.updateRow('spreadsheet1', 'sheet1', '999', {});
+
+        expect(result.success).toBe(false);
+        expect(result.error.code).toBe('NOT_FOUND');
+        expect(result.error.message).toContain('Row with ID 999 not found in sheet1');
       });
     });
 
@@ -327,7 +334,8 @@ describe('Local JSON Service', () => {
 
         const result = await localJsonService.deleteRow('spreadsheet1', 'sheet1', '2');
 
-        expect(result).toBe(true);
+        expect(result.success).toBe(true);
+        expect(result.data).toBe(true);
         expect(fs.promises.writeFile).toHaveBeenCalledWith(
           './data/sheet1.json.tmp',
           JSON.stringify([
@@ -338,13 +346,15 @@ describe('Local JSON Service', () => {
         );
       });
 
-      it('should return false for non-existent row', async () => {
+      it('should return not found error for non-existent row', async () => {
         const existingData = [{ id: '1', name: 'first' }];
         fs.promises.readFile.mockResolvedValue(JSON.stringify(existingData));
 
         const result = await localJsonService.deleteRow('spreadsheet1', 'sheet1', '999');
 
-        expect(result).toBe(false);
+        expect(result.success).toBe(false);
+        expect(result.error.code).toBe('NOT_FOUND');
+        expect(result.error.message).toContain('Row with ID 999 not found in sheet1');
         expect(fs.promises.writeFile).not.toHaveBeenCalled();
       });
     });
@@ -359,7 +369,8 @@ describe('Local JSON Service', () => {
 
         const result = await localJsonService.findRowById('spreadsheet1', 'sheet1', '2');
 
-        expect(result).toEqual({ id: '2', name: 'second' });
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({ id: '2', name: 'second' });
       });
 
       it('should return null for non-existent row', async () => {
@@ -367,7 +378,8 @@ describe('Local JSON Service', () => {
 
         const result = await localJsonService.findRowById('spreadsheet1', 'sheet1', '999');
 
-        expect(result).toBeNull();
+        expect(result.success).toBe(true);
+        expect(result.data).toBeNull();
       });
     });
 
@@ -386,7 +398,8 @@ describe('Local JSON Service', () => {
           (row) => row.status === 'active'
         );
 
-        expect(result).toEqual([
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual([
           { id: '1', status: 'active', priority: 'high' },
           { id: '3', status: 'active', priority: 'medium' }
         ]);
@@ -402,7 +415,8 @@ describe('Local JSON Service', () => {
           (row) => row.status === 'active'
         );
 
-        expect(result).toEqual([]);
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual([]);
       });
     });
   });
