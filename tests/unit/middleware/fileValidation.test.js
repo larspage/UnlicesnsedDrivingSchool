@@ -58,7 +58,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'reportId is required for file upload'
+        error: 'reportId is required for file upload',
+        details: { field: 'reportId' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -71,7 +72,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid reportId format. Must match pattern: rep_XXXXXX'
+        error: 'Invalid reportId format. Must match pattern: rep_XXXXXX',
+        details: { field: 'reportId' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -84,7 +86,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'No files provided for upload'
+        error: 'No files provided for upload',
+        details: { field: 'files' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -112,7 +115,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'File "test.jpg": File too large'
+        error: 'File "test.jpg": File too large',
+        details: { file: 'test.jpg' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -138,7 +142,7 @@ describe('File Validation Middleware', () => {
       expect(res.json).toHaveBeenCalledWith({
         success: false,
         error: 'File upload validation failed',
-        message: undefined
+        details: 'Validation error'
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -162,7 +166,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'File ID is required'
+        error: 'File ID is required',
+        details: { field: 'id' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -175,7 +180,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid file ID format. Must match pattern: file_XXXXXX'
+        error: 'Invalid file ID format. Must match pattern: file_XXXXXX',
+        details: { field: 'id' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -199,7 +205,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'Report ID is required'
+        error: 'Report ID is required',
+        details: { field: 'reportId' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -212,7 +219,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid report ID format. Must match pattern: rep_XXXXXX'
+        error: 'Invalid report ID format. Must match pattern: rep_XXXXXX',
+        details: { field: 'reportId' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -236,7 +244,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'Status is required for update'
+        error: 'Status is required for update',
+        details: { field: 'status' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -249,7 +258,8 @@ describe('File Validation Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
         success: false,
-        error: 'Invalid status. Must be one of: pending, processing, completed, failed'
+        error: 'Invalid status. Must be one of: pending, processing, completed, failed',
+        details: { field: 'status' }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -262,10 +272,13 @@ describe('File Validation Middleware', () => {
 
       handleFileErrors(error, req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.status).toHaveBeenCalledWith(413);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'File too large. Maximum size is 10MB per file.'
+        error: {
+          code: 'FILE_TOO_LARGE',
+          message: 'File too large. Maximum size is 10MB per file.',
+          details: undefined
+        }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -278,8 +291,11 @@ describe('File Validation Middleware', () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Too many files. Maximum 10 files per upload.'
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Too many files. Maximum 10 files per upload.',
+          details: undefined
+        }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -292,8 +308,11 @@ describe('File Validation Middleware', () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Unexpected file field in upload request.'
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Unexpected file field in upload request.',
+          details: undefined
+        }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -306,8 +325,11 @@ describe('File Validation Middleware', () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'validation failed'
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'File upload validation failed',
+          details: { reason: 'validation failed' }
+        }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -318,10 +340,13 @@ describe('File Validation Middleware', () => {
 
       handleFileErrors(error, req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'File storage service temporarily unavailable. Please try again later.'
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'File storage service temporarily unavailable. Please try again later.',
+          details: undefined
+        }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -334,8 +359,11 @@ describe('File Validation Middleware', () => {
 
       expect(res.status).toHaveBeenCalledWith(429);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'File storage service rate limit exceeded. Please try again later.'
+        error: {
+          code: 'RATE_LIMIT_ERROR',
+          message: 'File storage service rate limit exceeded. Please try again later.',
+          details: undefined
+        }
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -348,9 +376,11 @@ describe('File Validation Middleware', () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'File operation failed',
-        message: undefined
+        error: {
+          code: 'FILE_SYSTEM_ERROR',
+          message: 'File operation failed',
+          details: { message: 'Something went wrong' }
+        }
       });
       expect(next).not.toHaveBeenCalled();
     });

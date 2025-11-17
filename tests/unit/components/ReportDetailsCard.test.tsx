@@ -52,7 +52,7 @@ describe('ReportDetailsCard', () => {
     
     // Check that school name is displayed prominently (bolded and centered)
     const schoolNameElements = screen.getAllByText('ABC Driving School');
-    expect(schoolNameElements.length).toBe(2); // One in table, one in grid
+    expect(schoolNameElements.length).toBe(1); // Only in table layout for popup
     
     // Verify school name styling (bold and centered) - check the first element
     const schoolNameElement = schoolNameElements[0];
@@ -140,38 +140,23 @@ describe('ReportDetailsCard', () => {
     render(<ReportDetailsCard report={mockReport} />);
     
     // Check for main container
-    expect(screen.getByTestId('report-details-card')).toHaveClass('w-full', 'max-w-6xl', 'mx-auto');
+    expect(screen.getByTestId('report-details-card')).toHaveClass('w-full');
     
-    // Check for table container (small screens)
-    expect(screen.getByTestId('report-details-table-container')).toHaveClass('overflow-x-auto');
-    
+    // Check for table container (compact layout for popup)
+    expect(screen.getByTestId('report-details-table-container')).toHaveClass('table-container');
+
     // Check for table
     expect(screen.getByTestId('report-details-table')).toHaveClass('w-full', 'border-collapse', 'table-fixed');
-    
-    // Check for grid container (medium+ screens)
-    expect(screen.getByTestId('report-details-grid-container')).toHaveClass('hidden', 'md:block');
-    
-    // Check for grid container
-    expect(screen.getByTestId('report-details-grid')).toHaveClass('space-y-1');
-    
-    // Check for inner grid that has the 3-column layout
-    const gridContainer = screen.getByTestId('report-details-grid');
-    const innerGrid = gridContainer.querySelector('.grid.grid-cols-3');
-    expect(innerGrid).toBeInTheDocument();
   });
 
-  test('renders both table and grid layouts', () => {
+  test('renders compact table layout for popup', () => {
     render(<ReportDetailsCard report={mockReport} />);
-    
-    // Check that both layouts exist
+
+    // Check that only table layout exists for popup usage
     expect(screen.getByTestId('report-details-table-container')).toBeInTheDocument();
-    expect(screen.getByTestId('report-details-grid-container')).toBeInTheDocument();
-    
-    // Check that table is hidden on medium+ screens
-    expect(screen.getByTestId('report-details-table-container')).toHaveClass('md:hidden');
-    
-    // Check that grid is hidden on small screens
-    expect(screen.getByTestId('report-details-grid-container')).toHaveClass('hidden', 'md:block');
+
+    // Check that grid layout does not exist (removed for popup usage)
+    expect(screen.queryByTestId('report-details-grid-container')).not.toBeInTheDocument();
   });
 
   test('handles long violation descriptions by putting them on their own row', () => {
@@ -182,17 +167,13 @@ describe('ReportDetailsCard', () => {
 
     render(<ReportDetailsCard report={longDescriptionReport} />);
     
-    // Check that reason row exists (should be in both table and grid layouts)
-    expect(screen.getAllByTestId('reason-row').length).toBe(2); // One in table, one in grid
+    // Check that reason row exists (only in table layout for popup)
+    expect(screen.getAllByTestId('reason-row').length).toBe(1); // Only in table layout
+
+    // Check that the long description is displayed in table layout
+    expect(screen.getAllByText(/This is a very long violation description that exceeds fifty characters/i).length).toBe(1); // Only in table layout
     
-    // Check that the long description is displayed in both layouts
-    expect(screen.getAllByText(/This is a very long violation description that exceeds fifty characters/i).length).toBe(2); // Once in table, once in grid
-    
-    // Verify the long description is NOT in the regular grid fields (should be in dedicated row only)
-    const gridContainer = screen.getByTestId('report-details-grid');
-    const innerGrid = gridContainer.querySelector('.grid.grid-cols-3');
-    const reasonInGrid = innerGrid?.querySelector('[data-testid="field-8"]'); // Should not exist since reason gets separate row
-    expect(reasonInGrid).toBeNull();
+    // For popup usage, reason is handled in table layout only
   });
 
   test('puts Reason on separate row when description exceeds 50 characters', () => {
