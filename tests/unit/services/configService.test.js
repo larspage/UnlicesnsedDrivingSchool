@@ -52,10 +52,18 @@ describe('Config Service', () => {
   });
 
   describe('getConfig', () => {
-    it('should throw error for invalid key', async () => {
-      await expect(configService.getConfig()).rejects.toThrow('Invalid key: must be a non-empty string');
-      await expect(configService.getConfig('')).rejects.toThrow('Invalid key: must be a non-empty string');
-      await expect(configService.getConfig(123)).rejects.toThrow('Invalid key: must be a non-empty string');
+    it('should return error for invalid key', async () => {
+      const result1 = await configService.getConfig();
+      expect(result1.success).toBe(false);
+      expect(result1.error.message).toContain('Invalid key');
+
+      const result2 = await configService.getConfig('');
+      expect(result2.success).toBe(false);
+      expect(result2.error.message).toContain('Invalid key');
+
+      const result3 = await configService.getConfig(123);
+      expect(result3.success).toBe(false);
+      expect(result3.error.message).toContain('Invalid key');
     });
 
     it('should return cached value when available', async () => {
@@ -63,7 +71,8 @@ describe('Config Service', () => {
 
       const result = await configService.getConfig('test.key');
 
-      expect(result).toBe('cached-value');
+      expect(result.success).toBe(true);
+      expect(result.data).toBe('cached-value');
       expect(localJsonService.getAllRows).not.toHaveBeenCalled();
     });
 
@@ -72,7 +81,8 @@ describe('Config Service', () => {
 
       const result = await configService.getConfig('nonexistent.key');
 
-      expect(result).toBeNull();
+      expect(result.success).toBe(true);
+      expect(result.data).toBeNull();
     });
 
     it('should return typed value from JSON storage', async () => {
@@ -89,10 +99,14 @@ describe('Config Service', () => {
       const booleanResult = await configService.getConfig('test.boolean');
       const jsonResult = await configService.getConfig('test.json');
 
-      expect(stringResult).toBe('hello');
-      expect(numberResult).toBe(42);
-      expect(booleanResult).toBe(true);
-      expect(jsonResult).toEqual({ nested: 'value' });
+      expect(stringResult.success).toBe(true);
+      expect(stringResult.data).toBe('hello');
+      expect(numberResult.success).toBe(true);
+      expect(numberResult.data).toBe(42);
+      expect(booleanResult.success).toBe(true);
+      expect(booleanResult.data).toBe(true);
+      expect(jsonResult.success).toBe(true);
+      expect(jsonResult.data).toEqual({ nested: 'value' });
     });
 
     it('should cache retrieved values', async () => {
@@ -120,7 +134,8 @@ describe('Config Service', () => {
 
       const result = await configService.getAllConfig();
 
-      expect(result).toEqual({
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({
         'email.toAddress': 'test@mvc.nj.gov',
         'system.rateLimit': 100,
         'features.enabled': true
@@ -146,7 +161,8 @@ describe('Config Service', () => {
 
       const result = await configService.getAllConfig();
 
-      expect(result).toEqual({});
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({});
     });
 
     it('should skip invalid configuration entries', async () => {
@@ -160,7 +176,8 @@ describe('Config Service', () => {
 
       const result = await configService.getAllConfig();
 
-      expect(result).toEqual({ 'valid.key': 'valid' });
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ 'valid.key': 'valid' });
     });
   });
 
@@ -170,10 +187,18 @@ describe('Config Service', () => {
       localJsonService.writeJsonFile.mockResolvedValue(successResult());
     });
 
-    it('should throw error for invalid key', async () => {
-      await expect(configService.setConfig()).rejects.toThrow('Invalid key: must be a non-empty string');
-      await expect(configService.setConfig('')).rejects.toThrow('Invalid key: must be a non-empty string');
-      await expect(configService.setConfig(123)).rejects.toThrow('Invalid key: must be a non-empty string');
+    it('should return error for invalid key', async () => {
+      const result1 = await configService.setConfig();
+      expect(result1.success).toBe(false);
+      expect(result1.error.message).toContain('Invalid key');
+
+      const result2 = await configService.setConfig('');
+      expect(result2.success).toBe(false);
+      expect(result2.error.message).toContain('Invalid key');
+
+      const result3 = await configService.setConfig(123);
+      expect(result3.success).toBe(false);
+      expect(result3.error.message).toContain('Invalid key');
     });
 
     it('should create new configuration', async () => {
@@ -186,15 +211,16 @@ describe('Config Service', () => {
         'admin@example.com'
       );
 
-      expect(result.key).toBe('test.newKey');
-      expect(result.value).toBe('test-value');
-      expect(result.type).toBe('string');
-      expect(result.category).toBe('system');
-      expect(result.description).toBe('Test description');
-      expect(result.updatedBy).toBe('admin@example.com');
-      expect(result.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(result.success).toBe(true);
+      expect(result.data.key).toBe('test.newKey');
+      expect(result.data.value).toBe('test-value');
+      expect(result.data.type).toBe('string');
+      expect(result.data.category).toBe('system');
+      expect(result.data.description).toBe('Test description');
+      expect(result.data.updatedBy).toBe('admin@example.com');
+      expect(result.data.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 
-      expect(localJsonService.writeJsonFile).toHaveBeenCalledWith('config', [result]);
+      expect(localJsonService.writeJsonFile).toHaveBeenCalledWith('config', [result.data]);
     });
 
     it('should update existing configuration', async () => {
@@ -218,10 +244,11 @@ describe('Config Service', () => {
         'new-admin@example.com'
       );
 
-      expect(result.key).toBe('test.existingKey');
-      expect(result.value).toBe('new-value');
-      expect(result.description).toBe('New description');
-      expect(result.updatedBy).toBe('new-admin@example.com');
+      expect(result.success).toBe(true);
+      expect(result.data.key).toBe('test.existingKey');
+      expect(result.data.value).toBe('new-value');
+      expect(result.data.description).toBe('New description');
+      expect(result.data.updatedBy).toBe('new-admin@example.com');
 
       // Verify the config array contains updated config
       const writeCall = localJsonService.writeJsonFile.mock.calls[0];
@@ -338,11 +365,14 @@ describe('Config Service', () => {
     });
 
     it('should continue if individual config initialization fails', async () => {
-      // Mock setConfig to fail for one config
-      const originalSetConfig = configService.setConfig;
-      configService.setConfig = jest.fn()
-        .mockResolvedValueOnce({ success: false, data: null, error: { message: 'Storage error' } })
-        .mockResolvedValue({ success: true, data: { key: 'success.key' }, error: null });
+      // Mock localJsonService.writeJsonFile to fail for 'fail.key'
+      localJsonService.writeJsonFile.mockImplementation((fileName, data) => {
+        // Check if this is the write for 'fail.key'
+        if (data && data.some && data.some(config => config.key === 'fail.key')) {
+          return Promise.resolve({ success: false, data: null, error: { message: 'Storage error' } });
+        }
+        return Promise.resolve({ success: true, data });
+      });
 
       const result = await configService.initializeDefaults({
         'fail.key': { value: 'fail', type: 'string', category: 'test', description: 'Fail' },
@@ -354,9 +384,6 @@ describe('Config Service', () => {
 
       // Should have still created the successful config
       expect(localJsonService.writeJsonFile).toHaveBeenCalled();
-
-      // Restore original function
-      configService.setConfig = originalSetConfig;
     });
   });
 
@@ -386,13 +413,17 @@ describe('Config Service', () => {
     it('should handle JSON storage errors in getConfig', async () => {
       localJsonService.getAllRows.mockResolvedValue(failureResult(new Error('Storage error')));
 
-      await expect(configService.getConfig('test.key')).rejects.toThrow('Storage error');
+      const result = await configService.getConfig('test.key');
+      expect(result.success).toBe(false);
+      expect(result.error.message).toContain('Storage error');
     });
 
     it('should handle JSON storage errors in getAllConfig', async () => {
       localJsonService.getAllRows.mockResolvedValue(failureResult(new Error('Storage error')));
 
-      await expect(configService.getAllConfig()).rejects.toThrow('Storage error');
+      const result = await configService.getAllConfig();
+      expect(result.success).toBe(false);
+      expect(result.error.message).toContain('Storage error');
     });
 
     it('should handle JSON storage errors in setConfig', async () => {
@@ -414,7 +445,7 @@ describe('Config Service', () => {
 
     it('should use Configuration.create for validation', async () => {
       const mockConfig = { key: 'test.key', value: 'test-value', type: 'string' };
-      Configuration.create = jest.fn().mockReturnValue(mockConfig);
+      Configuration.create.mockReturnValue(mockConfig);
 
       await configService.setConfig('test.key', 'test-value', 'string', 'system');
 

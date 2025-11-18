@@ -253,11 +253,10 @@ async function saveConfigToJson(config) {
 /**
  * Retrieves a single configuration value by key
  * @param {string} key - Configuration key
- * @returns {Promise<*>} Configuration value
- * @throws {Error} If storage operation fails or key is invalid
+ * @returns {Promise<Result>} Result object with configuration value or error
  */
 async function getConfig(key) {
-  try {
+  return attemptAsync(async () => {
     if (!key || typeof key !== 'string') {
       throw new Error('Invalid key: must be a non-empty string');
     }
@@ -285,18 +284,15 @@ async function getConfig(key) {
 
     logOperation('getConfig', { key, found: true, type: config.type, source: 'sheets' });
     return value;
-  } catch (error) {
-    throw error;
-  }
+  }, { operation: 'getConfig', details: { key } });
 }
 
 /**
  * Retrieves all configuration settings
- * @returns {Promise<Object>} Object with all configuration key-value pairs
- * @throws {Error} If storage operation fails
+ * @returns {Promise<Result>} Result object with configuration object or error
  */
 async function getAllConfig() {
-  try {
+  return attemptAsync(async () => {
     logOperation('getAllConfig');
 
     const allConfigs = await getAllConfigFromJson();
@@ -310,9 +306,7 @@ async function getAllConfig() {
 
     logOperation('getAllConfig', { totalConfigs: Object.keys(configObject).length });
     return configObject;
-  } catch (error) {
-    throw error;
-  }
+  }, { operation: 'getAllConfig' });
 }
 
 /**
@@ -323,11 +317,10 @@ async function getAllConfig() {
  * @param {string} category - Configuration category (email, google, system)
  * @param {string} [description] - Human-readable description
  * @param {string} [updatedBy] - Admin who updated the config
- * @returns {Promise<Configuration>} The updated configuration
- * @throws {Error} If validation or storage operation fails
+ * @returns {Promise<Result>} Result object with saved configuration or error
  */
 async function setConfig(key, value, type, category, description = '', updatedBy = null) {
-  try {
+  return attemptAsync(async () => {
     // Input validation matching test expectations
     if (!key || typeof key !== 'string') {
       throw new Error('Invalid key: must be a non-empty string');
@@ -366,9 +359,7 @@ async function setConfig(key, value, type, category, description = '', updatedBy
     });
 
     return savedConfig;
-  } catch (error) {
-    throw error;
-  }
+  }, { operation: 'setConfig', details: { key, type, category } });
 }
 
 /**
