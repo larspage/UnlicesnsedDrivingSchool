@@ -180,7 +180,7 @@ async function getAllConfigFromJson() {
 
     const configsDataResult = await localJsonService.getAllRows(null, CONFIG_DATA_FILE);
     if (!isSuccess(configsDataResult)) {
-      throw databaseError('Failed to retrieve configuration from storage', configsDataResult.error);
+      throw configsDataResult.error;
     }
     const configsData = configsDataResult.data;
 
@@ -499,7 +499,7 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
     for (const [key, configDef] of Object.entries(defaults)) {
       if (!existingKeys.has(key)) {
         try {
-          await setConfig(
+          const setResult = await setConfig(
             key,
             configDef.value,
             configDef.type,
@@ -507,9 +507,14 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
             configDef.description,
             updatedBy
           );
-          initializedCount++;
-          createdKeys.push(key);
-          logOperation('initializeDefaults', { key, action: 'created' });
+          if (setResult.success) {
+            initializedCount++;
+            createdKeys.push(key);
+            logOperation('initializeDefaults', { key, action: 'created' });
+          } else {
+            failedKeys.push(key);
+            console.warn(`Failed to initialize default config for ${key}:`, setResult.error.message);
+          }
         } catch (error) {
           failedKeys.push(key);
           console.warn(`Failed to initialize default config for ${key}:`, error.message);

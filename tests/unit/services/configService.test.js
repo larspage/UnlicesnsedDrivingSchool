@@ -1,5 +1,6 @@
 const configService = require('../../../server/services/configService');
 const Configuration = require('../../../server/models/Configuration');
+const { isSuccess, isFailure } = require('../../../server/utils/result');
 
 // Mock the localJsonService dependency
 jest.mock('../../../server/services/localJsonService', () => ({
@@ -263,7 +264,11 @@ describe('Config Service', () => {
     });
 
     it('should initialize default configurations', async () => {
-      await configService.initializeDefaults();
+      const result = await configService.initializeDefaults();
+
+      expect(result.success).toBe(true);
+      expect(result.data.totalDefaults).toBeGreaterThan(0);
+      expect(result.data.initializedCount).toBeGreaterThan(0);
 
       // Should have called setConfig for each default config
       expect(localJsonService.writeJsonFile).toHaveBeenCalled();
@@ -292,7 +297,9 @@ describe('Config Service', () => {
       };
       localJsonService.getAllRows.mockResolvedValue(successResult([existingConfig]));
 
-      await configService.initializeDefaults();
+      const result = await configService.initializeDefaults();
+
+      expect(result.success).toBe(true);
 
       // Should update the existing config with new values
       const writeCalls = localJsonService.writeJsonFile.mock.calls;
@@ -317,7 +324,9 @@ describe('Config Service', () => {
         }
       };
 
-      await configService.initializeDefaults(customDefaults);
+      const result = await configService.initializeDefaults(customDefaults);
+
+      // Test passes if no error is thrown
 
       const writeCalls = localJsonService.writeJsonFile.mock.calls;
       const configsWritten = writeCalls.flatMap(call => call[1]);
@@ -332,13 +341,16 @@ describe('Config Service', () => {
       // Mock setConfig to fail for one config
       const originalSetConfig = configService.setConfig;
       configService.setConfig = jest.fn()
-        .mockRejectedValueOnce(new Error('Storage error'))
-        .mockResolvedValue({ key: 'success.key' });
+        .mockResolvedValueOnce({ success: false, data: null, error: { message: 'Storage error' } })
+        .mockResolvedValue({ success: true, data: { key: 'success.key' }, error: null });
 
-      await configService.initializeDefaults({
+      const result = await configService.initializeDefaults({
         'fail.key': { value: 'fail', type: 'string', category: 'test', description: 'Fail' },
         'success.key': { value: 'success', type: 'string', category: 'test', description: 'Success' }
       });
+
+      expect(result.success).toBe(true);
+      expect(result.data.failedKeys).toContain('fail.key');
 
       // Should have still created the successful config
       expect(localJsonService.writeJsonFile).toHaveBeenCalled();
@@ -372,13 +384,13 @@ describe('Config Service', () => {
 
   describe('Error handling', () => {
     it('should handle JSON storage errors in getConfig', async () => {
-      localJsonService.getAllRows.mockRejectedValue(new Error('Storage error'));
+      localJsonService.getAllRows.mockResolvedValue(failureResult(new Error('Storage error')));
 
       await expect(configService.getConfig('test.key')).rejects.toThrow('Storage error');
     });
 
     it('should handle JSON storage errors in getAllConfig', async () => {
-      localJsonService.getAllRows.mockRejectedValue(new Error('Storage error'));
+      localJsonService.getAllRows.mockResolvedValue(failureResult(new Error('Storage error')));
 
       await expect(configService.getAllConfig()).rejects.toThrow('Storage error');
     });
@@ -387,7 +399,10 @@ describe('Config Service', () => {
       localJsonService.getAllRows.mockResolvedValue(successResult([]));
       localJsonService.writeJsonFile.mockResolvedValue(failureResult(new Error('Storage error')));
 
-      await expect(configService.setConfig('test.key', 'value', 'string', 'system')).rejects.toThrow('Storage error');
+      const result = await configService.setConfig('test.key', 'value', 'string', 'system');
+
+      expect(result.success).toBe(false);
+      expect(result.error.message).toContain('Storage error');
     });
   });
 

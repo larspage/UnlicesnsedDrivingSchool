@@ -67,7 +67,7 @@ describe('Email Service', () => {
       );
 
       // ✅ POSITIVE TEST: Check success behavior
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toEqual({
         success: true,
         messageId: 'message-id-123',
@@ -143,7 +143,7 @@ describe('Email Service', () => {
       );
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('SMTP connection failed');
@@ -154,7 +154,7 @@ describe('Email Service', () => {
     test('should validate email parameters - focus on validation failure, not codes', async () => {
       // Test empty recipient
       const result1 = await emailService.sendEmail('', 'subject', 'body');
-      expect(isSuccess(result1)).toBe(false);
+      expect(result1.success).toBe(false);
       expect(result1.error).toBeTruthy();
       // Don't check specific field names - focus on error behavior
       expect(result1.error.details).toBeTruthy();
@@ -162,14 +162,14 @@ describe('Email Service', () => {
 
       // Test invalid email format
       const result2 = await emailService.sendEmail('invalid-email', 'subject', 'body');
-      expect(isSuccess(result2)).toBe(false);
+      expect(result2.success).toBe(false);
       expect(result2.error).toBeTruthy();
       expect(result2.error.details).toBeTruthy();
       // Don't check specific error code
 
       // Test empty subject
       const result3 = await emailService.sendEmail('valid@example.com', '', 'body');
-      expect(isSuccess(result3)).toBe(false);
+      expect(result3.success).toBe(false);
       expect(result3.error).toBeTruthy();
       expect(result3.error.details).toBeTruthy();
       // Don't check specific error code
@@ -208,7 +208,7 @@ describe('Email Service', () => {
       );
 
       // ✅ POSITIVE TEST: Check success behavior
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toEqual({
         success: true,
         messageId: 'message-id-123',
@@ -245,7 +245,7 @@ describe('Email Service', () => {
       );
 
       // ✅ IMPROVED PATTERN: Check that an error occurred for missing resource
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Email template');
@@ -269,7 +269,7 @@ describe('Email Service', () => {
       const result = await emailService.getEmailTemplates();
 
       // ✅ POSITIVE TEST: Check Result object structure
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.error).toBeNull();
 
       const templates = result.data;
@@ -296,7 +296,7 @@ describe('Email Service', () => {
       const result = await emailService.sendTestEmail(testRecipient);
 
       // ✅ POSITIVE TEST: Check Result object structure
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toBe(true); // sendTestEmail returns boolean true, not full data
       expect(result.error).toBeNull();
 
@@ -320,7 +320,7 @@ describe('Email Service', () => {
       const result = await emailService.sendTestEmail(testRecipient);
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('SMTP authentication failed');
@@ -356,7 +356,7 @@ describe('Email Service', () => {
       const result = await emailService.sendEmail('to@example.com', 'subject', 'body');
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('SMTP');
@@ -373,7 +373,7 @@ describe('Email Service', () => {
       const result = await emailService.sendEmail('to@example.com', 'subject', 'body');
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Connection timeout');

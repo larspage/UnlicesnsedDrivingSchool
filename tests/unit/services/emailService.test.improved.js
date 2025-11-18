@@ -75,7 +75,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       );
 
       // ✅ POSITIVE TEST: Check success behavior
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toEqual({
         success: true,
         messageId: 'message-id-123',
@@ -114,7 +114,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       );
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('SMTP connection failed');
@@ -125,21 +125,21 @@ describe('Email Service - Improved Testing Philosophy', () => {
     test('should validate email parameters - focus on validation failure, not codes', async () => {
       // Test empty recipient
       const result1 = await emailService.sendEmail('', 'subject', 'body');
-      expect(isSuccess(result1)).toBe(false);
+      expect(result1.success).toBe(false);
       expect(result1.error).toBeTruthy();
       expect(result1.error.details?.field).toBe('recipient');
       // Don't check specific error code
 
       // Test invalid email format
       const result2 = await emailService.sendEmail('invalid-email', 'subject', 'body');
-      expect(isSuccess(result2)).toBe(false);
+      expect(result2.success).toBe(false);
       expect(result2.error).toBeTruthy();
       expect(result2.error.details?.field).toBe('recipient');
       // Don't check specific error code
 
       // Test empty subject
       const result3 = await emailService.sendEmail('valid@example.com', '', 'body');
-      expect(isSuccess(result3)).toBe(false);
+      expect(result3.success).toBe(false);
       expect(result3.error).toBeTruthy();
       expect(result3.error.details?.field).toBe('subject');
       // Don't check specific error code
@@ -178,7 +178,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       );
 
       // ✅ POSITIVE TEST: Check success behavior
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toEqual({
         success: true,
         messageId: 'message-id-123',
@@ -215,7 +215,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       );
 
       // ✅ IMPROVED PATTERN: Check that an error occurred for missing resource
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Email template \'nonexistent.template\' not found');
@@ -237,7 +237,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       const result = await emailService.sendTestEmail(testRecipient);
 
       // ✅ POSITIVE TEST: Check success behavior
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toEqual({
         success: true,
         messageId: 'test-message-id',
@@ -268,7 +268,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       const result = await emailService.sendTestEmail(testRecipient);
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('SMTP authentication failed');
@@ -288,7 +288,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       const result = await emailService.sendEmail('to@example.com', 'subject', 'body');
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Invalid SMTP credentials');
@@ -305,7 +305,7 @@ describe('Email Service - Improved Testing Philosophy', () => {
       const result = await emailService.sendEmail('to@example.com', 'subject', 'body');
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Connection timeout');
