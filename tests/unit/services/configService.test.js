@@ -5,9 +5,15 @@ const Configuration = require('../../../server/models/Configuration');
 jest.mock('../../../server/services/localJsonService', () => ({
   getAllRows: jest.fn(),
   writeJsonFile: jest.fn(),
-  ensureDataDirectory: jest.fn().mockResolvedValue(undefined),
-  ensureSheetExists: jest.fn().mockResolvedValue(undefined)
+  ensureDataDirectory: jest.fn().mockResolvedValue(successResult(undefined)),
+  ensureSheetExists: jest.fn().mockResolvedValue(successResult(undefined))
 }));
+
+// Helper to create successful result
+const successResult = (data) => ({ success: true, data, error: null });
+
+// Helper to create failure result
+const failureResult = (error) => ({ success: false, data: null, error });
 
 // Mock the Configuration model
 jest.mock('../../../server/models/Configuration', () => {
@@ -61,7 +67,7 @@ describe('Config Service', () => {
     });
 
     it('should return null when config not found', async () => {
-      localJsonService.getAllRows.mockResolvedValue([]);
+      localJsonService.getAllRows.mockResolvedValue(successResult([]));
 
       const result = await configService.getConfig('nonexistent.key');
 
@@ -75,7 +81,7 @@ describe('Config Service', () => {
         { key: 'test.boolean', value: 'true', type: 'boolean' },
         { key: 'test.json', value: '{"nested": "value"}', type: 'json' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockConfigs);
+      localJsonService.getAllRows.mockResolvedValue(successResult(mockConfigs));
 
       const stringResult = await configService.getConfig('test.string');
       const numberResult = await configService.getConfig('test.number');
@@ -90,7 +96,7 @@ describe('Config Service', () => {
 
     it('should cache retrieved values', async () => {
       const mockConfigs = [{ key: 'test.key', value: 'test-value', type: 'string' }];
-      localJsonService.getAllRows.mockResolvedValue(mockConfigs);
+      localJsonService.getAllRows.mockResolvedValue(successResult(mockConfigs));
 
       // First call should fetch from JSON
       await configService.getConfig('test.key');
@@ -109,7 +115,7 @@ describe('Config Service', () => {
         { key: 'system.rateLimit', value: '100', type: 'number' },
         { key: 'features.enabled', value: 'true', type: 'boolean' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockConfigs);
+      localJsonService.getAllRows.mockResolvedValue(successResult(mockConfigs));
 
       const result = await configService.getAllConfig();
 
@@ -125,7 +131,7 @@ describe('Config Service', () => {
         { key: 'test.key1', value: 'value1', type: 'string' },
         { key: 'test.key2', value: 'value2', type: 'string' }
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockConfigs);
+      localJsonService.getAllRows.mockResolvedValue(successResult(mockConfigs));
 
       await configService.getAllConfig();
 
@@ -135,7 +141,7 @@ describe('Config Service', () => {
     });
 
     it('should handle empty configuration', async () => {
-      localJsonService.getAllRows.mockResolvedValue([]);
+      localJsonService.getAllRows.mockResolvedValue(successResult([]));
 
       const result = await configService.getAllConfig();
 
@@ -149,7 +155,7 @@ describe('Config Service', () => {
         null, // Invalid - null entry
         {} // Invalid - empty object
       ];
-      localJsonService.getAllRows.mockResolvedValue(mockConfigs);
+      localJsonService.getAllRows.mockResolvedValue(successResult(mockConfigs));
 
       const result = await configService.getAllConfig();
 
@@ -159,8 +165,8 @@ describe('Config Service', () => {
 
   describe('setConfig', () => {
     beforeEach(() => {
-      localJsonService.getAllRows.mockResolvedValue([]);
-      localJsonService.writeJsonFile.mockResolvedValue();
+      localJsonService.getAllRows.mockResolvedValue(successResult([]));
+      localJsonService.writeJsonFile.mockResolvedValue(successResult());
     });
 
     it('should throw error for invalid key', async () => {
@@ -200,7 +206,7 @@ describe('Config Service', () => {
         updatedAt: '2025-01-01T00:00:00Z',
         updatedBy: 'old-admin'
       };
-      localJsonService.getAllRows.mockResolvedValue([existingConfig]);
+      localJsonService.getAllRows.mockResolvedValue(successResult([existingConfig]));
 
       const result = await configService.setConfig(
         'test.existingKey',
@@ -252,8 +258,8 @@ describe('Config Service', () => {
 
   describe('initializeDefaults', () => {
     beforeEach(() => {
-      localJsonService.getAllRows.mockResolvedValue([]);
-      localJsonService.writeJsonFile.mockResolvedValue();
+      localJsonService.getAllRows.mockResolvedValue(successResult([]));
+      localJsonService.writeJsonFile.mockResolvedValue(successResult());
     });
 
     it('should initialize default configurations', async () => {
@@ -284,7 +290,7 @@ describe('Config Service', () => {
         updatedAt: '2025-01-01T00:00:00Z',
         updatedBy: 'existing-admin'
       };
-      localJsonService.getAllRows.mockResolvedValue([existingConfig]);
+      localJsonService.getAllRows.mockResolvedValue(successResult([existingConfig]));
 
       await configService.initializeDefaults();
 
@@ -326,7 +332,7 @@ describe('Config Service', () => {
       // Mock setConfig to fail for one config
       const originalSetConfig = configService.setConfig;
       configService.setConfig = jest.fn()
-        .mockRejectedValueOnce(new Error('Failed to set config'))
+        .mockRejectedValueOnce(new Error('Storage error'))
         .mockResolvedValue({ key: 'success.key' });
 
       await configService.initializeDefaults({
@@ -378,8 +384,8 @@ describe('Config Service', () => {
     });
 
     it('should handle JSON storage errors in setConfig', async () => {
-      localJsonService.getAllRows.mockResolvedValue([]);
-      localJsonService.writeJsonFile.mockRejectedValue(new Error('Storage error'));
+      localJsonService.getAllRows.mockResolvedValue(successResult([]));
+      localJsonService.writeJsonFile.mockResolvedValue(failureResult(new Error('Storage error')));
 
       await expect(configService.setConfig('test.key', 'value', 'string', 'system')).rejects.toThrow('Storage error');
     });
@@ -387,8 +393,8 @@ describe('Config Service', () => {
 
   describe('Configuration model integration', () => {
     beforeEach(() => {
-      localJsonService.getAllRows.mockResolvedValue([]);
-      localJsonService.writeJsonFile.mockResolvedValue();
+      localJsonService.getAllRows.mockResolvedValue(successResult([]));
+      localJsonService.writeJsonFile.mockResolvedValue(successResult());
     });
 
     it('should use Configuration.create for validation', async () => {

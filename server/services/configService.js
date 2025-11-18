@@ -169,16 +169,14 @@ function clearConfigCache() {
 
 /**
  * Retrieves all configuration from local JSON storage
- * @returns {Promise<Result<Array<Configuration>>>} Array of Configuration instances or error
+ * @returns {Promise<Array<Configuration>>} Array of Configuration instances
+ * @throws {Error} If storage operation fails
  */
 async function getAllConfigFromJson() {
-  return attemptAsync(async () => {
+  try {
     logOperation('getAllConfigFromJson', { dataFile: CONFIG_DATA_FILE });
 
-    const ensureResult = await ensureConfigFile();
-    if (!isSuccess(ensureResult)) {
-      throw databaseError('Failed to ensure config file exists', ensureResult.error);
-    }
+    await ensureConfigFile();
 
     const configsDataResult = await localJsonService.getAllRows(null, CONFIG_DATA_FILE);
     if (!isSuccess(configsDataResult)) {
@@ -202,34 +200,29 @@ async function getAllConfigFromJson() {
     logOperation('getAllConfigFromJson', { configCount: configs.length });
 
     return configs;
-
-  }, { operation: 'getAllConfigFromJson' });
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
  * Updates or creates a configuration entry in local JSON storage
  * @param {Configuration} config - Configuration instance to save
- * @returns {Promise<Result<Configuration>>} The saved configuration or error
+ * @returns {Promise<Configuration>} The saved configuration
+ * @throws {Error} If storage operation fails
  */
 async function saveConfigToJson(config) {
-  return attemptAsync(async () => {
+  try {
     // Structured input validation
     const configError = validateRequired(config, 'Configuration', 'Configuration instance');
     if (configError) throw configError;
 
     logOperation('saveConfigToJson', { key: config.key, type: config.type, category: config.category });
 
-    const ensureResult = await ensureConfigFile();
-    if (!isSuccess(ensureResult)) {
-      throw databaseError('Failed to ensure config file exists', ensureResult.error);
-    }
+    await ensureConfigFile();
 
     // Get all existing configs to find if this key exists
-    const allConfigsResult = await getAllConfigFromJson();
-    if (!isSuccess(allConfigsResult)) {
-      throw databaseError('Failed to retrieve existing configurations', allConfigsResult.error);
-    }
-    const allConfigs = allConfigsResult.data;
+    const allConfigs = await getAllConfigFromJson();
     const existingIndex = allConfigs.findIndex(c => c.key === config.key);
 
     if (existingIndex >= 0) {
@@ -245,28 +238,26 @@ async function saveConfigToJson(config) {
     // Save to JSON file
     const writeResult = await localJsonService.writeJsonFile(CONFIG_DATA_FILE, allConfigs);
     if (!isSuccess(writeResult)) {
-      throw databaseError('Failed to save configuration to storage', writeResult.error);
+      throw writeResult.error;
     }
 
     // Clear cache since config changed
     clearConfigCache();
 
     return config;
-
-  }, { operation: 'saveConfigToJson', details: {
-    configKey: config?.key,
-    configType: config?.type,
-    configCategory: config?.category
-  } });
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
  * Retrieves a single configuration value by key
  * @param {string} key - Configuration key
- * @returns {Promise<Result<*>>} Configuration value or error
+ * @returns {Promise<*>} Configuration value
+ * @throws {Error} If storage operation fails or key is invalid
  */
 async function getConfig(key) {
-  return attemptAsync(async () => {
+  try {
     if (!key || typeof key !== 'string') {
       throw new Error('Invalid key: must be a non-empty string');
     }
@@ -279,11 +270,7 @@ async function getConfig(key) {
     }
 
     // Get from JSON
-    const allConfigsResult = await getAllConfigFromJson();
-    if (!isSuccess(allConfigsResult)) {
-      throw allConfigsResult.error.innerError;
-    }
-    const allConfigs = allConfigsResult.data;
+    const allConfigs = await getAllConfigFromJson();
     const config = allConfigs.find(c => c.key === key);
 
     if (!config) {
@@ -298,22 +285,21 @@ async function getConfig(key) {
 
     logOperation('getConfig', { key, found: true, type: config.type, source: 'sheets' });
     return value;
-  }, { operation: 'getConfig', details: { key, hasCache: true } });
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
  * Retrieves all configuration settings
- * @returns {Promise<Result<Object>>} Object with all configuration key-value pairs or error
+ * @returns {Promise<Object>} Object with all configuration key-value pairs
+ * @throws {Error} If storage operation fails
  */
 async function getAllConfig() {
-  return attemptAsync(async () => {
+  try {
     logOperation('getAllConfig');
 
-    const allConfigsResult = await getAllConfigFromJson();
-    if (!isSuccess(allConfigsResult)) {
-      throw allConfigsResult.error.innerError;
-    }
-    const allConfigs = allConfigsResult.data;
+    const allConfigs = await getAllConfigFromJson();
     const configObject = {};
 
     for (const config of allConfigs) {
@@ -324,7 +310,9 @@ async function getAllConfig() {
 
     logOperation('getAllConfig', { totalConfigs: Object.keys(configObject).length });
     return configObject;
-  }, { operation: 'getAllConfig' });
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
@@ -335,30 +323,22 @@ async function getAllConfig() {
  * @param {string} category - Configuration category (email, google, system)
  * @param {string} [description] - Human-readable description
  * @param {string} [updatedBy] - Admin who updated the config
- * @returns {Promise<Result<Configuration>>} The updated configuration or error
+ * @returns {Promise<Configuration>} The updated configuration
+ * @throws {Error} If validation or storage operation fails
  */
 async function setConfig(key, value, type, category, description = '', updatedBy = null) {
-  return attemptAsync(async () => {
-    // Structured input validation
-    const keyError = validateRequired(key, 'Configuration key', 'non-empty string');
-    if (keyError) throw keyError;
-
-    if (typeof key !== 'string') {
-      throw validationError('key', 'Configuration key must be a string', key, 'string');
+  try {
+    // Input validation matching test expectations
+    if (!key || typeof key !== 'string') {
+      throw new Error('Invalid key: must be a non-empty string');
     }
 
-    const typeError = validateRequired(type, 'Configuration type', 'non-empty string');
-    if (typeError) throw typeError;
-
-    if (typeof type !== 'string') {
-      throw validationError('type', 'Configuration type must be a string', type, 'string');
+    if (!type || typeof type !== 'string') {
+      throw new Error('Invalid type: must be a non-empty string');
     }
 
-    const categoryError = validateRequired(category, 'Configuration category', 'non-empty string');
-    if (categoryError) throw categoryError;
-
-    if (typeof category !== 'string') {
-      throw validationError('category', 'Configuration category must be a string', category, 'string');
+    if (!category || typeof category !== 'string') {
+      throw new Error('Invalid category: must be a non-empty string');
     }
 
     // Validate the input using Configuration model
@@ -375,11 +355,7 @@ async function setConfig(key, value, type, category, description = '', updatedBy
     const config = Configuration.create(configData, updatedBy);
 
     // Save to JSON
-    const saveResult = await saveConfigToJson(config);
-    if (!isSuccess(saveResult)) {
-      throw databaseError('Failed to save configuration', saveResult.error);
-    }
-    const savedConfig = saveResult.data;
+    const savedConfig = await saveConfigToJson(config);
 
     logOperation('setConfig', {
       key,
@@ -390,7 +366,9 @@ async function setConfig(key, value, type, category, description = '', updatedBy
     });
 
     return savedConfig;
-  }, { operation: 'setConfig', details: { key, type, category, hasDescription: !!description, hasUpdatedBy: !!updatedBy } });
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
@@ -398,10 +376,11 @@ async function setConfig(key, value, type, category, description = '', updatedBy
  * @param {string} key - Configuration key
  * @param {*} value - Configuration value
  * @param {string} type - Data type
- * @returns {Result<boolean>} True if valid or error
+ * @returns {boolean} True if valid
+ * @throws {Error} If validation fails
  */
 function validateConfig(key, value, type) {
-  return attempt(() => {
+  try {
     // Input validation
     if (!key || typeof key !== 'string') {
       throw new Error('Invalid key: must be a non-empty string');
@@ -422,7 +401,9 @@ function validateConfig(key, value, type) {
 
     logOperation('validateConfig', { key, type, valid: true });
     return true;
-  }, { operation: 'validateConfig', details: { key, hasValue: value !== undefined, type } });
+  } catch (error) {
+    throw error;
+  }
 }
 
 /**
@@ -508,11 +489,7 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
 
     logOperation('initializeDefaults', { defaultKeys: Object.keys(defaults) });
 
-    const existingConfigsResult = await getAllConfigFromJson();
-    if (!isSuccess(existingConfigsResult)) {
-      throw existingConfigsResult.error.innerError;
-    }
-    const existingConfigs = existingConfigsResult.data;
+    const existingConfigs = await getAllConfigFromJson();
     const existingKeys = new Set(existingConfigs.map(c => c.key));
 
     let initializedCount = 0;
@@ -522,7 +499,7 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
     for (const [key, configDef] of Object.entries(defaults)) {
       if (!existingKeys.has(key)) {
         try {
-          const setResult = await setConfig(
+          await setConfig(
             key,
             configDef.value,
             configDef.type,
@@ -530,14 +507,9 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
             configDef.description,
             updatedBy
           );
-          if (isSuccess(setResult)) {
-            initializedCount++;
-            createdKeys.push(key);
-            logOperation('initializeDefaults', { key, action: 'created' });
-          } else {
-            failedKeys.push(key);
-            console.warn(`Failed to initialize default config for ${key}:`, setResult.error.message);
-          }
+          initializedCount++;
+          createdKeys.push(key);
+          logOperation('initializeDefaults', { key, action: 'created' });
         } catch (error) {
           failedKeys.push(key);
           console.warn(`Failed to initialize default config for ${key}:`, error.message);
@@ -565,62 +537,71 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
 
 /**
  * Ensures the configuration file exists with fallback mechanisms
- * @returns {Promise<Result<void>>} Result indicating success or error
+ * @returns {Promise<void>} Resolves when file exists
+ * @throws {Error} If file cannot be ensured
  */
 async function ensureConfigFile() {
-  return attemptAsync(async () => {
-    try {
-      // Ensure data directory exists first
-      if (typeof localJsonService.ensureDataDirectory === 'function') {
-        await localJsonService.ensureDataDirectory();
+  try {
+    // Ensure data directory exists first
+    if (typeof localJsonService.ensureDataDirectory === 'function') {
+      const dirResult = await localJsonService.ensureDataDirectory();
+      if (!isSuccess(dirResult)) {
+        throw new Error('Failed to ensure data directory');
       }
+    }
 
-      // Preferred path: use ensureSheetExists if the localJsonService exposes it (keeps existing behavior)
-      if (typeof localJsonService.ensureSheetExists === 'function') {
-        await localJsonService.ensureSheetExists(null, CONFIG_DATA_FILE);
-        return;
+    // Preferred path: use ensureSheetExists if the localJsonService exposes it (keeps existing behavior)
+    if (typeof localJsonService.ensureSheetExists === 'function') {
+      const sheetResult = await localJsonService.ensureSheetExists(null, CONFIG_DATA_FILE);
+      if (!isSuccess(sheetResult)) {
+        throw new Error('Failed to ensure config sheet exists');
       }
+      return;
+    }
 
-      // Fallback path: try to read existing rows; if it fails or returns nothing, create an empty file
-      if (typeof localJsonService.getAllRows === 'function') {
-        try {
-          const rows = await localJsonService.getAllRows(null, CONFIG_DATA_FILE);
-          if (Array.isArray(rows)) {
-            // file exists and is readable -> nothing more to do
-            return;
-          }
-        } catch (err) {
-          // swallow and fall through to attempt creation
+    // Fallback path: try to read existing rows; if it fails or returns nothing, create an empty file
+    if (typeof localJsonService.getAllRows === 'function') {
+      try {
+        const rowsResult = await localJsonService.getAllRows(null, CONFIG_DATA_FILE);
+        if (isSuccess(rowsResult) && Array.isArray(rowsResult.data)) {
+          // file exists and is readable -> nothing more to do
+          return;
         }
+      } catch (err) {
+        // swallow and fall through to attempt creation
       }
+    }
 
-      // Last-resort: create an empty config file using writeJsonFile (most localJsonService implementations provide this)
-      if (typeof localJsonService.writeJsonFile === 'function') {
-        await localJsonService.writeJsonFile(CONFIG_DATA_FILE, []);
-        return;
+    // Last-resort: create an empty config file using writeJsonFile (most localJsonService implementations provide this)
+    if (typeof localJsonService.writeJsonFile === 'function') {
+      const writeResult = await localJsonService.writeJsonFile(CONFIG_DATA_FILE, []);
+      if (!isSuccess(writeResult)) {
+        throw new Error('Failed to create config file');
       }
+      return;
+    }
 
-      // If we reach here, we couldn't ensure the file with available APIs
-      throw new Error('No supported localJsonService methods to ensure config file');
-    } catch (error) {
-      // Try a rescue write before failing the whole flow - makes tests resilient
-      console.error('Failed to ensure config file:', error.message);
+    // If we reach here, we couldn't ensure the file with available APIs
+    throw new Error('No supported localJsonService methods to ensure config file');
+  } catch (error) {
+    // Try a rescue write before failing the whole flow - makes tests resilient
+    console.error('Failed to ensure config file:', error.message);
 
-      if (typeof localJsonService.writeJsonFile === 'function') {
-        try {
-          await localJsonService.writeJsonFile(CONFIG_DATA_FILE, []);
+    if (typeof localJsonService.writeJsonFile === 'function') {
+      try {
+        const rescueResult = await localJsonService.writeJsonFile(CONFIG_DATA_FILE, []);
+        if (isSuccess(rescueResult)) {
           console.warn('Created fallback empty config file');
           return;
-        } catch (err) {
-          console.error('Failed to create fallback config file:', err.message);
-          throw new Error('Storage error');
         }
+      } catch (err) {
+        console.error('Failed to create fallback config file:', err.message);
       }
-
-      // If fallback also failed, rethrow a Storage error to keep the existing API behavior
-      throw new Error('Storage error');
     }
-  }, { operation: 'ensureConfigFile' });
+
+    // If fallback also failed, rethrow a Storage error to keep the existing API behavior
+    throw new Error('Storage error');
+  }
 }
 
 module.exports = {
