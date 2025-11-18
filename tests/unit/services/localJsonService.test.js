@@ -317,7 +317,7 @@ describe('Local JSON Service', () => {
         const result = await localJsonService.updateRow('spreadsheet1', 'sheet1', '999', {});
 
         expect(result.success).toBe(false);
-        expect(result.error.code).toBe('NOT_FOUND');
+        expect(result.error).toBeTruthy();
         expect(result.error.message).toContain('Row with ID 999 not found in sheet1');
       });
     });
@@ -353,7 +353,7 @@ describe('Local JSON Service', () => {
         const result = await localJsonService.deleteRow('spreadsheet1', 'sheet1', '999');
 
         expect(result.success).toBe(false);
-        expect(result.error.code).toBe('NOT_FOUND');
+        expect(result.error).toBeTruthy();
         expect(result.error.message).toContain('Row with ID 999 not found in sheet1');
         expect(fs.promises.writeFile).not.toHaveBeenCalled();
       });

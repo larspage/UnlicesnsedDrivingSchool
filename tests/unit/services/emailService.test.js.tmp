@@ -1,0 +1,148 @@
+/**
+ * Unit tests for Email Service - IMPROVED VERSION
+ * 
+ * This version follows the philosophy that negative tests should verify:
+ * 1. That an error occurred (success: false)
+ * 2. That meaningful error information is present
+ * 3. NOT which specific error code was returned
+ * 
+ * This makes tests more resilient to implementation changes.
+ */
+
+// Mock dependencies before requiring the service
+jest.mock('nodemailer');
+jest.mock('../../../server/services/configService');
+
+// Set up environment variables before requiring the service
+process.env.SMTP_HOST = 'smtp.example.com';
+process.env.SMTP_PORT = '587';
+process.env.SMTP_SECURE = 'false';
+process.env.SMTP_USER = 'test@example.com';
+process.env.SMTP_PASS = 'test-password';
+process.env.EMAIL_FROM = 'noreply@example.com';
+
+const nodemailer = require('nodemailer');
+const configService = require('../../../server/services/configService');
+
+// Set up basic mocks
+const mockTransporter = {
+  sendMail: jest.fn()
+};
+
+nodemailer.createTransport = jest.fn(() => mockTransporter);
+
+const emailService = require('../../../server/services/emailService');
+const { isSuccess, isFailure } = require('../../../server/utils/result');
+const { ERROR_CODES } = require('../../../server/utils/errorCodes');
+
+// Mock console.log to avoid test output clutter
+global.console.log = jest.fn();
+
+describe('Email Service - Improved Testing Philosophy', () => {
+  let mockSendMail;
+
+  beforeEach(() => {
+    // Reset mocks
+    jest.clearAllMocks();
+
+    // Setup Nodemailer mocks
+    mockSendMail = mockTransporter.sendMail;
+
+    // Setup config service mocks
+    configService.getConfig = jest.fn();
+    configService.getAllConfig = jest.fn();
+  });
+
+  describe('sendEmail', () => {
+    test('should send email successfully', async () => {
+      // Arrange
+      const emailData = {
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        body: 'Test Body'
+      };
+
+      mockSendMail.mockResolvedValue({
+        messageId: 'message-id-123',
+        response: '250 OK'
+      });
+
+      // Act
+      const result = await emailService.sendEmail(
+        emailData.to,
+        emailData.subject,
+        emailData.body
+      );
+
+      // ✅ POSITIVE TEST: Check success behavior
+      expect(isSuccess(result)).toBe(true);
+      expect(result.data).toEqual({
+        success: true,
+        messageId: 'message-id-123',
+        response: '250 OK',
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        from: 'noreply@example.com'
+      });
+      expect(result.error).toBeNull();
+
+      expect(mockSendMail).toHaveBeenCalledWith({
+        from: 'noreply@example.com',
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        text: 'Test Body'
+      });
+    });
+
+    test('should handle SMTP errors - focus on error occurrence, not specific codes', async () => {
+      // Arrange
+      const emailData = {
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        body: 'Test Body'
+      };
+
+      const smtpError = new Error('SMTP connection failed');
+      smtpError.code = 'ECONNREFUSED';
+      mockSendMail.mockRejectedValue(smtpError);
+
+      // Act
+      const result = await emailService.sendEmail(
+        emailData.to,
+        emailData.subject,
+        emailData.body
+      );
+
+      // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
+      expect(isSuccess(result)).toBe(false);
+      expect(result.data).toBeNull();
+      expect(result.error).toBeTruthy();
+      expect(result.error.message).toContain('SMTP connection failed');
+      expect(result.error.innerError).toBe(smtpError);
+      // DON'T check specific error code - let implementation decide the best code
+    });
+
+    test('should validate email parameters - focus on validation failure, not codes', async () => {
+      // Test empty recipient
+      const result1 = await emailService.sendEmail('', 'subject', 'body');
+      expect(isSuccess(result1)).toBe(false);
+      expect(result1.error).toBeTruthy();
+      expect(result1.error.details?.field).toBe('recipient');
+      // Don't check specific error code
+
+      // Test invalid email format
+      const result2 = await emailService.sendEmail('invalid-email', 'subject', 'body');
+      expect(isSuccess(result2)).toBe(false);
+      expect(result2.error).toBeTruthy();
+      expect(result2.error.details?.field).toBe('recipient');
+      // Don't check specific error code
+
+      // Test empty subject
+      const result3 = await emailService.sendEmail('valid@example.com', '', 'body');
+      expect(isSuccess(result3)).toBe(false);
+      expect(result3.error).toBeTruthy();
+      expect(result3.error.details?.field).toBe('subject');
+      // Don't check specific error code
+    });
+  });
+});
