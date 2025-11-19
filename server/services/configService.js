@@ -1,4 +1,4 @@
-ci/**
+/**
  * Configuration Service for NJDSC School Compliance Portal
  *
  * Manages system configuration stored in Google Sheets with caching
