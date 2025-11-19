@@ -312,7 +312,7 @@ async function updateReportStatus(reportId, updateData) {
     });
 
     // Create a Report instance from the existing data
-    const reportInstance = new Report(existingReport);
+    const reportInstance = new Report({ ...existingReport });
 
     // Prepare update data
     const updatePayload = {
@@ -353,10 +353,16 @@ async function updateReportStatus(reportId, updateData) {
  */
 async function getAllReports() {
   return attemptAsync(async () => {
-    const reportsData = await localJsonService.getAllRows(
+    const reportsDataResult = await localJsonService.getAllRows(
       null, // spreadsheetId not needed
       REPORTS_DATA_FILE
     );
+
+    if (!isSuccess(reportsDataResult)) {
+      throw reportsDataResult.error.innerError || new Error(reportsDataResult.error.message || 'Storage error');
+    }
+
+    const reportsData = reportsDataResult.data;
 
     // Convert plain objects to Report instances
     const reports = reportsData.map(data => {

@@ -41,7 +41,7 @@ jobs:
         PORT: 5000
 
     - name: Run tests
-      run: npm test -- --coverage --watchAll=false --runInBand
+      run: npm test -- --coverage --watchAll=false --runInBand --verbose=false
       env:
         NODE_ENV: test
 

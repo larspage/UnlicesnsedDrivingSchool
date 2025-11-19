@@ -1,4 +1,4 @@
-/**
+ci/**
  * Configuration Service for NJDSC School Compliance Portal
  *
  * Manages system configuration stored in Google Sheets with caching
@@ -504,7 +504,7 @@ async function initializeDefaults(customDefaults = {}, updatedBy = null) {
             logOperation('initializeDefaults', { key, action: 'created' });
           } else {
             failedKeys.push(key);
-            console.warn(`Failed to initialize default config for ${key}:`, setResult.error.message);
+            console.warn(`Failed to initialize default config for ${key}:`, setResult.error?.message || setResult.error);
           }
         } catch (error) {
           failedKeys.push(key);

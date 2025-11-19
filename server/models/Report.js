@@ -44,6 +44,33 @@ class Report {
    * @param {string} [data.mvcReferenceNumber] - MVC reference number
    */
   constructor(data) {
+    // Handle Report instances by extracting their data
+    if (data instanceof Report) {
+      data = {
+        id: data.id,
+        schoolName: data.schoolName,
+        location: data.location,
+        violationDescription: data.violationDescription,
+        phoneNumber: data.phoneNumber,
+        websiteUrl: data.websiteUrl,
+        uploadedFiles: data.uploadedFiles,
+        socialMediaLinks: data.socialMediaLinks,
+        additionalInfo: data.additionalInfo,
+        status: data.status,
+        lastReported: data.lastReported,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        reporterIp: data.reporterIp,
+        adminNotes: data.adminNotes,
+        mvcReferenceNumber: data.mvcReferenceNumber,
+        reporterName: data.reporterName,
+        reporterPhone: data.reporterPhone,
+        reporterSchool: data.reporterSchool,
+        reporterEmail: data.reporterEmail,
+        updatedBy: data.updatedBy
+      };
+    }
+
     // Validate input data
     const validatedData = Report.validateData(data);
 
@@ -232,6 +259,7 @@ class Report {
       ...cleanCurrentData,
       ...updateData,
       id: this.id, // Ensure ID doesn't change
+      createdAt: this.createdAt, // Ensure createdAt is preserved
       updatedAt: new Date().toISOString()
     };
 

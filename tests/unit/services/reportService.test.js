@@ -71,8 +71,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.createReport(mockReportData);
 
       // ✅ IMPROVED PATTERN: Check for error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
-      expect(isFailure(result)).toBe(true);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('School name is required');
@@ -139,7 +138,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.createReport(mockReportData);
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Storage');
@@ -180,7 +179,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getReports(options);
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data.items).toHaveLength(2);
       expect(result.data.pagination.page).toBe(1);
       expect(result.data.pagination.limit).toBe(10);
@@ -216,7 +215,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getReports({ status: 'Added' });
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data.items).toHaveLength(1);
       expect(result.data.items[0].status).toBe('Added');
       expect(result.error).toBeNull();
@@ -247,7 +246,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getReports({ search: 'ABC' });
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data.items).toHaveLength(1);
       expect(result.data.items[0].schoolName).toBe('ABC Driving School');
       expect(result.error).toBeNull();
@@ -266,7 +265,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getReports();
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Storage');
@@ -291,7 +290,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getReports();
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data.items[0].reporterIp).toBeUndefined();
       expect(result.data.items[0].adminNotes).toBeUndefined();
       expect(result.data.items[0].mvcReferenceNumber).toBeUndefined();
