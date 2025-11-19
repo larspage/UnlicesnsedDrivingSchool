@@ -44,31 +44,9 @@ class Report {
    * @param {string} [data.mvcReferenceNumber] - MVC reference number
    */
   constructor(data) {
-    // Handle Report instances by extracting their data
+    // Handle Report instances by converting to plain object
     if (data instanceof Report) {
-      data = {
-        id: data.id,
-        schoolName: data.schoolName,
-        location: data.location,
-        violationDescription: data.violationDescription,
-        phoneNumber: data.phoneNumber,
-        websiteUrl: data.websiteUrl,
-        uploadedFiles: data.uploadedFiles,
-        socialMediaLinks: data.socialMediaLinks,
-        additionalInfo: data.additionalInfo,
-        status: data.status,
-        lastReported: data.lastReported,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        reporterIp: data.reporterIp,
-        adminNotes: data.adminNotes,
-        mvcReferenceNumber: data.mvcReferenceNumber,
-        reporterName: data.reporterName,
-        reporterPhone: data.reporterPhone,
-        reporterSchool: data.reporterSchool,
-        reporterEmail: data.reporterEmail,
-        updatedBy: data.updatedBy
-      };
+      data = JSON.parse(JSON.stringify(data));
     }
 
     // Validate input data
