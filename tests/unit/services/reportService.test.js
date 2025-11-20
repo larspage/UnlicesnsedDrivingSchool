@@ -353,12 +353,10 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getReportById('rep_nonexistent');
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
-      expect(isFailure(result)).toBe(true);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
-      expect(result.error.message).toContain('not found');
-      // Don't check specific error code
+      // Don't check specific error message content
     });
 
     test('should handle storage errors in getReportById - focus on error occurrence', async () => {

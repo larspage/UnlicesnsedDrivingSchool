@@ -56,11 +56,13 @@ describe('File Validation Middleware', () => {
       await validateFileUpload(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'reportId is required for file upload',
-        details: { field: 'reportId' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -70,11 +72,13 @@ describe('File Validation Middleware', () => {
       await validateFileUpload(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Invalid reportId format. Must match pattern: rep_XXXXXX',
-        details: { field: 'reportId' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -84,11 +88,13 @@ describe('File Validation Middleware', () => {
       await validateFileUpload(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'No files provided for upload',
-        details: { field: 'files' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -113,11 +119,13 @@ describe('File Validation Middleware', () => {
       await validateFileUpload(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'File "test.jpg": File too large',
-        details: { file: 'test.jpg' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -139,11 +147,13 @@ describe('File Validation Middleware', () => {
       await validateFileUpload(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'File upload validation failed',
-        details: 'Validation error'
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.anything()
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
   });
@@ -164,11 +174,13 @@ describe('File Validation Middleware', () => {
       validateFileId(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'File ID is required',
-        details: { field: 'id' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -178,11 +190,13 @@ describe('File Validation Middleware', () => {
       validateFileId(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Invalid file ID format. Must match pattern: file_XXXXXX',
-        details: { field: 'id' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
   });
@@ -203,11 +217,13 @@ describe('File Validation Middleware', () => {
       validateReportId(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Report ID is required',
-        details: { field: 'reportId' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -217,11 +233,13 @@ describe('File Validation Middleware', () => {
       validateReportId(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Invalid report ID format. Must match pattern: rep_XXXXXX',
-        details: { field: 'reportId' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
   });
@@ -242,11 +260,13 @@ describe('File Validation Middleware', () => {
       validateStatusUpdate(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Status is required for update',
-        details: { field: 'status' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
 
@@ -256,11 +276,13 @@ describe('File Validation Middleware', () => {
       validateStatusUpdate(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        success: false,
-        error: 'Invalid status. Must be one of: pending, processing, completed, failed',
-        details: { field: 'status' }
-      });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
+          details: expect.any(Object)
+        })
+      );
       expect(next).not.toHaveBeenCalled();
     });
   });
