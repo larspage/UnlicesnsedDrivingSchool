@@ -92,6 +92,11 @@ class Report {
    * @throws {Error} If validation fails
    */
   static validateData(data, isUpdate = false) {
+    // Auto-fill createdAt if missing (for robustness)
+    if (!data.createdAt) {
+      data.createdAt = new Date().toISOString();
+    }
+
     const schema = Joi.object({
       id: isUpdate ? Joi.string().pattern(/^rep_[a-zA-Z0-9]{6}$/).required() : Joi.string().pattern(/^rep_[a-zA-Z0-9]{6}$/),
       schoolName: Joi.string().min(2).max(255).trim().required(),
