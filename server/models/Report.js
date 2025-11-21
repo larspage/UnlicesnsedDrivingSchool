@@ -44,6 +44,11 @@ class Report {
    * @param {string} [data.mvcReferenceNumber] - MVC reference number
    */
   constructor(data) {
+    // Handle Report instances by converting to plain object
+    if (data instanceof Report) {
+      data = JSON.parse(JSON.stringify(data));
+    }
+
     // Validate input data
     const validatedData = Report.validateData(data);
 
@@ -87,6 +92,11 @@ class Report {
    * @throws {Error} If validation fails
    */
   static validateData(data, isUpdate = false) {
+    // Auto-fill createdAt if missing (for robustness)
+    if (!data.createdAt) {
+      data.createdAt = new Date().toISOString();
+    }
+
     const schema = Joi.object({
       id: isUpdate ? Joi.string().pattern(/^rep_[a-zA-Z0-9]{6}$/).required() : Joi.string().pattern(/^rep_[a-zA-Z0-9]{6}$/),
       schoolName: Joi.string().min(2).max(255).trim().required(),
@@ -232,6 +242,7 @@ class Report {
       ...cleanCurrentData,
       ...updateData,
       id: this.id, // Ensure ID doesn't change
+      createdAt: this.createdAt, // Ensure createdAt is preserved
       updatedAt: new Date().toISOString()
     };
 

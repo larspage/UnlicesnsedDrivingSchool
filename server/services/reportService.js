@@ -8,6 +8,8 @@
 const Report = require('../models/Report');
 const localJsonService = require('./localJsonService');
 const configService = require('./configService');
+const { success, failure, attempt, attemptAsync, isSuccess } = require('../utils/result');
+const { createError, validationError, notFoundError, databaseError, validateRequired, ERROR_CODES } = require('../utils/errorUtils');
 
 // Configuration constants
 const REPORTS_DATA_FILE = 'reports';
@@ -16,13 +18,27 @@ const REPORTS_DATA_FILE = 'reports';
  * Creates a new report with duplicate detection and validation
  * @param {Object} reportData - Report data from request
  * @param {string} reporterIp - Reporter's IP address
- * @returns {Promise<Report>} Created report
- * @throws {Error} If validation fails or duplicate found
+ * @returns {Promise<Result<Report>>} Created report or error
  */
 async function createReport(reportData, reporterIp = null) {
-  try {
+  return attemptAsync(async () => {
+    // Structured input validation
+    const dataError = validateRequired(reportData, 'Report data', 'valid object');
+    if (dataError) throw dataError;
+
+    const schoolNameError = validateRequired(reportData.schoolName, 'School name', 'non-empty string');
+    if (schoolNameError) throw schoolNameError;
+
+    if (typeof reportData.schoolName !== 'string') {
+      throw validationError('schoolName', 'School name must be a string', reportData.schoolName, 'string');
+    }
+
     // Get all existing reports for duplicate checking
-    const existingReports = await getAllReports();
+    const existingReportsResult = await getAllReports();
+    if (!isSuccess(existingReportsResult)) {
+      throw existingReportsResult.error.innerError;
+    }
+    const existingReports = existingReportsResult.data;
 
     // Check for duplicate reports
     const duplicateReport = existingReports.find(existing =>
@@ -67,8 +83,11 @@ async function createReport(reportData, reporterIp = null) {
       }
 
       // Update the existing report
-      const updatedReport = await updateReport(duplicateReport.id, updateData);
-      return updatedReport;
+      const updateResult = await updateReport(duplicateReport.id, updateData);
+      if (!isSuccess(updateResult)) {
+        throw updateResult.error.innerError;
+      }
+      return updateResult.data;
     }
 
     // Create new report instance if no duplicate found
@@ -79,14 +98,14 @@ async function createReport(reportData, reporterIp = null) {
 
     // Save to local JSON storage
     console.log('[REPORT SERVICE] Saving report to JSON storage:', report.id);
-    await saveReportToJson(report);
+    const saveResult = await saveReportToJson(report);
+    if (!isSuccess(saveResult)) {
+      throw saveResult.error.innerError;
+    }
     console.log('[REPORT SERVICE] Report saved to JSON storage successfully');
 
     return report;
-  } catch (error) {
-    console.error('Error creating report:', error);
-    throw error;
-  }
+  }, { operation: 'createReport', details: { hasData: !!reportData, reporterIp } });
 }
 
 /**
@@ -99,10 +118,10 @@ async function createReport(reportData, reporterIp = null) {
  * @param {string} options.sortBy - Sort field
  * @param {string} options.sortOrder - Sort order (asc/desc)
  * @param {boolean} options.includeAdminFields - Include admin-only fields
- * @returns {Promise<Object>} Paginated results
+ * @returns {Promise<Result<Object>>} Paginated results or error
  */
 async function getReports(options = {}) {
-  try {
+  return attemptAsync(async () => {
     const {
       page = 1,
       limit = 20,
@@ -113,8 +132,23 @@ async function getReports(options = {}) {
       includeAdminFields = false
     } = options;
 
+    // Structured pagination validation
+    if (page < 1) {
+      throw validationError('page', 'Page must be >= 1', { page, expectedMin: 1 });
+    }
+    if (limit < 1) {
+      throw validationError('limit', 'Limit must be >= 1', { limit, expectedMin: 1 });
+    }
+    if (limit > 100) {
+      throw validationError('limit', 'Limit must be <= 100', { limit, expectedMax: 100 });
+    }
+
     // Get all reports from local JSON storage
-    const allReports = await getAllReports();
+    const allReportsResult = await getAllReports();
+    if (!isSuccess(allReportsResult)) {
+      throw allReportsResult.error.innerError;
+    }
+    const allReports = allReportsResult.data;
 
     // Apply filters
     let filteredReports = allReports;
@@ -179,25 +213,35 @@ async function getReports(options = {}) {
         hasPrev: page > 1
       }
     };
-  } catch (error) {
-    console.error('Error retrieving reports:', error);
-    throw error;
-  }
+  }, { operation: 'getReports', details: { options } });
 }
 
 /**
  * Retrieves a single report by ID
  * @param {string} reportId - Report ID
  * @param {boolean} includeAdminFields - Include admin-only fields
- * @returns {Promise<Report|null>} Report instance or null if not found
+ * @returns {Promise<Result<Report|null>>} Report instance or null if not found
  */
 async function getReportById(reportId, includeAdminFields = false) {
-  try {
-    const allReports = await getAllReports();
+  return attemptAsync(async () => {
+    // Structured input validation
+    const idError = validateRequired(reportId, 'Report ID', 'non-empty string');
+    if (idError) throw idError;
+
+    if (typeof reportId !== 'string') {
+      throw validationError('reportId', 'Report ID must be a string', reportId, 'string');
+    }
+
+    const allReportsResult = await getAllReports();
+    if (!isSuccess(allReportsResult)) {
+      throw allReportsResult.error.innerError;
+    }
+    const allReports = allReportsResult.data;
+    
     const report = allReports.find(r => r.id === reportId);
 
     if (!report) {
-      return null;
+      throw notFoundError('Report', reportId);
     }
 
     // Remove sensitive fields for public access
@@ -210,10 +254,7 @@ async function getReportById(reportId, includeAdminFields = false) {
     }
 
     return report;
-  } catch (error) {
-    console.error('Error retrieving report by ID:', error);
-    throw error;
-  }
+  }, { operation: 'getReportById', details: { reportId, includeAdminFields } });
 }
 
 /**
@@ -224,13 +265,20 @@ async function getReportById(reportId, includeAdminFields = false) {
  * @param {string} [updateData.adminNotes] - Admin notes
  * @param {string} [updateData.mvcReferenceNumber] - MVC reference number
  * @param {string} [updateData.updatedBy] - Who updated the report
- * @returns {Promise<Report>} Updated report
- * @throws {Error} If report not found or status invalid
+ * @returns {Promise<Result<Report>>} Updated report or error
  */
 async function updateReportStatus(reportId, updateData) {
   const startTime = Date.now();
 
-  try {
+  return attemptAsync(async () => {
+    if (!reportId || typeof reportId !== 'string') {
+      throw new Error('Report ID must be a non-empty string');
+    }
+
+    if (!updateData || typeof updateData !== 'object' || !updateData.status) {
+      throw new Error('Update data must be an object with a status field');
+    }
+
     console.log('[REPORT SERVICE] updateReportStatus called:', {
       reportId,
       updateData,
@@ -240,7 +288,11 @@ async function updateReportStatus(reportId, updateData) {
     const { status, adminNotes, mvcReferenceNumber, updatedBy } = updateData;
 
     console.log('[REPORT SERVICE] Fetching all reports for update');
-    const allReports = await getAllReports();
+    const allReportsResult = await getAllReports();
+    if (!isSuccess(allReportsResult)) {
+      throw allReportsResult.error.innerError;
+    }
+    const allReports = allReportsResult.data;
     const reportIndex = allReports.findIndex(r => r.id === reportId);
 
     if (reportIndex === -1) {
@@ -260,7 +312,7 @@ async function updateReportStatus(reportId, updateData) {
     });
 
     // Create a Report instance from the existing data
-    const reportInstance = new Report(existingReport);
+    const reportInstance = new Report({ ...existingReport });
 
     // Prepare update data
     const updatePayload = {
@@ -278,7 +330,10 @@ async function updateReportStatus(reportId, updateData) {
 
     // Save to local JSON storage
     console.log('[REPORT SERVICE] Saving to local JSON storage');
-    await updateReportInJson(updatedReport);
+    const saveResult = await updateReportInJson(updatedReport);
+    if (!isSuccess(saveResult)) {
+      throw saveResult.error.innerError;
+    }
 
     console.log('[REPORT SERVICE] Report status updated successfully:', {
       reportId,
@@ -289,32 +344,25 @@ async function updateReportStatus(reportId, updateData) {
     });
 
     return updatedReport;
-  } catch (error) {
-    console.error('[REPORT SERVICE ERROR] Error updating report status:', {
-      reportId,
-      updateData,
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      },
-      duration: Date.now() - startTime,
-      timestamp: new Date().toISOString()
-    });
-    throw error;
-  }
+  }, { operation: 'updateReportStatus', details: { reportId, hasStatus: !!updateData?.status } });
 }
 
 /**
  * Retrieves all reports from local JSON storage
- * @returns {Promise<Array<Report>>} Array of Report instances
+ * @returns {Promise<Result<Array<Report>>>} Array of Report instances or error
  */
 async function getAllReports() {
-  try {
-    const reportsData = await localJsonService.getAllRows(
+  return attemptAsync(async () => {
+    const reportsDataResult = await localJsonService.getAllRows(
       null, // spreadsheetId not needed
       REPORTS_DATA_FILE
     );
+
+    if (!isSuccess(reportsDataResult)) {
+      throw reportsDataResult.error.innerError || new Error(reportsDataResult.error.message || 'Storage error');
+    }
+
+    const reportsData = reportsDataResult.data;
 
     // Convert plain objects to Report instances
     const reports = reportsData.map(data => {
@@ -327,19 +375,20 @@ async function getAllReports() {
     }).filter(report => report !== null);
 
     return reports;
-  } catch (error) {
-    console.error('Error retrieving all reports:', error);
-    throw error;
-  }
+  }, { operation: 'getAllReports' });
 }
 
 /**
  * Saves a report to local JSON storage
  * @param {Report} report - Report instance to save
- * @returns {Promise<void>}
+ * @returns {Promise<Result<void>>} Success or error
  */
 async function saveReportToJson(report) {
-  try {
+  return attemptAsync(async () => {
+    if (!report || !report.id) {
+      throw new Error('Invalid report: report and report.id are required');
+    }
+
     console.log('[REPORT SERVICE] saveReportToJson called for report:', report.id);
     await localJsonService.appendRow(
       null, // spreadsheetId not needed
@@ -347,47 +396,56 @@ async function saveReportToJson(report) {
       report
     );
     console.log('[REPORT SERVICE] Report appended to JSON file successfully');
-  } catch (error) {
-    console.error('[REPORT SERVICE] Error saving report to JSON:', error);
-    throw error;
-  }
+  }, { operation: 'saveReportToJson', details: { reportId: report?.id } });
 }
 
 /**
  * Updates a report in local JSON storage
  * @param {Report} report - Updated report instance
- * @returns {Promise<void>}
+ * @returns {Promise<Result<void>>} Success or error
  */
 async function updateReportInJson(report) {
-  try {
+  return attemptAsync(async () => {
+    if (!report || !report.id) {
+      throw new Error('Invalid report: report and report.id are required');
+    }
+
     await localJsonService.updateRow(
       null, // spreadsheetId not needed
       REPORTS_DATA_FILE,
       report.id,
       report
     );
-  } catch (error) {
-    console.error('Error updating report in JSON:', error);
-    throw error;
-  }
+  }, { operation: 'updateReportInJson', details: { reportId: report.id } });
 }
 
 /**
  * Updates a report with new data
  * @param {string} reportId - Report ID
  * @param {Object} updateData - Update data object
- * @returns {Promise<Report>} Updated report
- * @throws {Error} If report not found or validation fails
+ * @returns {Promise<Result<Report>>} Updated report or error
  */
 async function updateReport(reportId, updateData) {
-  try {
+  return attemptAsync(async () => {
+    if (!reportId || typeof reportId !== 'string') {
+      throw new Error('Report ID must be a non-empty string');
+    }
+
+    if (!updateData || typeof updateData !== 'object') {
+      throw new Error('Update data must be a valid object');
+    }
+
     console.log('[REPORT SERVICE] updateReport called:', {
       reportId,
       updateData,
       timestamp: new Date().toISOString()
     });
 
-    const allReports = await getAllReports();
+    const allReportsResult = await getAllReports();
+    if (!isSuccess(allReportsResult)) {
+      throw allReportsResult.error.innerError;
+    }
+    const allReports = allReportsResult.data;
     const reportIndex = allReports.findIndex(r => r.id === reportId);
 
     if (reportIndex === -1) {
@@ -417,7 +475,10 @@ async function updateReport(reportId, updateData) {
 
     // Save to local JSON storage
     console.log('[REPORT SERVICE] Saving to local JSON storage');
-    await updateReportInJson(updatedReport);
+    const saveResult = await updateReportInJson(updatedReport);
+    if (!isSuccess(saveResult)) {
+      throw saveResult.error.innerError;
+    }
 
     console.log('[REPORT SERVICE] Report updated successfully:', {
       reportId,
@@ -426,30 +487,30 @@ async function updateReport(reportId, updateData) {
     });
 
     return updatedReport;
-  } catch (error) {
-    console.error('[REPORT SERVICE ERROR] Error updating report:', {
-      reportId,
-      updateData,
-      error: {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      },
-      timestamp: new Date().toISOString()
-    });
-    throw error;
-  }
+  }, { operation: 'updateReport', details: { reportId, hasUpdateData: !!updateData } });
 }
 
 /**
  * Checks if a report submission would exceed rate limits
  * @param {string} reporterIp - Reporter's IP address
- * @returns {Promise<boolean>} True if rate limit exceeded
+ * @returns {Promise<Result<boolean>>} True if rate limit exceeded or error
  */
 async function checkRateLimit(reporterIp) {
-  try {
+  return attemptAsync(async () => {
+    // Structured input validation
+    const ipError = validateRequired(reporterIp, 'Reporter IP', 'non-empty string');
+    if (ipError) throw ipError;
+
+    if (typeof reporterIp !== 'string') {
+      throw validationError('reporterIp', 'Reporter IP must be a string', reporterIp, 'string');
+    }
+
     // Get rate limit configuration
-    const rateLimitPerHour = await configService.getConfig('system.rateLimitPerHour') || 5;
+    const configResult = await configService.getConfig('system.rateLimitPerHour');
+    if (!isSuccess(configResult)) {
+      throw databaseError('Failed to get rate limit configuration', configResult.error);
+    }
+    const rateLimitPerHour = configResult.data || 5;
 
     // For now, implement a simple in-memory check
     // In production, this should use Redis or similar
@@ -457,18 +518,18 @@ async function checkRateLimit(reporterIp) {
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
     // Get recent reports from this IP
-    const allReports = await getAllReports();
+    const allReportsResult = await getAllReports();
+    if (!isSuccess(allReportsResult)) {
+      throw allReportsResult.error.innerError;
+    }
+    const allReports = allReportsResult.data;
     const recentReports = allReports.filter(report =>
       report.reporterIp === reporterIp &&
       new Date(report.createdAt) > oneHourAgo
     );
 
     return recentReports.length >= rateLimitPerHour;
-  } catch (error) {
-    console.error('Error checking rate limit:', error);
-    // Allow submission if rate limit check fails
-    return false;
-  }
+  }, { operation: 'checkRateLimit', details: { reporterIp } });
 }
 
 module.exports = {

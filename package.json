@@ -4,6 +4,7 @@
   "description": "NJDSC School Compliance Portal - Web platform for reporting unlicensed driving schools",
   "main": "server/app.js",
   "scripts": {
+    "start-clean": "pwsh -NoProfile -File ./scripts/start-clean.ps1",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "nodemon server/app.js",
     "dev:client": "vite",
@@ -65,6 +66,7 @@
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
+    "@headlessui/react": "^2.2.9",
     "@tailwindcss/postcss": "^4.1.15",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -76,6 +78,7 @@
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.9.1",
+    "@types/react": "^19.2.2",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "@vitejs/plugin-react": "^5.0.4",

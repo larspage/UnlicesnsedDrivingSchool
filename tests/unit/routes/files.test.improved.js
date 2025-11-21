@@ -1,7 +1,10 @@
 /**
- * File Routes Tests for NJDSC School Compliance Portal
- *
- * Tests for file upload, retrieval, and management endpoints.
+ * File Routes Tests - IMPROVED VERSION
+ * 
+ * This version follows the philosophy that negative tests should verify:
+ * 1. That an error occurred (success: false)
+ * 2. That meaningful error information is present
+ * 3. NOT which specific error code was returned
  */
 
 const request = require('supertest');
@@ -18,7 +21,7 @@ const app = express();
 app.use(express.json());
 app.use('/files', fileRoutes);
 
-describe('File Routes', () => {
+describe('File Routes - Improved Testing Philosophy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -76,7 +79,7 @@ describe('File Routes', () => {
       }
     ];
 
-    it('should upload files successfully', async () => {
+    test('should upload files successfully - positive test', async () => {
       fileService.uploadFile.mockResolvedValueOnce({ success: true, data: mockUploadedFiles[0], error: null });
       fileService.uploadFile.mockResolvedValueOnce({ success: true, data: mockUploadedFiles[1], error: null });
 
@@ -92,7 +95,7 @@ describe('File Routes', () => {
       expect(response.body.data.totalRequested).toBe(2);
     });
 
-    it('should return 400 if reportId is missing', async () => {
+    test('should return 400 if reportId is missing - focus on error behavior', async () => {
       const response = await request(app)
         .post('/files/upload')
         .attach('files', mockFiles[0].buffer, 'test1.jpg');
@@ -100,9 +103,10 @@ describe('File Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('reportId is required');
+      // Don't check specific error codes
     });
 
-    it('should return 400 if no files are provided', async () => {
+    test('should return 400 if no files are provided - focus on error behavior', async () => {
       const response = await request(app)
         .post('/files/upload')
         .field('reportId', 'rep_xyz789');
@@ -110,9 +114,10 @@ describe('File Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('No files provided');
+      // Don't check specific error codes
     });
 
-    it('should return 400 if reportId format is invalid', async () => {
+    test('should return 400 if reportId format is invalid - focus on error behavior', async () => {
       const response = await request(app)
         .post('/files/upload')
         .field('reportId', 'invalid_format')
@@ -121,14 +126,14 @@ describe('File Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Invalid reportId format');
+      // Don't check specific error codes
     });
 
-    it('should handle upload errors gracefully', async () => {
+    test('should handle upload errors gracefully - focus on error occurrence', async () => {
       fileService.uploadFile.mockResolvedValue({
         success: false,
         data: null,
         error: {
-          code: 'FILE_SYSTEM_ERROR',
           message: 'Upload failed',
           innerError: new Error('Upload failed')
         }
@@ -141,6 +146,8 @@ describe('File Routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.error).toBeTruthy();
+      expect(response.body.error.message).toContain('Upload failed');
+      // Don't check specific error code
     });
   });
 
@@ -158,7 +165,7 @@ describe('File Routes', () => {
       processingStatus: 'completed'
     };
 
-    it('should get file by ID successfully', async () => {
+    test('should get file by ID successfully - positive test', async () => {
       fileService.getFileById.mockResolvedValue({ success: true, data: mockFile, error: null });
 
       const response = await request(app)
@@ -170,12 +177,11 @@ describe('File Routes', () => {
       expect(fileService.getFileById).toHaveBeenCalledWith('file_abc123');
     });
 
-    it('should return 404 if file not found', async () => {
+    test('should return 404 if file not found - focus on error behavior', async () => {
       fileService.getFileById.mockResolvedValue({
         success: false,
         data: null,
         error: {
-          code: 'NOT_FOUND',
           message: 'File not found',
           innerError: new Error('File not found')
         }
@@ -186,15 +192,18 @@ describe('File Routes', () => {
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBeTruthy();
+      expect(response.body.error.message).toContain('File not found');
+      // Don't check specific error codes
     });
 
-    it('should return 400 if file ID format is invalid', async () => {
+    test('should return 400 if file ID format is invalid - focus on error behavior', async () => {
       const response = await request(app)
         .get('/files/invalid_format');
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Invalid file ID format');
+      // Don't check specific error codes
     });
   });
 
@@ -226,7 +235,7 @@ describe('File Routes', () => {
       }
     ];
 
-    it('should get files by report ID successfully', async () => {
+    test('should get files by report ID successfully - positive test', async () => {
       fileService.getFilesByReportId.mockResolvedValue({ success: true, data: mockFiles, error: null });
 
       const response = await request(app)
@@ -238,13 +247,14 @@ describe('File Routes', () => {
       expect(fileService.getFilesByReportId).toHaveBeenCalledWith('rep_xyz789');
     });
 
-    it('should return 400 if report ID format is invalid', async () => {
+    test('should return 400 if report ID format is invalid - focus on error behavior', async () => {
       const response = await request(app)
         .get('/files/report/invalid_format');
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Invalid report ID format');
+      // Don't check specific error codes
     });
   });
 
@@ -264,7 +274,7 @@ describe('File Routes', () => {
       }
     ];
 
-    it('should get all files successfully', async () => {
+    test('should get all files successfully - positive test', async () => {
       fileService.getAllFiles.mockResolvedValue({ success: true, data: mockFiles, error: null });
 
       const response = await request(app)
@@ -291,7 +301,7 @@ describe('File Routes', () => {
       processingStatus: 'completed'
     };
 
-    it('should update file status successfully', async () => {
+    test('should update file status successfully - positive test', async () => {
       fileService.updateFileProcessingStatus.mockResolvedValue({ success: true, data: mockUpdatedFile, error: null });
 
       const response = await request(app)
@@ -303,7 +313,7 @@ describe('File Routes', () => {
       expect(fileService.updateFileProcessingStatus).toHaveBeenCalledWith('file_abc123', 'completed');
     });
 
-    it('should return 400 if status is missing', async () => {
+    test('should return 400 if status is missing - focus on error behavior', async () => {
       const response = await request(app)
         .put('/files/file_abc123/status')
         .send({});
@@ -311,9 +321,10 @@ describe('File Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Status is required');
+      // Don't check specific error codes
     });
 
-    it('should return 400 if status is invalid', async () => {
+    test('should return 400 if status is invalid - focus on error behavior', async () => {
       const response = await request(app)
         .put('/files/file_abc123/status')
         .send({ status: 'invalid_status' });
@@ -321,14 +332,14 @@ describe('File Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('Invalid status');
+      // Don't check specific error codes
     });
 
-    it('should return 404 if file not found', async () => {
+    test('should return 404 if file not found - focus on error behavior', async () => {
       fileService.updateFileProcessingStatus.mockResolvedValue({
         success: false,
         data: null,
         error: {
-          code: 'NOT_FOUND',
           message: 'File not found',
           innerError: new Error('File with ID file_abc123 not found')
         }
@@ -340,6 +351,8 @@ describe('File Routes', () => {
 
       expect(response.status).toBe(404);
       expect(response.body.error).toBeTruthy();
+      expect(response.body.error.message).toContain('File not found');
+      // Don't check specific error codes
     });
   });
 });

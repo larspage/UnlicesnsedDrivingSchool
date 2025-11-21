@@ -32,7 +32,7 @@ export interface UploadedFile {
   thumbnailUrl?: string;
 }
 
-export type ReportStatus = 'Added' | 'Confirmed by NJDSC' | 'Reported to MVC' | 'Under Investigation' | 'Closed';
+export type ReportStatus = 'Added' | 'Confirmed by NJDSC' | 'Reported to MVC' | 'Under Investigation' | 'Closed' | 'Submitted' | 'Completed';
 
 export interface StatusUpdateData {
   status: ReportStatus;

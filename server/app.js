@@ -63,7 +63,7 @@ const localJsonService = require('./services/localJsonService');
 (async () => {
   try {
     console.log('[APP STARTUP] Initializing data directory and files...');
-    await localJsonService.ensureDataDirectory();
+    await localJsonService.ensureDataDir();
     await localJsonService.ensureSheetExists(null, 'reports');
     console.log('[APP STARTUP] Data directory and reports.json initialized successfully');
   } catch (err) {

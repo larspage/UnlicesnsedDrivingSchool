@@ -10,6 +10,8 @@ const localFileService = require('./localFileService');
 const localJsonService = require('./localJsonService');
 const configService = require('./configService');
 const { Readable } = require('stream');
+const { success, failure, attempt, attemptAsync, isSuccess } = require('../utils/result');
+const { createError, validationError, notFoundError, fileError, databaseError, validateRequired, validateStringLength, ERROR_CODES } = require('../utils/errorUtils');
 
 // Configuration constants
 const FILES_DATA_FILE = 'files';
@@ -39,11 +41,23 @@ async function streamToBuffer(stream) {
  * @param {string} mimeType - MIME type
  * @param {string} reportId - Associated report ID
  * @param {string} uploadedByIp - Uploader's IP address
- * @returns {Promise<File>} Created file record
- * @throws {Error} If upload or validation fails
+ * @returns {Promise<Result<File>>} Created file record or error
  */
 async function uploadFile(file, fileName, mimeType, reportId, uploadedByIp = null) {
-  try {
+  return attemptAsync(async () => {
+    // Structured input validation using error utilities
+    const fileError = validateRequired(file, 'File', 'file object');
+    if (fileError) throw fileError;
+    
+    const nameError = validateRequired(fileName, 'File name', 'non-empty string');
+    if (nameError) throw nameError;
+    
+    const typeError = validateRequired(mimeType, 'MIME type', 'non-empty string');
+    if (typeError) throw typeError;
+    
+    const reportError = validateRequired(reportId, 'Report ID', 'non-empty string');
+    if (reportError) throw reportError;
+
     // Handle multer-like file object or plain buffer
     let fileBuffer;
     if (Buffer.isBuffer(file)) {
@@ -61,25 +75,37 @@ async function uploadFile(file, fileName, mimeType, reportId, uploadedByIp = nul
       fileName = fileName || file.originalname;
       mimeType = mimeType || file.mimetype;
     } else {
-      console.error('[FILE UPLOAD] Invalid file format:', { file, fileName, mimeType });
-      throw new Error('Invalid file format: expected Buffer, file.buffer, or file.stream');
+      throw validationError('file', 'Invalid file format: expected Buffer, file.buffer, or file.stream', file, 'Buffer or multer file object');
     }
 
-    // Validate upload parameters
+    // Validate upload parameters using File model
     const validation = File.validateUploadParams(fileBuffer, fileName, mimeType, reportId);
     if (!validation.isValid) {
-      console.error('[FILE UPLOAD] Validation failed:', validation.error);
-      throw new Error(validation.error);
+      throw validationError('uploadParams', validation.error, { fileName, mimeType, reportId });
     }
 
     // Get existing files for the report to check limits
-    const existingFiles = await getFilesByReportId(reportId);
+    const existingFilesResult = await getFilesByReportId(reportId);
+    if (!isSuccess(existingFilesResult)) {
+      throw existingFilesResult.error;
+    }
+    const existingFiles = existingFilesResult.data;
 
     // Ensure uploads directory exists
     await localFileService.ensureUploadsDirectory();
 
     // Upload file to local storage
-    const fileData = await localFileService.uploadFile(fileBuffer, fileName, mimeType, reportId);
+    let fileData;
+    try {
+      fileData = await localFileService.uploadFile(fileBuffer, fileName, mimeType, reportId);
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('access denied') || err.code === 'EACCES') {
+        throw fileError('upload', 'Permission denied', { reportId, fileName, mimeType }, err);
+      }
+      // For any other upload failure, use FILE_UPLOAD_FAILED
+      throw fileError('upload', msg, { reportId, fileName, mimeType }, err);
+    }
 
     // Create file record with local storage data
     const fileRecordData = {
@@ -94,101 +120,131 @@ async function uploadFile(file, fileName, mimeType, reportId, uploadedByIp = nul
 
     console.log('[FILE UPLOAD] Creating file record with data:', fileRecordData);
 
-    try {
-      const file = File.create(fileRecordData, uploadedByIp);
-      console.log('[FILE UPLOAD] File created successfully:', { id: file.id, reportId: file.reportId });
+    const file = File.create(fileRecordData, uploadedByIp);
+    console.log('[FILE UPLOAD] File created successfully:', { id: file.id, reportId: file.reportId });
 
-      // Validate business rules
-      file.validateBusinessRules(existingFiles);
-      console.log('[FILE UPLOAD] Business rules validated');
+    // Validate business rules
+    file.validateBusinessRules(existingFiles);
+    console.log('[FILE UPLOAD] Business rules validated');
 
-      // Save metadata to local JSON storage
-      console.log('[FILE UPLOAD] Saving to JSON storage...');
-      await saveFileToJson(file);
-      console.log('[FILE UPLOAD] File metadata saved to JSON successfully');
-
-      return file;
-    } catch (error) {
-      console.error('[FILE UPLOAD ERROR] Failed to create/save file:', error);
-      console.error('[FILE UPLOAD ERROR] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      throw error;
+    // Save metadata to local JSON storage
+    console.log('[FILE UPLOAD] Saving to JSON storage...');
+    const saveResult = await saveFileToJson(file);
+    if (!isSuccess(saveResult)) {
+      throw saveResult.error;
     }
-  } catch (error) {
-    console.error('[FILE UPLOAD] Error uploading file:', error.message);
-    throw error;
-  }
+    console.log('[FILE UPLOAD] File metadata saved to JSON successfully');
+
+    return file;
+  }, { operation: 'uploadFile', details: { fileName, mimeType, reportId, hasIp: !!uploadedByIp } });
 }
 
 /**
  * Retrieves file metadata by ID
  * @param {string} fileId - File ID
- * @returns {Promise<File|null>} File instance or null if not found
+ * @returns {Promise<Result<File|null>>} File instance or error
  */
 async function getFileById(fileId) {
-  try {
-    const allFiles = await getAllFiles();
-    return allFiles.find(file => file.id === fileId) || null;
-  } catch (error) {
-    console.error('Error retrieving file by ID:', error);
-    throw error;
-  }
+  return attemptAsync(async () => {
+    // Use structured validation
+    const validationError = validateRequired(fileId, 'File ID', 'non-empty string');
+    if (validationError) {
+      throw validationError;
+    }
+
+    const allFilesResult = await getAllFiles();
+    if (!isSuccess(allFilesResult)) {
+      throw allFilesResult.error;
+    }
+    const allFiles = allFilesResult.data;
+    const file = allFiles.find(f => f.id === fileId) || null;
+    
+    if (!file) {
+      throw notFoundError('File', fileId);
+    }
+    
+    return file;
+  }, { operation: 'getFileById', details: { fileId, hasFileId: !!fileId } });
 }
 
 /**
  * Retrieves all files associated with a report
  * @param {string} reportId - Report ID
- * @returns {Promise<Array<File>>} Array of File instances
+ * @returns {Promise<Result<Array<File>>>} Array of File instances or error
  */
 async function getFilesByReportId(reportId) {
-  try {
-    const allFiles = await getAllFiles();
+  return attemptAsync(async () => {
+    // Structured input validation
+    const validationError = validateRequired(reportId, 'Report ID', 'non-empty string');
+    if (validationError) throw validationError;
+
+    if (typeof reportId !== 'string') {
+      throw validationError('reportId', 'Report ID must be a string', reportId, 'string');
+    }
+
+    const allFilesResult = await getAllFiles();
+    if (!isSuccess(allFilesResult)) {
+      throw allFilesResult.error.innerError;
+    }
+    const allFiles = allFilesResult.data;
     return allFiles.filter(file => file.reportId === reportId);
-  } catch (error) {
-    console.error('Error retrieving files by report ID:', error);
-    throw error;
-  }
+  }, { operation: 'getFilesByReportId', details: { reportId, hasReportId: !!reportId } });
 }
 
 /**
  * Updates file processing status
  * @param {string} fileId - File ID
  * @param {string} status - New processing status
- * @returns {Promise<File>} Updated file instance
- * @throws {Error} If file not found or status invalid
+ * @returns {Promise<Result<File>>} Updated file instance or error
  */
 async function updateFileProcessingStatus(fileId, status) {
-  try {
-    const allFiles = await getAllFiles();
-    const fileIndex = allFiles.findIndex(file => file.id === fileId);
+  return attemptAsync(async () => {
+    // Input validation
+    const validationError = validateRequired(fileId, 'File ID', 'non-empty string');
+    if (validationError) {
+      throw validationError;
+    }
+    
+    const statusError = validateRequired(status, 'Processing status', 'non-empty string');
+    if (statusError) {
+      throw statusError;
+    }
 
+    const allFilesResult = await getAllFiles();
+    if (!isSuccess(allFilesResult)) {
+      throw allFilesResult.error;
+    }
+    const allFiles = allFilesResult.data;
+    
+    const fileIndex = allFiles.findIndex(file => file.id === fileId);
     if (fileIndex === -1) {
-      throw new Error(`File with ID ${fileId} not found`);
+      throw notFoundError('File', fileId);
     }
 
     const existingFile = allFiles[fileIndex];
     const updatedFile = existingFile.updateProcessingStatus(status);
 
     // Save to local JSON storage
-    await updateFileInJson(updatedFile);
+    const saveResult = await updateFileInJson(updatedFile);
+    if (!isSuccess(saveResult)) {
+      throw saveResult.error;
+    }
 
     return updatedFile;
-  } catch (error) {
-    console.error('Error updating file processing status:', error);
-    throw error;
-  }
+  }, { operation: 'updateFileProcessingStatus', details: { fileId, status } });
 }
 
 /**
  * Retrieves all files from local JSON storage
- * @returns {Promise<Array<File>>} Array of File instances
+ * @returns {Promise<Result<Array<File>>>} Array of File instances or error
  */
 async function getAllFiles() {
-  try {
-    const filesData = await localJsonService.getAllRows(null, FILES_DATA_FILE);
+  return attemptAsync(async () => {
+    const filesDataResult = await localJsonService.getAllRows(null, FILES_DATA_FILE);
+    if (!isSuccess(filesDataResult)) {
+      throw filesDataResult.error;
+    }
+    const filesData = filesDataResult.data;
 
     // Convert plain objects to File instances
     const files = filesData.map(data => {
@@ -201,53 +257,71 @@ async function getAllFiles() {
     }).filter(file => file !== null);
 
     return files;
-  } catch (error) {
-    console.error('Error retrieving all files:', error);
-    throw error;
-  }
+  }, { operation: 'getAllFiles' });
 }
 
 /**
  * Saves a file record to local JSON storage
  * @param {File} file - File instance to save
- * @returns {Promise<void>}
+ * @returns {Promise<Result<void>>} Success or error
  */
 async function saveFileToJson(file) {
-  try {
-    await localJsonService.appendRow(null, FILES_DATA_FILE, file);
-  } catch (error) {
-    console.error('Error saving file to JSON:', error);
-    throw error;
-  }
+  return attemptAsync(async () => {
+    const validationError = validateRequired(file, 'File', 'File instance');
+    if (validationError) {
+      throw validationError;
+    }
+    
+    const saveResult = await localJsonService.appendRow(null, FILES_DATA_FILE, file);
+    if (!isSuccess(saveResult)) {
+      throw saveResult.error;
+    }
+    return undefined; // Void return
+  }, { operation: 'saveFileToJson', details: { fileId: file?.id } });
 }
 
 /**
  * Updates a file record in local JSON storage
  * @param {File} file - Updated file instance
- * @returns {Promise<void>}
+ * @returns {Promise<Result<void>>} Success or error
  */
 async function updateFileInJson(file) {
-  try {
-    await localJsonService.updateRow(null, FILES_DATA_FILE, file.id, file);
-  } catch (error) {
-    console.error('Error updating file in JSON:', error);
-    throw error;
-  }
+  return attemptAsync(async () => {
+    const validationError = validateRequired(file, 'File', 'File instance');
+    if (validationError) {
+      throw validationError;
+    }
+    
+    const validationError2 = validateRequired(file.id, 'File ID', 'non-empty string');
+    if (validationError2) {
+      throw validationError2;
+    }
+    
+    const updateResult = await localJsonService.updateRow(null, FILES_DATA_FILE, file.id, file);
+    if (!isSuccess(updateResult)) {
+      throw updateResult.error;
+    }
+    return undefined; // Void return
+  }, { operation: 'updateFileInJson', details: { fileId: file?.id } });
 }
 
 /**
  * Deletes a file and its associated data
  * @param {string} fileId - File ID to delete
- * @returns {Promise<boolean>} True if file was deleted, false if not found
- * @throws {Error} If deletion fails
+ * @returns {Promise<Result<boolean>>} True if file was deleted, false if not found
  */
 async function deleteFile(fileId) {
-  try {
+  return attemptAsync(async () => {
     // Get file information before deletion
-    const file = await getFileById(fileId);
-    if (!file) {
-      return false;
+    const fileResult = await getFileById(fileId);
+    if (!isSuccess(fileResult)) {
+      // If file not found, return false (not an error)
+      if (fileResult.error.code === ERROR_CODES.NOT_FOUND) {
+        return false;
+      }
+      throw fileResult.error;
     }
+    const file = fileResult.data;
 
     // Delete from local file system if it exists
     if (file.localFilePath) {
@@ -261,14 +335,14 @@ async function deleteFile(fileId) {
     }
 
     // Delete metadata from JSON storage
-    await localJsonService.deleteRow(null, FILES_DATA_FILE, fileId);
+    const deleteResult = await localJsonService.deleteRow(null, FILES_DATA_FILE, fileId);
+    if (!isSuccess(deleteResult)) {
+      throw deleteResult.error;
+    }
     console.log(`[FILE DELETE] Deleted file metadata for ID: ${fileId}`);
 
     return true;
-  } catch (error) {
-    console.error('Error deleting file:', error);
-    throw error;
-  }
+  }, { operation: 'deleteFile', details: { fileId, hasFileId: !!fileId } });
 }
 
 /**
@@ -276,17 +350,46 @@ async function deleteFile(fileId) {
  * @param {string} reportId - Report ID
  * @param {number} fileSize - File size in bytes
  * @param {string} mimeType - MIME type
- * @returns {Promise<Object>} Validation result with isValid and error message
+ * @returns {Promise<Result<Object>>} Validation result or error
  */
 async function validateFileUpload(reportId, fileSize, mimeType) {
-  try {
+  return attemptAsync(async () => {
+    // Structured input validation
+    const reportIdError = validateRequired(reportId, 'Report ID', 'non-empty string');
+    if (reportIdError) throw reportIdError;
+
+    if (typeof reportId !== 'string') {
+      throw validationError('reportId', 'Report ID must be a string', reportId, 'string');
+    }
+
+    if (typeof fileSize !== 'number' || fileSize < 0) {
+      throw validationError('fileSize', 'File size must be a non-negative number', fileSize, 'number >= 0');
+    }
+
+    if (!mimeType || typeof mimeType !== 'string') {
+      throw new Error('MIME type is required and must be a string');
+    }
+
     // Check file size against configuration
-    const maxFileSize = await configService.getConfig('system.maxFileSize') || File.getMaxFileSize();
-    if (fileSize > maxFileSize) {
-      return {
-        isValid: false,
-        error: `File size ${fileSize} bytes exceeds maximum allowed size of ${maxFileSize} bytes`
-      };
+    const maxFileSizeResult = await configService.getConfig('system.maxFileSize');
+    if (!isSuccess(maxFileSizeResult)) {
+      // Fallback to model default if config service fails
+      const maxFileSize = File.getMaxFileSize();
+      console.warn('Config service failed, using fallback max file size:', maxFileSize);
+      if (fileSize > maxFileSize) {
+        return {
+          isValid: false,
+          error: `File size ${fileSize} bytes exceeds maximum allowed size of ${maxFileSize} bytes`
+        };
+      }
+    } else {
+      const maxFileSize = maxFileSizeResult.data || File.getMaxFileSize();
+      if (fileSize > maxFileSize) {
+        return {
+          isValid: false,
+          error: `File size ${fileSize} bytes exceeds maximum allowed size of ${maxFileSize} bytes`
+        };
+      }
     }
 
     // Check MIME type
@@ -299,8 +402,14 @@ async function validateFileUpload(reportId, fileSize, mimeType) {
     }
 
     // Check file count limit per report
-    const existingFiles = await getFilesByReportId(reportId);
-    const maxFilesPerReport = await configService.getConfig('system.maxFilesPerReport') || 10;
+    const existingFilesResult = await getFilesByReportId(reportId);
+    if (!isSuccess(existingFilesResult)) {
+      throw existingFilesResult.error;
+    }
+    const existingFiles = existingFilesResult.data;
+
+    const maxFilesPerReportResult = await configService.getConfig('system.maxFilesPerReport');
+    const maxFilesPerReport = (isSuccess(maxFilesPerReportResult) ? maxFilesPerReportResult.data : 10) || 10;
 
     if (existingFiles.length >= maxFilesPerReport) {
       return {
@@ -310,13 +419,7 @@ async function validateFileUpload(reportId, fileSize, mimeType) {
     }
 
     return { isValid: true };
-  } catch (error) {
-    console.error('Error validating file upload:', error);
-    return {
-      isValid: false,
-      error: 'File validation failed due to server error'
-    };
-  }
+  }, { operation: 'validateFileUpload', details: { reportId, fileSize, mimeType } });
 }
 
 /**

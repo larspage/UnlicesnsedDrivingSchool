@@ -1,10 +1,12 @@
 /**
- * File Service Tests for NJDSC School Compliance Portal - UPDATED FOR RESULT OBJECT PATTERN
+ * File Service Tests - IMPROVED VERSION
  * 
- * Tests for file service business logic and operations with Result Object pattern.
- * ✅ SUCCESS: Tests check result.data for successful operations
- * ✅ ERROR: Tests check result.error.code for error types (not error messages!)
- * ✅ STRUCTURED: Tests verify error.details for additional context
+ * This version follows the philosophy that negative tests should verify:
+ * 1. That an error occurred (success: false) 
+ * 2. That meaningful error information is present
+ * 3. NOT which specific error code was returned
+ * 
+ * This makes tests more resilient to implementation changes.
  */
 
 const fileService = require('../../../server/services/fileService');
@@ -32,11 +34,11 @@ File.mockImplementation((data) => {
   return new MockFile(data);
 });
 
-describe('File Service', () => {
+describe('File Service - Improved Testing Philosophy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // ✅ FIXED: Mock local services to return Result objects that match the new pattern
+    // Mock local services to return proper Result objects
     const emptyResult = { success: true, data: [], error: null };
     localJsonService.getAllRows.mockResolvedValue(emptyResult);
     localJsonService.appendRow.mockResolvedValue(emptyResult);
@@ -53,9 +55,7 @@ describe('File Service', () => {
 
     const mockDriveFile = {
       id: 'drive_file_123',
-      localPath: '/uploads/rep_abc123/test_12345678.jpg',
-      url: '/uploads/rep_abc123/test_12345678.jpg',
-      thumbnailUrl: '/uploads/rep_abc123/test_12345678.jpg'
+      mimeType: 'image/jpeg'
     };
 
     // Multer-like file object with buffer
@@ -88,8 +88,7 @@ describe('File Service', () => {
       ])
     };
 
-    // ✅ NEW PATTERN: Testing success case with Result object
-    it('should upload file successfully with Buffer', async () => {
+    test('should upload file successfully with Buffer - positive test', async () => {
       // Mock dependencies with proper Result objects
       File.validateUploadParams.mockReturnValue({ isValid: true });
       localFileService.ensureUploadsDirectory.mockResolvedValue(undefined);
@@ -105,8 +104,9 @@ describe('File Service', () => {
         mockUploadedByIp
       );
 
-      // ✅ NEW PATTERN: Check Result object structure
-      expect(result.success).toBe(true);
+      // ✅ POSITIVE TEST: Check success behavior
+      expect(isSuccess(result)).toBe(true);
+      expect(isFailure(result)).toBe(false);
       expect(result.data).toBe(mockFile);
       expect(result.error).toBeNull();
 
@@ -128,8 +128,7 @@ describe('File Service', () => {
       expect(mockFile.validateBusinessRules).toHaveBeenCalled();
     });
 
-    // ✅ NEW PATTERN: Testing validation errors (not throw, but Result with error)
-    it('should return validation error for invalid upload parameters', async () => {
+    test('should return validation error for invalid upload parameters - focus on error behavior', async () => {
       // Mock validation to fail
       File.validateUploadParams.mockReturnValue({
         isValid: false,
@@ -144,15 +143,21 @@ describe('File Service', () => {
         mockReportId
       );
 
-      // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(result.success).toBe(false);
+      // ✅ IMPROVED PATTERN: Check error Result object (NOT specific error codes!)
+      expect(isSuccess(result)).toBe(false);
+      expect(isFailure(result)).toBe(true);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
-      // Don't check specific error message content
+      expect(result.error.message).toContain('Invalid file buffer');
+      expect(result.error.details).toEqual({
+        fileName: mockFileName,
+        mimeType: mockMimeType,
+        reportId: mockReportId
+      });
+      // DON'T check specific error code - let implementation decide
     });
 
-    // ✅ NEW PATTERN: Testing file system errors
-    it('should return file error when local file upload fails', async () => {
+    test('should return file error when local file upload fails - focus on error occurrence', async () => {
       // Mock validation to pass
       File.validateUploadParams.mockReturnValue({ isValid: true });
       localJsonService.getAllRows.mockResolvedValue([]);
@@ -170,14 +175,14 @@ describe('File Service', () => {
         mockReportId
       );
 
-      // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(result.success).toBe(false);
+      // ✅ IMPROVED PATTERN: Check for error behavior, not specific error code
+      expect(isSuccess(result)).toBe(false);
       expect(result.error).toBeTruthy();
-      // Don't check specific error message content
+      expect(result.error.message).toContain('Permission denied');
+      // Don't check specific error code
     });
 
-    // ✅ NEW PATTERN: Testing input validation errors
-    it('should return validation error for null file', async () => {
+    test('should return validation error for null file - focus on validation failure', async () => {
       // Call with null file
       const result = await fileService.uploadFile(
         null, // Null file should cause validation error
@@ -186,20 +191,20 @@ describe('File Service', () => {
         mockReportId
       );
 
-      // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(result.success).toBe(false);
+      // ✅ IMPROVED PATTERN: Check for structured validation error, not specific code
+      expect(isSuccess(result)).toBe(false);
       expect(result.error).toBeTruthy();
       expect(result.error.details).toEqual({
         field: 'File',
         actualValue: null,
         expectedType: 'file object'
       });
+      // Don't check specific error code
     });
   });
 
   describe('getFileById', () => {
-    // ✅ NEW PATTERN: Testing success case
-    it('should return file when found', async () => {
+    test('should return file when found - positive test', async () => {
       const mockFileData = {
         id: 'file_abc123',
         reportId: 'rep_def456',
@@ -216,8 +221,8 @@ describe('File Service', () => {
       // Call service method
       const result = await fileService.getFileById('file_abc123');
 
-      // ✅ NEW PATTERN: Check Result object
-      expect(result.success).toBe(true);
+      // ✅ POSITIVE TEST: Check Result object
+      expect(isSuccess(result)).toBe(true);
       expect(result.data).toEqual(mockFileData);
       expect(result.error).toBeNull();
       
@@ -225,27 +230,23 @@ describe('File Service', () => {
       expect(localJsonService.getAllRows).toHaveBeenCalledWith(null, 'files');
     });
 
-    // ✅ NEW PATTERN: Testing not found case (returns error, not null!)
-    it('should return not found error when file does not exist', async () => {
+    test('should return error when file does not exist - focus on error behavior', async () => {
       localJsonService.getAllRows.mockResolvedValue([]);
 
       // Call service method for non-existent file
       const result = await fileService.getFileById('file_nonexistent');
 
-      // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(result.success).toBe(false);
+      // ✅ IMPROVED PATTERN: Check for error behavior (NOT specific error code!)
+      expect(isSuccess(result)).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
-      expect(result.error.details).toEqual({
-        resourceType: 'File',
-        resourceId: 'file_nonexistent'
-      });
+      expect(result.error.message).toContain('File file_nonexistent not found');
+      // Don't check specific error code
     });
   });
 
   describe('processBase64File', () => {
-    // ✅ NEW PATTERN: Testing success cases (these don't return Result, they're pure functions)
-    it('should process base64 data without prefix', () => {
+    test('should process base64 data without prefix - positive test', () => {
       const base64Data = 'SGVsbG8gV29ybGQ='; // "Hello World" in base64
       const result = fileService.processBase64File(base64Data, 'test.txt', 'text/plain');
 
@@ -254,7 +255,7 @@ describe('File Service', () => {
       expect(result.toString()).toBe('Hello World');
     });
 
-    it('should process base64 data with data URL prefix', () => {
+    test('should process base64 data with data URL prefix - positive test', () => {
       const base64Data = 'data:text/plain;base64,SGVsbG8gV29ybGQ=';
       const result = fileService.processBase64File(base64Data, 'test.txt', 'text/plain');
 
@@ -263,11 +264,10 @@ describe('File Service', () => {
       expect(result.toString()).toBe('Hello World');
     });
 
-    // ✅ NEW PATTERN: Testing error case
-    it('should return error for invalid base64 data', () => {
+    test('should return error for invalid base64 data - focus on error behavior', () => {
       const invalidBase64Data = 'invalid_base64_data!!!';
 
-      // This is a pure function, so it still throws, but we could wrap it in Result
+      // This is a pure function, so it still throws, but that's expected behavior
       expect(() => {
         fileService.processBase64File(invalidBase64Data, 'test.txt', 'text/plain');
       }).toThrow('Invalid base64 data for file test.txt');

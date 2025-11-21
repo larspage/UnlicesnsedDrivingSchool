@@ -25,12 +25,50 @@ jobs:
 
     - name: Ensure data directory and reports.json exist
       run: |
+        # Create and set permissions for data directory
         mkdir -p ./data
+        chmod -R 777 ./data
         echo "[]" > ./data/reports.json
+        echo "{}" > ./data/config.json
+        
+        # Create and set permissions for uploads directory
         mkdir -p ./uploads
+        chmod -R 777 ./uploads
+        
+        # Export environment variables for tests and application
+        echo "DATA_DIR=./data" >> $GITHUB_ENV
+        echo "UPLOADS_DIR=./uploads" >> $GITHUB_ENV
+        echo "UPLOADS_URL_BASE=http://localhost:5000/uploads" >> $GITHUB_ENV
+        
+        # Verify directories were created
+        ls -la ./data
+        ls -la ./uploads
 
     - name: Ensure data directory exists (defensive)
       run: mkdir -p $GITHUB_WORKSPACE/data
+
+    - name: Verify directory setup and environment variables
+      run: |
+        echo "🔍 Verifying directory setup..."
+        echo "Current directory: $(pwd)"
+        echo "DATA_DIR: ${DATA_DIR:-./data}"
+        echo "UPLOADS_DIR: ${UPLOADS_DIR:-./uploads}"
+        
+        # Test directory access
+        if [ -d "./data" ] && [ -d "./uploads" ]; then
+          echo "✅ Directories exist and are accessible"
+          ls -la ./data
+          ls -la ./uploads
+          
+          # Test write permissions
+          echo "Testing write permissions..."
+          touch ./data/test-write.tmp && rm ./data/test-write.tmp
+          touch ./uploads/test-write.tmp && rm ./uploads/test-write.tmp
+          echo "✅ Write permissions confirmed"
+        else
+          echo "❌ Directory setup failed!"
+          exit 1
+        fi
 
     - name: Start server for E2E tests
       run: |
@@ -39,11 +77,17 @@ jobs:
       env:
         NODE_ENV: test
         PORT: 5000
+        DATA_DIR: ./data
+        UPLOADS_DIR: ./uploads
+        UPLOADS_URL_BASE: http://localhost:5000/uploads
 
     - name: Run tests
-      run: npm test -- --coverage --watchAll=false --runInBand
+      run: npm test -- --coverage --watchAll=false --runInBand --verbose=false
       env:
         NODE_ENV: test
+        DATA_DIR: ./data
+        UPLOADS_DIR: ./uploads
+        UPLOADS_URL_BASE: http://localhost:5000/uploads
 
     - name: Stop server
       if: always()
@@ -73,6 +117,13 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Ensure data directories exist for security checks
+      run: |
+        mkdir -p ./data ./uploads
+        chmod -R 777 ./data ./uploads
+        echo "DATA_DIR=./data" >> $GITHUB_ENV
+        echo "UPLOADS_DIR=./uploads" >> $GITHUB_ENV
+
     - name: Run security audit
       run: npm audit --audit-level moderate
       continue-on-error: true
@@ -98,6 +149,15 @@ jobs:
 
     - name: Install dependencies
       run: npm ci
+
+    - name: Ensure data and uploads directories exist
+      run: |
+        mkdir -p ./data ./uploads
+        chmod -R 777 ./data ./uploads
+        echo "[]" > ./data/reports.json
+        echo "{}" > ./data/config.json
+        echo "DATA_DIR=./data" >> $GITHUB_ENV
+        echo "UPLOADS_DIR=./uploads" >> $GITHUB_ENV
 
     - name: Build application
       run: npm run build
@@ -251,8 +311,9 @@ jobs:
           # Set sensitive environment variables from GitHub secrets
           
 
-          # Ensure data directories exist
+          # Ensure data directories exist and are writable
           mkdir -p /var/www/data /var/www/uploads /var/www/backups
+          chmod -R 777 /var/www/data /var/www/uploads /var/www/backups
 
           # Initialize data files if they don't exist
           if [ ! -f "/var/www/data/reports.json" ]; then
