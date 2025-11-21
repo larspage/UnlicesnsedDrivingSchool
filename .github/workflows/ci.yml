@@ -26,8 +26,10 @@ jobs:
     - name: Ensure data directory and reports.json exist
       run: |
         mkdir -p ./data
+        chmod -R 777 ./data
         echo "[]" > ./data/reports.json
         mkdir -p ./uploads
+        chmod -R 777 ./uploads
 
     - name: Ensure data directory exists (defensive)
       run: mkdir -p $GITHUB_WORKSPACE/data
@@ -251,8 +253,9 @@ jobs:
           # Set sensitive environment variables from GitHub secrets
           
 
-          # Ensure data directories exist
+          # Ensure data directories exist and are writable
           mkdir -p /var/www/data /var/www/uploads /var/www/backups
+          chmod -R 777 /var/www/data /var/www/uploads /var/www/backups
 
           # Initialize data files if they don't exist
           if [ ! -f "/var/www/data/reports.json" ]; then
