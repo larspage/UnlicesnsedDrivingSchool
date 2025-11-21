@@ -9,10 +9,11 @@ const fs = require('fs').promises;
 const path = require('path');
 const { attemptAsync, isSuccess } = require('../utils/result');
 const { createError, ERROR_CODES } = require('../utils/errorUtils');
+const { getDataDir } = require('../utils/fsUtils');
 
-// Configuration - read dynamically to allow testing
-const getDataDir = () => {
-  const dataDir = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
+// Helper to log getDataDir usage for debugging
+const getDataDirWithLog = () => {
+  const dataDir = getDataDir();
   console.log('[LOCAL JSON SERVICE] getDataDir called:', {
     DATA_DIR: process.env.DATA_DIR,
     cwd: process.cwd(),
@@ -24,530 +25,283 @@ const getDataDir = () => {
 
 /**
  * Ensures the data directory exists
- * @throws {Error} If directory cannot be created
+ * @returns {Promise<void>}
  */
-async function ensureDataDirectory() {
-  const dataDir = getDataDir();
-  console.log('[LOCAL JSON SERVICE] ensureDataDirectory called:', {
-    dataDir,
-    timestamp: new Date().toISOString()
-  });
-
+async function ensureDataDir() {
+  const dataDir = getDataDirWithLog();
+  
   try {
     await fs.access(dataDir);
-    console.log('[LOCAL JSON SERVICE] Data directory already exists:', dataDir);
   } catch (error) {
-    console.log('[LOCAL JSON SERVICE] Data directory does not exist, creating:', dataDir);
     // Directory doesn't exist, create it
     await fs.mkdir(dataDir, { recursive: true });
-    console.log('[LOCAL JSON SERVICE] Data directory created successfully:', dataDir);
   }
 }
 
 /**
- * Reads JSON data from a file
- * @param {string} filename - Name of the JSON file (without .json extension)
- * @returns {Promise<Array>} Array of data objects
- * @throws {Error} If file cannot be read or parsed
+ * Validates sheet name for safe file operations
+ * @param {string} sheetName - Name of the sheet (used as filename)
+ * @returns {boolean} - True if valid
  */
-async function readJsonFile(filename) {
-  const filePath = path.join(getDataDir(), `${filename}.json`);
+function isValidSheetName(sheetName) {
+  if (!sheetName || typeof sheetName !== 'string') {
+    return false;
+  }
+  
+  // Remove any path separators and restrict to safe characters
+  const safeName = sheetName.replace(/[/\\]/g, '').replace(/[<>:"/\\|?*]/g, '');
+  
+  // Check if it doesn't contain null bytes or control characters
+  if (safeName.match(/[\x00-\x1f\x7f]/)) {
+    return false;
+  }
+  
+  // Ensure it's not too long (Windows limit)
+  return safeName.length > 0 && safeName.length <= 255;
+}
 
-  // Retry logic for file access issues
-  const maxRetries = 3;
-  const baseDelay = 100;
+/**
+ * Get file path for a sheet
+ * @param {string} sheetName - Name of the sheet
+ * @returns {string} - Full file path
+ */
+function getSheetFilePath(sheetName) {
+  if (!isValidSheetName(sheetName)) {
+    throw createError('VALIDATION_ERROR', 'Invalid sheet name', { field: 'sheetName', actualValue: sheetName });
+  }
+  
+  return path.join(getDataDirWithLog(), `${sheetName}.json`);
+}
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+/**
+ * Read JSON file safely with error handling
+ * @param {string} sheetName - Name of the sheet
+ * @returns {Promise<Array>} - Array of data
+ */
+async function readJsonFile(sheetName) {
+  return attemptAsync(async () => {
+    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
+      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    }
+
+    const filePath = getSheetFilePath(sheetName);
+    
     try {
-      await ensureDataDirectory();
-
-      let data;
-      try {
-        data = await fs.readFile(filePath, 'utf8');
-      } catch (readError) {
-        if (readError.code === 'ENOENT') {
-          // File doesn't exist, return empty array
-          return [];
-        }
-        throw readError;
-      }
-
-      // Ensure data is a valid string
-      if (data === undefined || data === null) {
-        console.warn(`File ${filename} returned undefined or null data`);
-        return [];
-      }
-
-      // Handle empty or whitespace-only files
-      const trimmedData = data.trim();
-      if (!trimmedData) {
-        return [];
-      }
-
-      return JSON.parse(trimmedData);
-
+      const data = await fs.readFile(filePath, 'utf8');
+      return JSON.parse(data);
     } catch (error) {
       if (error.code === 'ENOENT') {
         // File doesn't exist, return empty array
         return [];
       }
-
-      // Handle JSON parse errors (corrupted or empty files)
-      if (error instanceof SyntaxError) {
-        console.warn(`JSON parse error in ${filename}, returning empty array:`, error.message);
-        return [];
-      }
-
-      // If this is the last attempt, throw the error
-      if (attempt === maxRetries - 1) {
-        throw new Error(`Failed to read JSON file ${filename} after ${maxRetries} attempts: ${error.message}`);
-      }
-
-      // Wait before retrying
-      const delay = baseDelay * Math.pow(2, attempt);
-      console.warn(`File read attempt ${attempt + 1} failed for ${filename}, retrying in ${delay}ms:`, error.message);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      throw error;
     }
-  }
+  }, { operation: 'readJsonFile', details: { sheetName } });
 }
 
 /**
- * Writes JSON data to a file atomically
- * @param {string} filename - Name of the JSON file (without .json extension)
- * @param {Array} data - Array of data objects to write
- * @throws {Error} If file cannot be written
+ * Write JSON file atomically with temporary file
+ * @param {string} sheetName - Name of the sheet
+ * @param {Array} data - Data to write
+ * @returns {Promise<void>}
  */
-async function writeJsonFile(filename, data) {
-  const dataDir = getDataDir();
-  const filePath = path.join(dataDir, `${filename}.json`);
-  const tempFilePath = `${filePath}.tmp`;
-  const RENAME_RETRY_DELAY_MS = 200;
-
-  console.log('[LOCAL JSON SERVICE] writeJsonFile called:', {
-    filename,
-    dataDir,
-    filePath,
-    tempFilePath,
-    dataLength: Array.isArray(data) ? data.length : 'not array',
-    timestamp: new Date().toISOString()
-  });
-
-  // Helper function to recreate temp file with directory check
-  const recreateTempFile = async (dir, tempPath, content) => {
-    await fs.mkdir(dir, { recursive: true }); // Ensure dir exists
-    await fs.writeFile(tempPath, content, 'utf8');
-  };
-
-  try {
-    const jsonData = JSON.stringify(data, null, 2);
-
-    // Ensure directory exists right before writing - use direct mkdir to avoid TOCTOU race
-    const dir = path.dirname(filePath);
-    await fs.mkdir(dir, { recursive: true });
-
-    // Write temp file with retry logic
-    let writeAttempts = 0;
-    const maxWriteAttempts = 3;
-
-    while (writeAttempts < maxWriteAttempts) {
-      try {
-        console.log('[LOCAL JSON SERVICE] Writing temp file (attempt %d):', writeAttempts + 1, tempFilePath);
-        await fs.writeFile(tempFilePath, jsonData, 'utf8');
-        console.log('[LOCAL JSON SERVICE] Temp file written successfully');
-
-        // Verify temp file exists and has content
-        const stats = await fs.stat(tempFilePath);
-        if (stats.size === 0) {
-          throw new Error('Temp file is empty after write');
-        }
-        console.log('[LOCAL JSON SERVICE] Temp file verified (size: %d bytes)', stats.size);
-        break; // Success, exit retry loop
-
-      } catch (writeError) {
-        writeAttempts++;
-        console.error('[LOCAL JSON SERVICE] Temp file write failed (attempt %d):', writeAttempts, writeError.message);
-
-        if (writeAttempts >= maxWriteAttempts) {
-          writeError.message = `Failed to write temp file after ${maxWriteAttempts} attempts: ${writeError.message}`;
-          throw writeError;
-        }
-
-        // Ensure directory still exists before retry
-        await fs.mkdir(dir, { recursive: true });
-        // Wait before retry
-        await new Promise(r => setTimeout(r, 100));
-      }
-    }
-
-    // Attempt atomic rename with retries
-    let renameAttempts = 0;
-    const maxRenameAttempts = 3; // Increased to 3 attempts for better reliability
-    let lastError = new Error('Unknown rename failure');
-
-    while (renameAttempts < maxRenameAttempts) {
-      try {
-        console.log('[LOCAL JSON SERVICE] Attempting atomic rename:', {
-          tempFilePath,
-          filePath,
-          attempt: renameAttempts + 1,
-          platform: process.platform,
-          timestamp: new Date().toISOString()
-        });
-
-        // Pre-rename checks: ensure directory exists and is writable
-        try {
-          await fs.access(dir);
-          console.log('[LOCAL JSON SERVICE] Directory exists before rename');
-        } catch (dirError) {
-          console.error('[LOCAL JSON SERVICE] Directory missing before rename, recreating:', {
-            dir,
-            error: dirError.message,
-            code: dirError.code
-          });
-          await fs.mkdir(dir, { recursive: true });
-          console.log('[LOCAL JSON SERVICE] Directory recreated before rename');
-        }
-
-        // Verify temp file still exists and has content before rename
-        let tempFileExists = false;
-        let tempFileStats = null;
-        try {
-          tempFileStats = await fs.stat(tempFilePath);
-          tempFileExists = true;
-          console.log('[LOCAL JSON SERVICE] Temp file exists before rename:', {
-            size: tempFileStats.size,
-            mtime: tempFileStats.mtime.toISOString()
-          });
-        } catch (statError) {
-          console.error('[LOCAL JSON SERVICE] Temp file missing before rename:', {
-            error: statError.message,
-            code: statError.code,
-            tempFilePath
-          });
-        }
-
-        // If temp file missing or empty, recreate it
-        if (!tempFileExists || (tempFileStats && tempFileStats.size === 0)) {
-          console.log('[LOCAL JSON SERVICE] Recreating missing/empty temp file before rename');
-          await recreateTempFile(dir, tempFilePath, jsonData);
-          console.log('[LOCAL JSON SERVICE] Temp file recreated before rename');
-
-          // Re-verify after recreation
-          try {
-            tempFileStats = await fs.stat(tempFilePath);
-            console.log('[LOCAL JSON SERVICE] Temp file verified after recreation:', {
-              size: tempFileStats.size
-            });
-          } catch (recreateStatError) {
-            console.error('[LOCAL JSON SERVICE] Temp file still missing after recreation:', recreateStatError.message);
-            throw new Error(`Temp file recreation failed: ${recreateStatError.message}`);
-          }
-        }
-
-        // On Windows: try unlinking target first to avoid EPERM
-        if (process.platform === 'win32') {
-          try {
-            await fs.unlink(filePath);
-            console.log('[LOCAL JSON SERVICE] Successfully unlinked target file on Windows');
-          } catch (e) {
-            if (e.code !== 'ENOENT') {
-              console.log('[LOCAL JSON SERVICE] Failed to unlink target file on Windows:', e.message);
-              // if can't delete, wait then retry
-              await new Promise(r => setTimeout(r, 100));
-            }
-          }
-        }
-
-        // Perform the atomic rename
-        console.log('[LOCAL JSON SERVICE] Executing fs.rename:', {
-          from: tempFilePath,
-          to: filePath,
-          tempSize: tempFileStats ? tempFileStats.size : 'unknown'
-        });
-
-        await fs.rename(tempFilePath, filePath);
-        console.log('[LOCAL JSON SERVICE] Atomic rename successful');
-
-        // Verify final file exists and has content
-        const finalStats = await fs.stat(filePath);
-        console.log('[LOCAL JSON SERVICE] Final file verified to exist:', {
-          size: finalStats.size,
-          mtime: finalStats.mtime.toISOString()
-        });
-
-        if (finalStats.size === 0) {
-          throw new Error('Final file is empty after rename - data may be lost');
-        }
-
-        return; // success
-
-      } catch (error) {
-        console.error('[LOCAL JSON SERVICE] Atomic rename failed:', {
-          error: error.message,
-          code: error.code,
-          errno: error.errno,
-          syscall: error.syscall,
-          path: error.path,
-          attempt: renameAttempts + 1,
-          tempFilePath,
-          filePath,
-          dir,
-          dataDir,
-          timestamp: new Date().toISOString()
-        });
-        lastError = error;
-        renameAttempts++;
-
-        // Enhanced ENOENT handling with more detailed diagnostics
-        if (error.code === 'ENOENT' && renameAttempts < maxRenameAttempts) {
-          console.log('[LOCAL JSON SERVICE] ENOENT error detected, performing diagnostics...');
-
-          try {
-            // Check directory existence and permissions
-            let dirExists = false;
-            let dirWritable = false;
-            try {
-              await fs.access(dir);
-              dirExists = true;
-              console.log('[LOCAL JSON SERVICE] Directory exists during ENOENT recovery');
-
-              // Test write permissions by creating a test file
-              const testFile = path.join(dir, 'test-write.tmp');
-              await fs.writeFile(testFile, 'test');
-              await fs.unlink(testFile);
-              dirWritable = true;
-              console.log('[LOCAL JSON SERVICE] Directory is writable during ENOENT recovery');
-            } catch (dirAccessError) {
-              console.error('[LOCAL JSON SERVICE] Directory access issue during ENOENT:', {
-                dir,
-                exists: dirExists,
-                writable: dirWritable,
-                error: dirAccessError.message,
-                code: dirAccessError.code
-              });
-            }
-
-            // Check temp file status
-            let tempFileExists = false;
-            let tempFileSize = 0;
-            try {
-              const tempStats = await fs.stat(tempFilePath);
-              tempFileExists = true;
-              tempFileSize = tempStats.size;
-              console.log('[LOCAL JSON SERVICE] Temp file exists during ENOENT recovery:', { size: tempFileSize });
-            } catch (tempStatError) {
-              console.error('[LOCAL JSON SERVICE] Temp file missing during ENOENT recovery:', {
-                tempFilePath,
-                error: tempStatError.message,
-                code: tempStatError.code
-              });
-            }
-
-            // Recreate directory if needed
-            if (!dirExists) {
-              console.log('[LOCAL JSON SERVICE] Recreating directory during ENOENT recovery');
-              await fs.mkdir(dir, { recursive: true });
-            }
-
-            // Recreate temp file if missing or empty
-            if (!tempFileExists || tempFileSize === 0) {
-              console.log('[LOCAL JSON SERVICE] Recreating temp file during ENOENT recovery');
-              await recreateTempFile(dir, tempFilePath, jsonData);
-              console.log('[LOCAL JSON SERVICE] Temp file recreated during ENOENT recovery');
-            }
-
-            // Wait before retry to allow system to stabilize
-            await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
-            continue; // Retry rename
-
-          } catch (recoveryError) {
-            console.error('[LOCAL JSON SERVICE] ENOENT recovery failed:', {
-              error: recoveryError.message,
-              code: recoveryError.code,
-              stack: recoveryError.stack
-            });
-            lastError = recoveryError;
-            break;
-          }
-        }
-
-        // For EPERM/EBUSY, retry once with delay
-        if ((error.code === 'EPERM' || error.code === 'EBUSY') && renameAttempts < maxRenameAttempts) {
-          console.log('[LOCAL JSON SERVICE] Permission/busy error, retrying after delay...');
-          await new Promise(r => setTimeout(r, RENAME_RETRY_DELAY_MS));
-          continue;
-        }
-
-        // Don't retry for other errors
-        break;
-      }
-    }
-
-    throw lastError;
-  } catch (error) {
-    console.error('[LOCAL JSON SERVICE] writeJsonFile failed completely:', {
-      filename,
-      filePath,
-      tempFilePath,
-      error: {
-        message: error.message,
-        code: error.code,
-        errno: error.errno,
-        syscall: error.syscall,
-        path: error.path,
-        stack: error.stack
-      },
-      timestamp: new Date().toISOString()
-    });
-
-    // cleanup temp file if it exists
-    try {
-      await fs.unlink(tempFilePath);
-      console.log('[LOCAL JSON SERVICE] Temp file cleaned up after error');
-    } catch (cleanupError) {
-      console.log('[LOCAL JSON SERVICE] Temp file cleanup failed (may not exist):', cleanupError.message);
-    }
-    error.message = `Failed to write JSON file ${filename}: ${error.message}`;
-    throw error;
-  }
-}
-
-/**
- * Gets all rows from a "sheet" (JSON file)
- * @param {string} spreadsheetId - Ignored (for compatibility)
- * @param {string} sheetName - Name of the JSON file (without .json extension)
- * @returns {Promise<Result<Array>>} Array of data objects or error
- */
-async function getAllRows(spreadsheetId, sheetName) {
+async function writeJsonFile(sheetName, data) {
   return attemptAsync(async () => {
     if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
       throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
     }
 
-    return await readJsonFile(sheetName);
+    if (!Array.isArray(data)) {
+      throw createError('VALIDATION_ERROR', 'Data must be an array', { field: 'data', actualType: typeof data });
+    }
+
+    const filePath = getSheetFilePath(sheetName);
+    const tempFilePath = `${filePath}.tmp`;
+    const jsonData = JSON.stringify(data, null, 2);
+    
+    // Write to temporary file first
+    await fs.writeFile(tempFilePath, jsonData, 'utf8');
+    
+    // Atomic rename to final location
+    await fs.rename(tempFilePath, filePath);
+  }, { operation: 'writeJsonFile', details: { sheetName, dataCount: data.length } });
+}
+
+/**
+ * Get all rows from a sheet
+ * @param {string} spreadsheetId - Ignored (for compatibility)
+ * @param {string} sheetName - Name of the sheet
+ * @returns {Promise<Result<Array>>} Success with data or error
+ */
+async function getAllRows(spreadsheetId, sheetName) {
+  return attemptAsync(async () => {
+    const data = await readJsonFile(sheetName);
+    return data;
   }, { operation: 'getAllRows', details: { sheetName } });
 }
 
 /**
- * Appends a row to a "sheet" (JSON file)
+ * Append a row to a sheet
  * @param {string} spreadsheetId - Ignored (for compatibility)
- * @param {string} sheetName - Name of the JSON file (without .json extension)
- * @param {Object} data - Data object to append
- * @returns {Promise<Result<Object>>} The appended data object or error
+ * @param {string} sheetName - Name of the sheet
+ * @param {Object} rowData - Data to append
+ * @returns {Promise<Result<Object>>} Success with the added row or error
  */
-async function appendRow(spreadsheetId, sheetName, data) {
+async function appendRow(spreadsheetId, sheetName, rowData) {
   return attemptAsync(async () => {
-    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
-      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    if (!rowData || typeof rowData !== 'object') {
+      throw createError('VALIDATION_ERROR', 'Row data must be an object', { field: 'rowData', actualType: typeof rowData });
     }
 
-    if (!data || typeof data !== 'object') {
-      throw createError('VALIDATION_ERROR', 'Data object is required', { field: 'data', actualValue: data });
+    // Read existing data
+    const existingData = await readJsonFile(sheetName);
+    
+    if (!Array.isArray(existingData)) {
+      throw createError('SYSTEM_ERROR', 'Existing data is not an array', { sheetName });
     }
-
-    const rows = await readJsonFile(sheetName);
-    rows.push(data);
-    await writeJsonFile(sheetName, rows);
-    return data;
-  }, { operation: 'appendRow', details: { sheetName, hasData: !!data } });
+    
+    // Add timestamp if not provided
+    if (!rowData.createdAt) {
+      rowData.createdAt = new Date().toISOString();
+    }
+    
+    // Add to array
+    existingData.push(rowData);
+    
+    // Write back
+    await writeJsonFile(sheetName, existingData);
+    
+    return rowData;
+  }, { operation: 'appendRow', details: { sheetName } });
 }
 
 /**
- * Updates a row in a "sheet" (JSON file)
+ * Update a row in a sheet by ID
  * @param {string} spreadsheetId - Ignored (for compatibility)
- * @param {string} sheetName - Name of the JSON file (without .json extension)
+ * @param {string} sheetName - Name of the sheet
  * @param {string} rowId - ID of the row to update
- * @param {Object} data - Updated data object
- * @returns {Promise<Result<Object>>} The updated data object or error
+ * @param {Object} updateData - Data to update
+ * @returns {Promise<Result<Object>>} Success with the updated row or error
  */
-async function updateRow(spreadsheetId, sheetName, rowId, data) {
+async function updateRow(spreadsheetId, sheetName, rowId, updateData) {
   return attemptAsync(async () => {
     if (!rowId) {
-      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId', actualValue: rowId });
+      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId' });
+    }
+
+    if (!updateData || typeof updateData !== 'object') {
+      throw createError('VALIDATION_ERROR', 'Update data must be an object', { field: 'updateData', actualType: typeof updateData });
+    }
+
+    // Read existing data
+    const existingData = await readJsonFile(sheetName);
+    
+    if (!Array.isArray(existingData)) {
+      throw createError('SYSTEM_ERROR', 'Existing data is not an array', { sheetName });
     }
     
-    const rows = await readJsonFile(sheetName);
-    const index = rows.findIndex(row => row.id === rowId);
-
-    if (index === -1) {
-      throw createError('NOT_FOUND', `Row with ID ${rowId} not found in ${sheetName}`, {
-        resourceType: 'Row',
-        resourceId: rowId,
-        sheetName
-      });
+    // Find row by ID
+    const rowIndex = existingData.findIndex((row) => row.id === rowId);
+    
+    if (rowIndex === -1) {
+      throw createError('NOT_FOUND', `Row with ID ${rowId} not found in ${sheetName}`, { sheetName, rowId });
     }
-
-    rows[index] = { ...rows[index], ...data };
-    await writeJsonFile(sheetName, rows);
-    return rows[index];
+    
+    // Update the row
+    const updatedRow = {
+      ...existingData[rowIndex],
+      ...updateData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    existingData[rowIndex] = updatedRow;
+    
+    // Write back
+    await writeJsonFile(sheetName, existingData);
+    
+    return updatedRow;
   }, { operation: 'updateRow', details: { sheetName, rowId } });
 }
 
 /**
- * Deletes a row from a "sheet" (JSON file)
+ * Delete a row from a sheet by ID
  * @param {string} spreadsheetId - Ignored (for compatibility)
- * @param {string} sheetName - Name of the JSON file (without .json extension)
+ * @param {string} sheetName - Name of the sheet
  * @param {string} rowId - ID of the row to delete
- * @returns {Promise<Result<boolean>>} True if row was deleted or error
+ * @returns {Promise<Result<boolean>>} Success with true or error
  */
 async function deleteRow(spreadsheetId, sheetName, rowId) {
   return attemptAsync(async () => {
     if (!rowId) {
-      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId', actualValue: rowId });
+      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId' });
+    }
+
+    // Read existing data
+    const existingData = await readJsonFile(sheetName);
+    
+    if (!Array.isArray(existingData)) {
+      throw createError('SYSTEM_ERROR', 'Existing data is not an array', { sheetName });
     }
     
-    const rows = await readJsonFile(sheetName);
-    const initialLength = rows.length;
-    const filteredRows = rows.filter(row => row.id !== rowId);
-
-    if (filteredRows.length === initialLength) {
-      throw createError('NOT_FOUND', `Row with ID ${rowId} not found in ${sheetName}`, {
-        resourceType: 'Row',
-        resourceId: rowId,
-        sheetName
-      });
+    // Find row by ID
+    const rowIndex = existingData.findIndex((row) => row.id === rowId);
+    
+    if (rowIndex === -1) {
+      throw createError('NOT_FOUND', `Row with ID ${rowId} not found in ${sheetName}`, { sheetName, rowId });
     }
-
-    await writeJsonFile(sheetName, filteredRows);
+    
+    // Remove the row
+    existingData.splice(rowIndex, 1);
+    
+    // Write back
+    await writeJsonFile(sheetName, existingData);
+    
     return true;
   }, { operation: 'deleteRow', details: { sheetName, rowId } });
 }
 
 /**
- * Finds a row by ID in a "sheet" (JSON file)
+ * Find a row by ID
  * @param {string} spreadsheetId - Ignored (for compatibility)
- * @param {string} sheetName - Name of the JSON file (without .json extension)
+ * @param {string} sheetName - Name of the sheet
  * @param {string} rowId - ID of the row to find
- * @returns {Promise<Result<Object|null>>} The found row or null, or error
+ * @returns {Promise<Result<Object|null>>} Success with the row or null if not found
  */
 async function findRowById(spreadsheetId, sheetName, rowId) {
   return attemptAsync(async () => {
     if (!rowId) {
-      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId', actualValue: rowId });
+      throw createError('VALIDATION_ERROR', 'Row ID is required', { field: 'rowId' });
+    }
+
+    const data = await readJsonFile(sheetName);
+    
+    if (!Array.isArray(data)) {
+      throw createError('SYSTEM_ERROR', 'Data is not an array', { sheetName });
     }
     
-    const rows = await readJsonFile(sheetName);
-    return rows.find(row => row.id === rowId) || null;
+    return data.find(row => row.id === rowId) || null;
   }, { operation: 'findRowById', details: { sheetName, rowId } });
 }
 
 /**
- * Gets rows matching a filter function
+ * Get rows matching a filter function
  * @param {string} spreadsheetId - Ignored (for compatibility)
- * @param {string} sheetName - Name of the JSON file (without .json extension)
+ * @param {string} sheetName - Name of the sheet
  * @param {Function} filterFn - Filter function
- * @returns {Promise<Result<Array>>} Array of matching rows or error
+ * @returns {Promise<Result<Array>>} Success with filtered data or error
  */
 async function getRowsByFilter(spreadsheetId, sheetName, filterFn) {
   return attemptAsync(async () => {
-    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
-      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    if (typeof filterFn !== 'function') {
+      throw createError('VALIDATION_ERROR', 'Filter function is required', { field: 'filterFn', actualType: typeof filterFn });
     }
 
-    if (!filterFn || typeof filterFn !== 'function') {
-      throw createError('VALIDATION_ERROR', 'Filter function is required', { field: 'filterFn', actualValue: filterFn });
+    const data = await readJsonFile(sheetName);
+    
+    if (!Array.isArray(data)) {
+      throw createError('SYSTEM_ERROR', 'Data is not an array', { sheetName });
     }
-
+    
     const rows = await readJsonFile(sheetName);
     return rows.filter(filterFn);
   }, { operation: 'getRowsByFilter', details: { sheetName } });
@@ -577,6 +331,7 @@ async function ensureSheetExists(spreadsheetId, sheetName) {
 }
 
 module.exports = {
+  ensureDataDir,
   getAllRows,
   appendRow,
   updateRow,
@@ -584,7 +339,9 @@ module.exports = {
   findRowById,
   getRowsByFilter,
   ensureSheetExists,
+  // Internal functions for testing
   readJsonFile,
   writeJsonFile,
-  ensureDataDirectory
+  getSheetFilePath,
+  isValidSheetName
 };
