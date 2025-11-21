@@ -46,14 +46,14 @@ describe('Report Service - Improved Testing Philosophy', () => {
       });
 
       // Mock getAllReports to return empty array (no duplicates)
-      localJsonService.getAllRows.mockResolvedValue(mockExistingReports);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockExistingReports, error: null });
       // Mock appendRow to succeed
       localJsonService.appendRow.mockResolvedValue({ success: true, data: mockReport, error: null });
 
       const result = await reportService.createReport(mockReportData, mockReporterIp);
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toBeInstanceOf(Report);
       expect(result.data.schoolName).toBe('Test Driving School');
       expect(result.data.status).toBe('Added');
@@ -105,13 +105,13 @@ describe('Report Service - Improved Testing Philosophy', () => {
         violationDescription: 'Updated violation description'
       });
 
-      localJsonService.getAllRows.mockResolvedValue(mockExistingReports);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockExistingReports, error: null });
       localJsonService.updateRow.mockResolvedValue({ success: true, data: mockUpdatedReport, error: null });
 
       const result = await reportService.createReport(mockReportData);
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toBeInstanceOf(Report);
       expect(result.data.schoolName).toBe('Existing School');
       expect(result.data.violationDescription).toContain('Updated violation description');
@@ -167,7 +167,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
         })
       ];
 
-      localJsonService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockReports, error: null });
 
       const options = {
         page: 1,
@@ -210,7 +210,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
         })
       ];
 
-      localJsonService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockReports, error: null });
 
       const result = await reportService.getReports({ status: 'Added' });
 
@@ -241,7 +241,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
         })
       ];
 
-      localJsonService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockReports, error: null });
 
       const result = await reportService.getReports({ search: 'ABC' });
 
@@ -285,7 +285,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      localJsonService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: [mockReport], error: null });
 
       const result = await reportService.getReports();
 
@@ -310,12 +310,12 @@ describe('Report Service - Improved Testing Philosophy', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      localJsonService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: [mockReport], error: null });
 
       const result = await reportService.getReportById('rep_ABC123');
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toBeTruthy();
       expect(result.data.id).toBe('rep_ABC123');
       expect(result.data.schoolName).toBe('Test School');
@@ -335,12 +335,12 @@ describe('Report Service - Improved Testing Philosophy', () => {
         lastReported: '2023-01-01T00:00:00.000Z'
       });
 
-      localJsonService.getAllRows.mockResolvedValue([mockReport]);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: [mockReport], error: null });
 
       const result = await reportService.getReportById('rep_ABC123', true);
 
       // ✅ IMPROVED PATTERN: Check Result object for success
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data.reporterIp).toBe('192.168.1.1');
       expect(result.data.adminNotes).toBe('Admin note');
       expect(result.data.mvcReferenceNumber).toBe('MVC123');
@@ -348,7 +348,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
     });
 
     test('should return error for non-existent report - focus on error behavior, not codes', async () => {
-      localJsonService.getAllRows.mockResolvedValue([]);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: [], error: null });
 
       const result = await reportService.getReportById('rep_nonexistent');
 
@@ -372,7 +372,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getReportById('rep_test');
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Storage');
@@ -401,7 +401,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
         })
       ];
 
-      localJsonService.getAllRows.mockResolvedValue(mockReports);
+      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockReports, error: null });
 
       const result = await reportService.getAllReports();
 
@@ -427,7 +427,7 @@ describe('Report Service - Improved Testing Philosophy', () => {
       const result = await reportService.getAllReports();
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.message).toContain('Storage');

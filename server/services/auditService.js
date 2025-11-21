@@ -211,7 +211,11 @@ async function getAllAuditLogsFromJson(options = {}) {
   try {
     logOperation('getAllAuditLogsFromJson', { dataFile: AUDIT_DATA_FILE, options });
 
-    const auditLogs = await localJsonService.getAllRows(null, AUDIT_DATA_FILE);
+    const auditLogsResult = await localJsonService.getAllRows(null, AUDIT_DATA_FILE);
+    if (!isSuccess(auditLogsResult)) {
+      throw auditLogsResult.error.innerError || new Error(auditLogsResult.error.message || 'Storage error');
+    }
+    const auditLogs = auditLogsResult.data;
 
     // Apply filters
     let filteredLogs = auditLogs;
@@ -292,11 +296,7 @@ async function getAuditLogs(filters = {}) {
     }
 
     // Get from JSON
-    const allLogsResult = await getAllAuditLogsFromJson({ limit: filters?.limit });
-    if (!isSuccess(allLogsResult)) {
-      throw databaseError('Failed to retrieve audit logs from storage', allLogsResult.error);
-    }
-    const allLogs = allLogsResult.data;
+    const allLogs = await getAllAuditLogsFromJson({ limit: filters?.limit });
     let filteredLogs = [...allLogs];
 
     // Apply filters

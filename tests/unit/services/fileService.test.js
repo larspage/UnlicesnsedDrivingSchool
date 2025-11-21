@@ -53,7 +53,9 @@ describe('File Service', () => {
 
     const mockDriveFile = {
       id: 'drive_file_123',
-      mimeType: 'image/jpeg'
+      localPath: '/uploads/rep_abc123/test_12345678.jpg',
+      url: '/uploads/rep_abc123/test_12345678.jpg',
+      thumbnailUrl: '/uploads/rep_abc123/test_12345678.jpg'
     };
 
     // Multer-like file object with buffer
@@ -104,8 +106,7 @@ describe('File Service', () => {
       );
 
       // ✅ NEW PATTERN: Check Result object structure
-      expect(isSuccess(result)).toBe(true);
-      expect(isFailure(result)).toBe(false);
+      expect(result.success).toBe(true);
       expect(result.data).toBe(mockFile);
       expect(result.error).toBeNull();
 
@@ -186,7 +187,7 @@ describe('File Service', () => {
       );
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.error).toBeTruthy();
       expect(result.error.details).toEqual({
         field: 'File',
@@ -216,7 +217,7 @@ describe('File Service', () => {
       const result = await fileService.getFileById('file_abc123');
 
       // ✅ NEW PATTERN: Check Result object
-      expect(isSuccess(result)).toBe(true);
+      expect(result.success).toBe(true);
       expect(result.data).toEqual(mockFileData);
       expect(result.error).toBeNull();
       
@@ -232,7 +233,7 @@ describe('File Service', () => {
       const result = await fileService.getFileById('file_nonexistent');
 
       // ✅ IMPROVED PATTERN: Focus on error behavior, not specific codes
-      expect(isSuccess(result)).toBe(false);
+      expect(result.success).toBe(false);
       expect(result.data).toBeNull();
       expect(result.error).toBeTruthy();
       expect(result.error.details).toEqual({

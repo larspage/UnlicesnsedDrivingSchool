@@ -92,7 +92,7 @@ describe('Audit Service', () => {
         { id: '1', action: 'LOGIN', timestamp: '2025-01-01T00:00:00Z' },
         { id: '2', action: 'LOGOUT', timestamp: '2025-01-02T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
+      localJsonService.getAllRows.mockResolvedValue(mockLogs);
 
       const result = await auditService.getAuditLogs();
 
@@ -182,7 +182,7 @@ describe('Audit Service', () => {
         id: `${i + 1}`,
         timestamp: `2025-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`
       }));
-      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
+      localJsonService.getAllRows.mockResolvedValue(mockLogs);
 
       const result = await auditService.getAuditLogs({ limit: 3 });
 
@@ -196,7 +196,7 @@ describe('Audit Service', () => {
         { id: '3', timestamp: '2025-01-03T00:00:00Z' },
         { id: '2', timestamp: '2025-01-02T00:00:00Z' }
       ];
-      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
+      localJsonService.getAllRows.mockResolvedValue(mockLogs);
 
       const result = await auditService.getAuditLogs();
 
@@ -214,7 +214,7 @@ describe('Audit Service', () => {
         { id: '2', targetId: 'rep_456' },
         { id: '3', targetId: 'rep_123' }
       ];
-      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
+      localJsonService.getAllRows.mockResolvedValue(mockLogs);
 
       const result = await auditService.getAuditLogsByTarget('rep_123');
 
@@ -238,7 +238,7 @@ describe('Audit Service', () => {
         { id: '1', adminUser: 'admin@example.com' },
         { id: '2', adminUser: 'user@example.com' }
       ];
-      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
+      localJsonService.getAllRows.mockResolvedValue(mockLogs);
 
       const result = await auditService.getAuditLogsByAdminUser('admin@example.com');
 
@@ -263,7 +263,7 @@ describe('Audit Service', () => {
         { id: '2', action: 'STATUS_UPDATE' },
         { id: '3', action: 'LOGIN' }
       ];
-      localJsonService.getAllRows.mockResolvedValue({ success: true, data: mockLogs, error: null });
+      localJsonService.getAllRows.mockResolvedValue(mockLogs);
 
       const result = await auditService.getAuditLogsByAction('LOGIN');
 
@@ -330,7 +330,7 @@ describe('Audit Service', () => {
     });
 
     it('should handle empty logs', async () => {
-      localJsonService.getAllRows.mockResolvedValue({ success: true, data: [], error: null });
+      localJsonService.getAllRows.mockResolvedValue([]);
 
       const result = await auditService.getAuditStatistics();
 
