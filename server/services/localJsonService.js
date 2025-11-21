@@ -331,6 +331,7 @@ async function ensureSheetExists(spreadsheetId, sheetName) {
 }
 
 module.exports = {
+  ensureDataDir,
   ensureDataDirectory: ensureDataDir,
   getAllRows,
   appendRow,
