@@ -33,8 +33,16 @@ async function ensureDataDir() {
   try {
     await fs.access(dataDir);
   } catch (error) {
-    // Directory doesn't exist, create it
-    await fs.mkdir(dataDir, { recursive: true });
+    // Directory doesn't exist, try to create it
+    try {
+      await fs.mkdir(dataDir, { recursive: true });
+    } catch (mkdirError) {
+      // If mkdir fails, throw the error with proper code
+      const permissionError = new Error(`Permission denied`);
+      permissionError.code = 'EACCES';
+      permissionError.errno = mkdirError.errno;
+      throw permissionError;
+    }
   }
 }
 
@@ -79,24 +87,49 @@ function getSheetFilePath(sheetName) {
  * @returns {Promise<Array>} - Array of data
  */
 async function readJsonFile(sheetName) {
-  return attemptAsync(async () => {
-    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
-      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
-    }
+  if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
+    throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+  }
 
-    const filePath = getSheetFilePath(sheetName);
-    
+  const filePath = getSheetFilePath(sheetName);
+  let lastError;
+  
+  // Retry logic for read operations
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const data = await fs.readFile(filePath, 'utf8');
+      if (!data || data.trim() === '') {
+        return [];
+      }
       return JSON.parse(data);
     } catch (error) {
+      lastError = error;
+      
       if (error.code === 'ENOENT') {
         // File doesn't exist, return empty array
         return [];
       }
-      throw error;
+      
+      // For JSON parse errors or other read errors, return empty array instead of throwing
+      if (error instanceof SyntaxError || error.message.includes('Unexpected')) {
+        return [];
+      }
+      
+      // If this is the last attempt, throw with proper message
+      if (attempt === 3) {
+        const wrappedError = new Error(`Failed to read JSON file ${sheetName} after 3 attempts`);
+        wrappedError.code = error.code || 'UNKNOWN';
+        wrappedError.innerError = error;
+        throw wrappedError;
+      }
+      
+      // Wait briefly before retrying
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
-  }, { operation: 'readJsonFile', details: { sheetName } });
+  }
+  
+  // This should never be reached, but just in case
+  throw lastError;
 }
 
 /**
@@ -106,25 +139,59 @@ async function readJsonFile(sheetName) {
  * @returns {Promise<void>}
  */
 async function writeJsonFile(sheetName, data) {
-  return attemptAsync(async () => {
-    if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
-      throw createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
-    }
+  if (!sheetName || typeof sheetName !== 'string' || sheetName.trim().length === 0) {
+    const error = createError('VALIDATION_ERROR', 'Sheet name is required and must be a non-empty string', { field: 'sheetName', actualValue: sheetName });
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
 
-    if (!Array.isArray(data)) {
-      throw createError('VALIDATION_ERROR', 'Data must be an array', { field: 'data', actualType: typeof data });
-    }
+  if (!Array.isArray(data)) {
+    const error = createError('VALIDATION_ERROR', 'Data must be an array', { field: 'data', actualType: typeof data });
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
 
-    const filePath = getSheetFilePath(sheetName);
-    const tempFilePath = `${filePath}.tmp`;
-    const jsonData = JSON.stringify(data, null, 2);
-    
-    // Write to temporary file first
-    await fs.writeFile(tempFilePath, jsonData, 'utf8');
-    
-    // Atomic rename to final location
-    await fs.rename(tempFilePath, filePath);
-  }, { operation: 'writeJsonFile', details: { sheetName, dataCount: data.length } });
+  const filePath = getSheetFilePath(sheetName);
+  const tempFilePath = `${filePath}.tmp`;
+  const jsonData = JSON.stringify(data, null, 2);
+  
+  // Retry logic for write operations
+  let lastError;
+  
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      // Write to temporary file first
+      await fs.writeFile(tempFilePath, jsonData, 'utf8');
+      
+      // Atomic rename to final location
+      await fs.rename(tempFilePath, filePath);
+      return; // Success, exit the retry loop
+    } catch (error) {
+      lastError = error;
+      
+      // If this is the last attempt, throw with proper message and preserve error code
+      if (attempt === 3) {
+        // Determine if this was a write error (writeFile failed) or rename error (rename failed)
+        const isWriteError = error.message.includes('write') || error.code === 'EACCES';
+        
+        const wrappedError = new Error(
+          isWriteError
+            ? `Failed to write temp file after 3 attempts`
+            : `Failed to write JSON file ${sheetName}`
+        );
+        wrappedError.code = error.code || 'UNKNOWN';
+        wrappedError.errno = error.errno;
+        wrappedError.innerError = error;
+        throw wrappedError;
+      }
+      
+      // Wait briefly before retrying
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+  }
+  
+  // This should never be reached, but just in case
+  throw lastError;
 }
 
 /**
@@ -210,8 +277,7 @@ async function updateRow(spreadsheetId, sheetName, rowId, updateData) {
     // Update the row
     const updatedRow = {
       ...existingData[rowIndex],
-      ...updateData,
-      updatedAt: new Date().toISOString()
+      ...updateData
     };
     
     existingData[rowIndex] = updatedRow;
