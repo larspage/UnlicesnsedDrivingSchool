@@ -7,10 +7,11 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const { getDataDir } = require('../utils/fsUtils');
 
-// Configuration - read dynamically to allow testing
-const getDataDir = () => {
-  const dataDir = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
+// Helper to log getDataDir usage for debugging
+const getDataDirWithLog = () => {
+  const dataDir = getDataDir();
   console.log('[LOCAL JSON SERVICE] getDataDir called:', {
     DATA_DIR: process.env.DATA_DIR,
     cwd: process.cwd(),
@@ -25,7 +26,7 @@ const getDataDir = () => {
  * @throws {Error} If directory cannot be created
  */
 async function ensureDataDirectory() {
-  const dataDir = getDataDir();
+  const dataDir = getDataDirWithLog();
   console.log('[LOCAL JSON SERVICE] ensureDataDirectory called:', {
     dataDir,
     timestamp: new Date().toISOString()
@@ -49,7 +50,7 @@ async function ensureDataDirectory() {
  * @throws {Error} If file cannot be read or parsed
  */
 async function readJsonFile(filename) {
-  const filePath = path.join(getDataDir(), `${filename}.json`);
+  const filePath = path.join(getDataDirWithLog(), `${filename}.json`);
 
   // Retry logic for file access issues
   const maxRetries = 3;
@@ -116,7 +117,7 @@ async function readJsonFile(filename) {
  * @throws {Error} If file cannot be written
  */
 async function writeJsonFile(filename, data) {
-  const dataDir = getDataDir();
+  const dataDir = getDataDirWithLog();
   const filePath = path.join(dataDir, `${filename}.json`);
   const tempFilePath = `${filePath}.tmp`;
   const RENAME_RETRY_DELAY_MS = 200;
@@ -507,7 +508,7 @@ async function getRowsByFilter(spreadsheetId, sheetName, filterFn) {
  * @returns {Promise<void>}
  */
 async function ensureSheetExists(spreadsheetId, sheetName) {
-  const filePath = path.join(getDataDir(), `${sheetName}.json`);
+  const filePath = path.join(getDataDirWithLog(), `${sheetName}.json`);
 
   try {
     await fs.access(filePath);

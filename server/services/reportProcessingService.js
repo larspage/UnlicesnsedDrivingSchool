@@ -11,13 +11,15 @@ const path = require('path');
 const { watch } = require('fs');
 const reportService = require('./reportService');
 const localJsonService = require('./localJsonService');
+const { getDataDir, ensureDir } = require('../utils/fsUtils');
 
 class ReportProcessingService {
   constructor() {
-    this.queueDir = path.join(process.cwd(), 'data', 'queue');
-    this.processingDir = path.join(process.cwd(), 'data', 'processing');
-    this.completedDir = path.join(process.cwd(), 'data', 'completed');
-    this.failedDir = path.join(process.cwd(), 'data', 'failed');
+    const dataDir = getDataDir();
+    this.queueDir = path.join(dataDir, 'queue');
+    this.processingDir = path.join(dataDir, 'processing');
+    this.completedDir = path.join(dataDir, 'completed');
+    this.failedDir = path.join(dataDir, 'failed');
     this.isProcessing = false;
     this.watcher = null;
     this.processQueue = [];
