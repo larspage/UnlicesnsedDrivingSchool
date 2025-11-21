@@ -11,7 +11,7 @@ const path = require('path');
 const { watch } = require('fs');
 const reportService = require('./reportService');
 const localJsonService = require('./localJsonService');
-const { getDataDir } = require('../utils/fsUtils');
+const { getDataDir, ensureDir } = require('../utils/fsUtils');
 
 class ReportProcessingService {
   constructor() {

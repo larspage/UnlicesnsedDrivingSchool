@@ -2,12 +2,14 @@
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 process.env.NODE_ENV = 'test';
 
 // Set DATA_DIR to a temporary directory for tests to avoid permission/missing-dir issues
 if (!process.env.DATA_DIR) {
-  const tmpDir = path.join(os.tmpdir(), 'njdsc-test-data-' + Date.now());
+  const uniqueId = crypto.randomBytes(8).toString('hex');
+  const tmpDir = path.join(os.tmpdir(), `njdsc-test-data-${uniqueId}`);
   process.env.DATA_DIR = tmpDir;
   
   // Create the directory if it doesn't exist
